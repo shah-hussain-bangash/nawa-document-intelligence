@@ -315,3 +315,7 @@ The [`demo` retrieval module](demo/README_PHASE4.md) adds permission-filtered bi
 ### Phase 5 runnable demo: extractive grounded Q&A
 
 The synthetic CLI now answers questions by quoting an **authorized** retrieval passage verbatim, with page, document ID, version and source citations. Unsupported questions abstain rather than fabricate an answer. This is **deterministic extractive Q&A, not an LLM or production RAG service**. See [Phase 5 demo](demo/README_PHASE5.md).
+
+### Phase 6 - Optional cited model-generation demo
+
+A mock-first RAG experiment now adds an optional OpenAI generation provider to the Phase 4 permission-filtered retrieval and Phase 5 extractive QA flow. The default offline provider is deterministic; CI does **not** call external models. Citation validation requires exact excerpts from authorized retrieved passages and a conservative token-coverage heuristic (not semantic entailment). See [Phase 6 instructions](demo/README_PHASE6.md). Live API behavior, cost, authorization and production readiness are unverified.
