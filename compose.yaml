@@ -1,0 +1,19 @@
+# Synthetic, one-user, localhost-only demonstration. No real data.
+services:
+  nawa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nawa-phase10:local
+    ports:
+      - "127.0.0.1:8765:8765"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    restart: "no"

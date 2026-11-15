@@ -331,3 +331,7 @@ The `demo/nawa_demo/review.py` module provides hash-linked local correction and 
 ### Phase 9: Local web dashboard (synthetic)
 
 A dependency-light localhost dashboard makes the existing synthetic quotation extraction, AED/VAT checks, supplier comparison, source-line evidence, and human review workflow accessible through a browser. Supports bundled Arabic and English examples and synthetic UTF-8 TXT/selectable-text PDF uploads. Runs entirely on `127.0.0.1:8765`, stores session information only in memory, and does not invoke an LLM. **Not authenticated or suitable for production deployment.** See [Phase 9 demo guide](demo/README_PHASE9.md).
+
+## Phase 10 - Local Docker dashboard demo
+
+The synthetic dashboard from Phase 9 now has an optional Docker/Compose launch path, intended for a **single, trusted office or personal computer**. From the repository root, run `docker compose up --build -d` and open **http://127.0.0.1:8765** on that same machine. Stop it with `docker compose down`. The container is non-root, uses read-only root filesystem, and exposes the port only on host localhost. **Not a production/multiuser web service.** Full Windows and macOS prerequisites, safety boundaries, and a demo walkthrough are in [Phase 10](demo/README_PHASE10.md). A separate GitHub Actions Docker smoke workflow runs on pushes and pull requests.

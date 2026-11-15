@@ -1,0 +1,38 @@
+name: NAWA Phase 10 Docker smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build local dashboard image
+        run: docker build --tag nawa-phase10:ci .
+      - name: Run localhost-only Docker smoke checks
+        run: |
+          set -eu
+          docker run --rm -d --name nawa-phase10-ci \
+            --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m \
+            --cap-drop ALL --security-opt no-new-privileges \
+            -p 127.0.0.1:18765:8765 nawa-phase10:ci
+          trap 'docker rm -f nawa-phase10-ci >/dev/null 2>&1 || true' EXIT
+          ready=0
+          for i in $(seq 1 35); do
+            if curl --fail --silent http://127.0.0.1:18765/api/samples > /tmp/nawa-health.json; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+          curl --fail --silent http://127.0.0.1:18765/ > /tmp/nawa-home.html
+          grep -q 'NAWA' /tmp/nawa-home.html
+          python3 -c "import json; d=json.load(open('/tmp/nawa-health.json')); assert 'english_quote.txt' in d['samples']"
+          curl --fail --silent -H 'Content-Type: application/json' \
+            -d '{"name":"english_quote.txt"}' \
+            http://127.0.0.1:18765/api/load-sample > /tmp/nawa-response.json
+          python3 -c "import json; d=json.load(open('/tmp/nawa-response.json')); assert d['quotation']['total'] == '1050.00'"
+          docker inspect --format='{{.State.Health.Status}}' nawa-phase10-ci
