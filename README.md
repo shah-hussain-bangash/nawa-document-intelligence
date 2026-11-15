@@ -303,3 +303,7 @@ A small, reproducible Python demo demonstrates deterministic Arabic/English **te
 The [page-aware PDF demo](demo/README_PDF.md) extends the existing quotation parser to **selectable-text PDFs**. It uses PyMuPDF to extract text from each page, then reuses the existing deterministic financial validation and comparison code. Each field includes a page number and extracted-text line evidence. [Six PDF ingestion tests](demo/tests/test_pdf_ingest.py) are included, alongside small synthetic PDF fixtures.
 
 **Limitations:** This is **not OCR**. It does not process scanned PDFs, preserve bounding-box citations, validate real-world Arabic PDF extraction, implement RAG, or constitute a production procurement system. The separate UTF-8 Arabic text demonstration remains available. In particular, multilingual PDF layout and text-order quality still require evaluation.
+
+## Phase 3: Arabic PDF and optional scanned-document OCR
+
+The [Phase 3 guide](demo/README_PHASE3.md) demonstrates Arabic selectable-text PDF parsing and an explicit Tesseract OCR fallback for image-only pages. The included scanned OCR regression fixture is English; Arabic scanned-document accuracy has not been validated. Evidence includes source page, extracted line and extraction method. This is a synthetic, rules-based demonstration, not a production OCR benchmark or RAG system.
