@@ -61,7 +61,7 @@ Supporting concerns include:
 - Audit records.
 - Cloud deployment and monitoring.
 
-See [System Architecture](NAWA_System_Architecture.pdf) and [Architecture Decisions](NAWA_Architecture_Decisions.pdf).
+See [System Architecture](docs/02-system-architecture/NAWA_System_Architecture.pdf) and [Architecture Decisions](docs/02-system-architecture/NAWA_Architecture_Decisions.pdf).
 
 ## 4. Document AI and RAG
 
@@ -78,7 +78,7 @@ Important engineering considerations include:
 - Permission-aware retrieval.
 - Human verification of uncertain results.
 
-See [Document AI & RAG](NAWA_Document_AI_and_RAG.pdf).
+See [Document AI & RAG](docs/03-document-ai-rag/NAWA_Document_AI_and_RAG.pdf).
 
 ## 5. Human-in-the-Loop Review
 
@@ -94,7 +94,7 @@ A reviewer should be able to:
 6. Recalculate or refresh the affected comparison.
 7. Preserve a traceable review history.
 
-See [Review Workflow](NAWA_Review_Workflow.pdf).
+See [Review Workflow](docs/03-document-ai-rag/NAWA_Review_Workflow.pdf).
 
 ## 6. Technology and Engineering
 
@@ -138,7 +138,7 @@ The following results require published benchmark evidence:
 
 The proposed bilingual evaluation pilot uses 60 synthetic or permissioned documents, with balanced Arabic, English, and mixed-language groups.
 
-See [Evaluation Plan](NAWA_Arabic_and_English_Evaluation_Plan.pdf) and [Evaluation Report](NAWA_Evaluation_Report.pdf).
+See [Evaluation Plan](docs/05-testing-evaluation/NAWA_Arabic_and_English_Evaluation_Plan.pdf) and [Evaluation Report](docs/05-testing-evaluation/NAWA_Evaluation_Report.pdf).
 
 ## 8. Security and Governance
 
@@ -154,7 +154,7 @@ NAWA's security design addresses:
 
 These are documented design considerations. Control-level implementation and test evidence must be linked before claiming verified enforcement.
 
-See [Security Design](NAWA_Security_Design.pdf) and [AI Governance & Risk Assessment](NAWA_AI_Governance_and_Risk_Assessment.pdf).
+See [Security Design](docs/04-security-governance/NAWA_Security_Design.pdf) and [AI Governance & Risk Assessment](docs/04-security-governance/NAWA_AI_Governance_and_Risk_Assessment.pdf).
 
 ## 9. Cloud and Operations
 
@@ -171,48 +171,48 @@ The operations documentation covers proposed procedures for:
 
 A documented procedure is not equivalent to a completed operational test.
 
-See [Cloud Operations](NAWA_Cloud_Operations.pdf).
+See [Cloud Operations](docs/06-cloud-devops/NAWA_Cloud_Operations.pdf).
 
 ## 10. Technical Documentation
 
 ### Business and requirements
 
-- [Project Vision & Scope](NAWA_Project_Vision_and_Scope.pdf)
-- [Business Requirements Document](NAWA_BRD_Download_Fixed.pdf)
-- [Software Requirements Specification](NAWA_SRS_Download_Fixed.pdf)
+- [Project Vision & Scope](docs/01-business-requirements/NAWA_Project_Vision_and_Scope.pdf)
+- [Business Requirements Document](docs/01-business-requirements/NAWA_BRD_Download_Fixed.pdf)
+- [Software Requirements Specification](docs/01-business-requirements/NAWA_SRS_Download_Fixed.pdf)
 
 ### Architecture and API design
 
-- [System Architecture](NAWA_System_Architecture.pdf)
-- [Architecture Decisions](NAWA_Architecture_Decisions.pdf)
-- [Database Architecture & ERD](NAWA_Database_Architecture_and_ERD.pdf)
-- [API Design & Integration Specification](NAWA_API_Design_and_Integration_Specification.pdf)
+- [System Architecture](docs/02-system-architecture/NAWA_System_Architecture.pdf)
+- [Architecture Decisions](docs/02-system-architecture/NAWA_Architecture_Decisions.pdf)
+- [Database Architecture & ERD](docs/02-system-architecture/NAWA_Database_Architecture_and_ERD.pdf)
+- [API Design & Integration Specification](docs/02-system-architecture/NAWA_API_Design_and_Integration_Specification.pdf)
 
 ### Document AI and evaluation
 
-- [Document AI & RAG](NAWA_Document_AI_and_RAG.pdf)
-- [OCR & Bilingual Extraction Specification](NAWA_OCR_and_Bilingual_Extraction_Specification.pdf)
-- [Arabic & English Evaluation Plan](NAWA_Arabic_and_English_Evaluation_Plan.pdf)
-- [Evaluation Report](NAWA_Evaluation_Report.pdf)
-- [Testing & Quality Assurance Strategy](NAWA_Testing_and_Quality_Assurance_Strategy.pdf)
+- [Document AI & RAG](docs/03-document-ai-rag/NAWA_Document_AI_and_RAG.pdf)
+- [OCR & Bilingual Extraction Specification](docs/03-document-ai-rag/NAWA_OCR_and_Bilingual_Extraction_Specification.pdf)
+- [Arabic & English Evaluation Plan](docs/05-testing-evaluation/NAWA_Arabic_and_English_Evaluation_Plan.pdf)
+- [Evaluation Report](docs/05-testing-evaluation/NAWA_Evaluation_Report.pdf)
+- [Testing & Quality Assurance Strategy](docs/05-testing-evaluation/NAWA_Testing_and_Quality_Assurance_Strategy.pdf)
 
 ### Security and governance
 
-- [Security Design](NAWA_Security_Design.pdf)
-- [AI Governance & Risk Assessment](NAWA_AI_Governance_and_Risk_Assessment.pdf)
-- [Review Workflow](NAWA_Review_Workflow.pdf)
+- [Security Design](docs/04-security-governance/NAWA_Security_Design.pdf)
+- [AI Governance & Risk Assessment](docs/04-security-governance/NAWA_AI_Governance_and_Risk_Assessment.pdf)
+- [Review Workflow](docs/03-document-ai-rag/NAWA_Review_Workflow.pdf)
 
 ### Cloud and production engineering
 
-- [Cloud Operations](NAWA_Cloud_Operations.pdf)
-- [DevOps, CI/CD & Deployment Guide](NAWA_DevOps_CICD_and_Deployment_Guide.pdf)
-- [Monitoring & Observability Architecture](NAWA_Monitoring_and_Observability_Architecture.pdf)
-- [Disaster Recovery & Business Continuity](NAWA_Disaster_Recovery_and_Business_Continuity_Plan.pdf)
-- [Production Readiness Assessment](NAWA_Production_Readiness_Assessment.pdf)
+- [Cloud Operations](docs/06-cloud-devops/NAWA_Cloud_Operations.pdf)
+- [DevOps, CI/CD & Deployment Guide](docs/06-cloud-devops/NAWA_DevOps_CICD_and_Deployment_Guide.pdf)
+- [Monitoring & Observability Architecture](docs/06-cloud-devops/NAWA_Monitoring_and_Observability_Architecture.pdf)
+- [Disaster Recovery & Business Continuity](docs/06-cloud-devops/NAWA_Disaster_Recovery_and_Business_Continuity_Plan.pdf)
+- [Production Readiness Assessment](docs/06-cloud-devops/NAWA_Production_Readiness_Assessment.pdf)
 
 ### Case study
 
-- [Bilingual Document Intelligence Case Study](NAWA_Bilingual_Document_Intelligence_Case_Study.pdf)
+- [Bilingual Document Intelligence Case Study](docs/07-case-study/NAWA_Bilingual_Document_Intelligence_Case_Study.pdf)
 
 ## 11. Demonstration Workflow
 
