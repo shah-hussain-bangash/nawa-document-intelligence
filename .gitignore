@@ -3,3 +3,5 @@ demo/result.json
 .DS_Store
 __pycache__/
 *.pyc
+
+demo/pdf_result.json

@@ -298,3 +298,8 @@ A small, reproducible Python demo demonstrates deterministic Arabic/English **te
 - [GitHub Actions test workflow](.github/workflows/demo-tests.yml)
 
 **Scope:** This is not the full NAWA platform. The demo does not implement PDF OCR, LLM extraction, RAG, permission isolation or production infrastructure. Test results should not be interpreted as real-world OCR/extraction benchmarks.
+## Synthetic PDF ingestion demonstration
+
+The [page-aware PDF demo](demo/README_PDF.md) extends the existing quotation parser to **selectable-text PDFs**. It uses PyMuPDF to extract text from each page, then reuses the existing deterministic financial validation and comparison code. Each field includes a page number and extracted-text line evidence. [Six PDF ingestion tests](demo/tests/test_pdf_ingest.py) are included, alongside small synthetic PDF fixtures.
+
+**Limitations:** This is **not OCR**. It does not process scanned PDFs, preserve bounding-box citations, validate real-world Arabic PDF extraction, implement RAG, or constitute a production procurement system. The separate UTF-8 Arabic text demonstration remains available. In particular, multilingual PDF layout and text-order quality still require evaluation.
