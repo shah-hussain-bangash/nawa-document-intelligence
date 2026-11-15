@@ -63,6 +63,12 @@ Supporting concerns include:
 
 See [System Architecture](docs/02-system-architecture/NAWA_System_Architecture.pdf) and [Architecture Decisions](docs/02-system-architecture/NAWA_Architecture_Decisions.pdf).
 
+
+![NAWA Conceptual System Architecture](docs/02-system-architecture/NAWA_Architecture_Diagram.png)
+
+*Conceptual design illustrating the intended bilingual document intelligence workflow. Individual capabilities require implementation and verification evidence.*
+
+
 ## 4. Document AI and RAG
 
 NAWA explores a document-processing architecture that combines OCR, structured field extraction, and evidence-linked retrieval.
