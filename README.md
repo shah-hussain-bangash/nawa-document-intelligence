@@ -307,3 +307,7 @@ The [page-aware PDF demo](demo/README_PDF.md) extends the existing quotation par
 ## Phase 3: Arabic PDF and optional scanned-document OCR
 
 The [Phase 3 guide](demo/README_PHASE3.md) demonstrates Arabic selectable-text PDF parsing and an explicit Tesseract OCR fallback for image-only pages. The included scanned OCR regression fixture is English; Arabic scanned-document accuracy has not been validated. Evidence includes source page, extracted line and extraction method. This is a synthetic, rules-based demonstration, not a production OCR benchmark or RAG system.
+
+## Phase 4 runnable synthetic retrieval baseline
+
+The [`demo` retrieval module](demo/README_PHASE4.md) adds permission-filtered bilingual BM25 retrieval with document/page/version/source evidence, optional selectable-text PDF page indexing, a small three-query synthetic Recall@5 evaluation, and regression tests. It **does not** implement LLM answering, embedding search, production identity or access control, or a deployed RAG platform. Caller-provided principal/tenant values only simulate a trusted backend.
