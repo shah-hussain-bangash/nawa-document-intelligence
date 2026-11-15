@@ -69,6 +69,13 @@ See [System Architecture](docs/02-system-architecture/NAWA_System_Architecture.p
 *Conceptual design illustrating the intended bilingual document intelligence workflow. Individual capabilities require implementation and verification evidence.*
 
 
+### NAWA Conceptual Architecture
+
+![NAWA Document Intelligence Architecture](docs/02-system-architecture/NAWA%20Document%20Intelligence%20Architecture.png)
+
+*Conceptual architecture for Arabic and English document processing, structured extraction, retrieval, quotation comparison, and human review.*
+
+
 ### Azure AI Reference Architecture
 
 ![Azure Machine Learning and Microsoft Foundry Architecture](docs/02-system-architecture/Azure_ML_Microsoft_Foundry_Architecture.png)
