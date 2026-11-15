@@ -69,6 +69,12 @@ See [System Architecture](docs/02-system-architecture/NAWA_System_Architecture.p
 *Conceptual design illustrating the intended bilingual document intelligence workflow. Individual capabilities require implementation and verification evidence.*
 
 
+### Azure AI Reference Architecture
+
+![Azure Machine Learning and Microsoft Foundry Architecture](docs/02-system-architecture/Azure_ML_Microsoft_Foundry_Architecture.png)
+
+*Reference architecture illustrating an Azure-based document-processing and evaluation workflow. This is not a verified NAWA deployment.*
+
 ## 4. Document AI and RAG
 
 NAWA explores a document-processing architecture that combines OCR, structured field extraction, and evidence-linked retrieval.
