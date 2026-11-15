@@ -327,3 +327,7 @@ The `demo/nawa_demo/evaluation.py` harness and `demo/nawa_demo/eval_cli.py` prov
 ## Phase 8: Human-in-the-loop review (synthetic offline demo)
 
 The `demo/nawa_demo/review.py` module provides hash-linked local correction and review-decision history, evidence references, revision checks, and financial revalidation. Run with `python3 -m nawa_demo.review_cli` from `demo/`. See [Phase 8 guide](demo/README_PHASE8.md). This demonstration uses self-asserted reviewer IDs and local JSON files; it is **not** authenticated approval, a secure/tamper-proof audit system, or production procurement software.
+
+### Phase 9: Local web dashboard (synthetic)
+
+A dependency-light localhost dashboard makes the existing synthetic quotation extraction, AED/VAT checks, supplier comparison, source-line evidence, and human review workflow accessible through a browser. Supports bundled Arabic and English examples and synthetic UTF-8 TXT/selectable-text PDF uploads. Runs entirely on `127.0.0.1:8765`, stores session information only in memory, and does not invoke an LLM. **Not authenticated or suitable for production deployment.** See [Phase 9 demo guide](demo/README_PHASE9.md).
