@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 
 demo/pdf_result.json
+demo/phase7_report.json

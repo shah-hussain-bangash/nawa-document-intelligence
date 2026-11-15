@@ -1,0 +1,13 @@
+[
+  {"id":"en_answer", "question":"Example English Supplies grand total 1050", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"mock", "expected_status":"answered", "expected_passage_id":"en-quote-v1-p1"},
+  {"id":"ar_answer", "question":"شركة المثال الضريبة ٤٥", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"mock", "expected_status":"answered", "expected_passage_id":"ar-quote-v1-p1"},
+  {"id":"policy_answer", "question":"human reviewer verify evidence VAT discrepancies", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"mock", "expected_status":"answered", "expected_passage_id":"policy-v1-p2"},
+  {"id":"unknown_refusal", "question":"interplanetary antimatter quantum", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"mock", "expected_status":"insufficient_evidence"},
+  {"id":"restricted_refusal", "question":"Falcon Robotics confidential inspection", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"mock", "expected_status":"insufficient_evidence"},
+  {"id":"tenant_boundary", "question":"Exclusive tenant B satellite Orion", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"mock", "expected_status":"insufficient_evidence"},
+  {"id":"admin_access", "question":"Falcon Robotics inspection", "tenant_id":"demo-a", "principal_id":"admin-a", "behavior":"mock", "expected_status":"answered", "expected_passage_id":"restricted-v1-p1"},
+  {"id":"invented_number", "question":"Example English Supplies grand total 1050", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"invented_number", "expected_status":"rejected_ungrounded"},
+  {"id":"forged_citation", "question":"Example English Supplies grand total 1050", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"forged_citation", "expected_status":"rejected_ungrounded"},
+  {"id":"altered_quote", "question":"Example English Supplies grand total 1050", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"altered_quote", "expected_status":"rejected_ungrounded"},
+  {"id":"injected_instruction", "question":"Example English Supplies grand total 1050", "tenant_id":"demo-a", "principal_id":"reviewer-a", "behavior":"injected_instruction", "expected_status":"rejected_ungrounded"}
+]

@@ -319,3 +319,7 @@ The synthetic CLI now answers questions by quoting an **authorized** retrieval p
 ### Phase 6 - Optional cited model-generation demo
 
 A mock-first RAG experiment now adds an optional OpenAI generation provider to the Phase 4 permission-filtered retrieval and Phase 5 extractive QA flow. The default offline provider is deterministic; CI does **not** call external models. Citation validation requires exact excerpts from authorized retrieved passages and a conservative token-coverage heuristic (not semantic entailment). See [Phase 6 instructions](demo/README_PHASE6.md). Live API behavior, cost, authorization and production readiness are unverified.
+
+### Phase 7 — Evaluation and security regression suite
+
+The `demo/nawa_demo/evaluation.py` harness and `demo/nawa_demo/eval_cli.py` provide reproducible, **offline synthetic** status/citation checks with scripted adversarial responses. Run from `demo/`: `python3 -m nawa_demo.eval_cli` and `python3 -m unittest discover -s tests -v`. See [Phase 7 limitations](demo/README_PHASE7.md). These checks are not a production security assessment or validation of a live LLM.
