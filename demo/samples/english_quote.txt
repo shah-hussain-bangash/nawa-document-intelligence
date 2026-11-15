@@ -1,0 +1,6 @@
+Supplier: Example English Supplies
+Currency: AED
+Subtotal: 1000.00
+VAT Rate: 5
+VAT Amount: 50.00
+Grand Total: 1050.00

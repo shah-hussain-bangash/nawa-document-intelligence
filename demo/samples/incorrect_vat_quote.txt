@@ -1,0 +1,6 @@
+Supplier: Example Incorrect VAT
+Currency: AED
+Subtotal: 800.00
+VAT Rate: 5
+VAT Amount: 30.00
+Grand Total: 830.00

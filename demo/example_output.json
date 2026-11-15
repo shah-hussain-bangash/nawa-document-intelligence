@@ -1,0 +1,101 @@
+{
+  "demo_scope": "Synthetic UTF-8 text files; rules-based parser, not OCR or RAG",
+  "quotations": [
+    {
+      "document": "english_quote.txt",
+      "supplier": "Example English Supplies",
+      "currency": "AED",
+      "subtotal": "1000.00",
+      "vat_rate_percent": "5",
+      "vat_amount": "50.00",
+      "total": "1050.00",
+      "expected_vat": "50.00",
+      "expected_total": "1050.00",
+      "checks": {
+        "vat_matches_rate": true,
+        "total_matches_components": true
+      },
+      "evidence": {
+        "supplier": {
+          "value": "Example English Supplies",
+          "line": 1,
+          "source_text": "Supplier: Example English Supplies"
+        },
+        "currency": {
+          "value": "AED",
+          "line": 2,
+          "source_text": "Currency: AED"
+        },
+        "subtotal": {
+          "value": "1000.00",
+          "line": 3,
+          "source_text": "Subtotal: 1000.00"
+        },
+        "vat_rate": {
+          "value": "5",
+          "line": 4,
+          "source_text": "VAT Rate: 5"
+        },
+        "vat_amount": {
+          "value": "50.00",
+          "line": 5,
+          "source_text": "VAT Amount: 50.00"
+        },
+        "total": {
+          "value": "1050.00",
+          "line": 6,
+          "source_text": "Grand Total: 1050.00"
+        }
+      }
+    },
+    {
+      "document": "arabic_quote.txt",
+      "supplier": "شركة المثال للتوريدات",
+      "currency": "AED",
+      "subtotal": "900.00",
+      "vat_rate_percent": "5",
+      "vat_amount": "45.00",
+      "total": "945.00",
+      "expected_vat": "45.00",
+      "expected_total": "945.00",
+      "checks": {
+        "vat_matches_rate": true,
+        "total_matches_components": true
+      },
+      "evidence": {
+        "supplier": {
+          "value": "شركة المثال للتوريدات",
+          "line": 1,
+          "source_text": "اسم المورد: شركة المثال للتوريدات"
+        },
+        "currency": {
+          "value": "AED",
+          "line": 2,
+          "source_text": "العملة: AED"
+        },
+        "subtotal": {
+          "value": "٩٠٠٫٠٠",
+          "line": 3,
+          "source_text": "المجموع الفرعي: ٩٠٠٫٠٠"
+        },
+        "vat_rate": {
+          "value": "٥",
+          "line": 4,
+          "source_text": "نسبة الضريبة: ٥"
+        },
+        "vat_amount": {
+          "value": "٤٥٫٠٠",
+          "line": 5,
+          "source_text": "قيمة الضريبة: ٤٥٫٠٠"
+        },
+        "total": {
+          "value": "٩٤٥٫٠٠",
+          "line": 6,
+          "source_text": "الإجمالي شامل الضريبة: ٩٤٥٫٠٠"
+        }
+      }
+    }
+  ],
+  "lowest_valid_total": "شركة المثال للتوريدات",
+  "note": "Price-only ranking for demonstration; not a procurement award recommendation"
+}

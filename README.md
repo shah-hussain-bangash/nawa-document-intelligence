@@ -286,3 +286,15 @@ Architecture specifications and production plans should be interpreted as engine
 ---
 
 **NAWA demonstrates the design and engineering approach for a bilingual enterprise document intelligence system, with ongoing work to strengthen reproducible implementation, evaluation, security, and operational evidence.**
+
+
+## Runnable synthetic quotation demo
+
+A small, reproducible Python demo demonstrates deterministic Arabic/English **text** field extraction, source-line evidence, VAT/total validation, and price-only quotation comparison using synthetic data.
+
+- [Demo setup and limitations](demo/README.md)
+- [Sample quotations](demo/samples/)
+- [Automated tests](demo/tests/test_core.py)
+- [GitHub Actions test workflow](.github/workflows/demo-tests.yml)
+
+**Scope:** This is not the full NAWA platform. The demo does not implement PDF OCR, LLM extraction, RAG, permission isolation or production infrastructure. Test results should not be interpreted as real-world OCR/extraction benchmarks.
