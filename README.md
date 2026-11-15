@@ -323,3 +323,7 @@ A mock-first RAG experiment now adds an optional OpenAI generation provider to t
 ### Phase 7 — Evaluation and security regression suite
 
 The `demo/nawa_demo/evaluation.py` harness and `demo/nawa_demo/eval_cli.py` provide reproducible, **offline synthetic** status/citation checks with scripted adversarial responses. Run from `demo/`: `python3 -m nawa_demo.eval_cli` and `python3 -m unittest discover -s tests -v`. See [Phase 7 limitations](demo/README_PHASE7.md). These checks are not a production security assessment or validation of a live LLM.
+
+## Phase 8: Human-in-the-loop review (synthetic offline demo)
+
+The `demo/nawa_demo/review.py` module provides hash-linked local correction and review-decision history, evidence references, revision checks, and financial revalidation. Run with `python3 -m nawa_demo.review_cli` from `demo/`. See [Phase 8 guide](demo/README_PHASE8.md). This demonstration uses self-asserted reviewer IDs and local JSON files; it is **not** authenticated approval, a secure/tamper-proof audit system, or production procurement software.

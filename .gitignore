@@ -6,3 +6,6 @@ __pycache__/
 
 demo/pdf_result.json
 demo/phase7_report.json
+
+demo/review_demo.json
+demo/review_correction_demo.json
