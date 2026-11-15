@@ -311,3 +311,7 @@ The [Phase 3 guide](demo/README_PHASE3.md) demonstrates Arabic selectable-text P
 ## Phase 4 runnable synthetic retrieval baseline
 
 The [`demo` retrieval module](demo/README_PHASE4.md) adds permission-filtered bilingual BM25 retrieval with document/page/version/source evidence, optional selectable-text PDF page indexing, a small three-query synthetic Recall@5 evaluation, and regression tests. It **does not** implement LLM answering, embedding search, production identity or access control, or a deployed RAG platform. Caller-provided principal/tenant values only simulate a trusted backend.
+
+### Phase 5 runnable demo: extractive grounded Q&A
+
+The synthetic CLI now answers questions by quoting an **authorized** retrieval passage verbatim, with page, document ID, version and source citations. Unsupported questions abstain rather than fabricate an answer. This is **deterministic extractive Q&A, not an LLM or production RAG service**. See [Phase 5 demo](demo/README_PHASE5.md).
