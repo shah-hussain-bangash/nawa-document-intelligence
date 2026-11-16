@@ -335,3 +335,8 @@ A dependency-light localhost dashboard makes the existing synthetic quotation ex
 ## Phase 10 - Local Docker dashboard demo
 
 The synthetic dashboard from Phase 9 now has an optional Docker/Compose launch path, intended for a **single, trusted office or personal computer**. From the repository root, run `docker compose up --build -d` and open **http://127.0.0.1:8765** on that same machine. Stop it with `docker compose down`. The container is non-root, uses read-only root filesystem, and exposes the port only on host localhost. **Not a production/multiuser web service.** Full Windows and macOS prerequisites, safety boundaries, and a demo walkthrough are in [Phase 10](demo/README_PHASE10.md). A separate GitHub Actions Docker smoke workflow runs on pushes and pull requests.
+
+## Phase 11 - Optional PostgreSQL development storage
+
+The synthetic dashboard can optionally store extracted quotations and review ledgers in PostgreSQL across restarts. It remains unauthenticated and is not a production service; original uploaded files are not retained. Memory-only mode remains the default. See the [Phase 11 guide](demo/README_PHASE11.md) for configuration, migration, QA and recovery boundaries before switching modes. Existing in-memory records are not automatically migrated.
+
