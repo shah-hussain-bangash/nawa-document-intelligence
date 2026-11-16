@@ -1,0 +1,32 @@
+# Isolated synthetic restart test. Neither service publishes a host port.
+# Use only with project name nawa-phase11-qa.
+services:
+  db:
+    image: postgres:17
+    env_file: .env.postgres
+    volumes:
+      - qa_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  nawa:
+    image: nawa-phase11-test
+    env_file: .env.postgres
+    environment:
+      NAWA_STORAGE: postgres
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+volumes:
+  qa_database:

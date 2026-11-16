@@ -1,0 +1,26 @@
+# Opt-in synthetic development database. This uses a new volume, not the
+# separately managed nawa-postgres container or its nawa_pg_data volume.
+services:
+  nawa:
+    environment:
+      NAWA_STORAGE: postgres
+      POSTGRES_HOST: db
+    env_file:
+      - .env.postgres
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:17
+    env_file:
+      - .env.postgres
+    volumes:
+      - phase11_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: "no"
+volumes:
+  phase11_database:
