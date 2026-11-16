@@ -36,6 +36,12 @@ class DashboardState:
         self.items = {}
         self.ledgers = {}
 
+    def list_items(self):
+        return [{'id': item_id, 'quotation': _public_quote(q)} for item_id, q in self.items.items()]
+
+    def ready(self):
+        return None
+
     def add_sample(self, name):
         if name not in ALLOWED_SAMPLES:
             raise ValueError('Only allowlisted synthetic samples are available')
@@ -152,6 +158,17 @@ def make_handler(state):
                 self.wfile.write(data)
             elif path == '/api/samples':
                 self._json({'samples': list(ALLOWED_SAMPLES), 'mode': 'local_synthetic_demo'})
+            elif path == '/api/ready':
+                try:
+                    state.ready()
+                    self._json({'status': 'ready'})
+                except Exception:
+                    self._json({'error': 'Quotation storage unavailable'}, 503)
+            elif path == '/api/quotations':
+                try:
+                    self._json({'quotations': state.list_items(), 'storage': getattr(state, 'storage_mode', 'memory')})
+                except Exception:
+                    self._json({'error': 'Quotation storage unavailable'}, 503)
             elif path == '/favicon.ico':
                 self._headers(204, 'image/x-icon', 0)
             else:
@@ -191,6 +208,8 @@ def make_handler(state):
                 return self._json(result)
             except (ValueError, TypeError, KeyError, UnicodeError, json.JSONDecodeError) as exc:
                 return self._json({'error': str(exc)}, 400)
+            except Exception:
+                return self._json({'error': 'Quotation storage unavailable'}, 503)
 
         def log_message(self, format, *args):
             # Suppress request URLs from casual terminal logs.

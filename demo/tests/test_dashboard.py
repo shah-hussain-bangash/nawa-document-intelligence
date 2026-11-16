@@ -124,6 +124,33 @@ class LocalHTTPTests(unittest.TestCase):
             with self.subTest(path=path), urlopen(self.root+path) as response:
                 self.assertEqual(response.status,200)
 
+    def test_quotation_list_reflects_loaded_items(self):
+        self.state.add_sample('arabic_quote.txt')
+        with urlopen(self.root+'/api/quotations') as response:
+            result = json.load(response)
+        self.assertEqual(result['storage'], 'memory')
+        self.assertEqual(result['quotations'][0]['quotation']['total'], '945.00')
+
+    def test_storage_failure_returns_safe_error(self):
+        def unavailable():
+            raise RuntimeError('sensitive connection details')
+        self.state.list_items = unavailable
+        with self.assertRaises(HTTPError) as caught:
+            urlopen(self.root+'/api/quotations')
+        self.assertEqual(caught.exception.code, 503)
+        self.assertNotIn('sensitive', caught.exception.read().decode())
+
+    def test_readiness_tracks_storage_failure(self):
+        with urlopen(self.root+'/api/ready') as response:
+            self.assertEqual(json.load(response)['status'], 'ready')
+        def unavailable():
+            raise RuntimeError('private details')
+        self.state.ready = unavailable
+        with self.assertRaises(HTTPError) as caught:
+            urlopen(self.root+'/api/ready')
+        self.assertEqual(caught.exception.code, 503)
+        self.assertNotIn('private', caught.exception.read().decode())
+
     def test_reject_cross_origin(self):
         payload=json.dumps({'name':'english_quote.txt'}).encode()
         request=Request(self.root+'/api/load-sample',payload,headers={
