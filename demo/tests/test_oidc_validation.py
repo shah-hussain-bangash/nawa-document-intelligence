@@ -45,6 +45,16 @@ class OidcValidationTests(unittest.TestCase):
             with self.subTest(key_count=len(keys)), self.assertRaises(IdentityValidationError):
                 self.check(token, keys)
 
+    def test_missing_nonce_and_untrusted_algorithm_rejected(self):
+        claims = {'iss':'https://issuer.example/realm', 'aud':'nawa-client', 'sub':'user-1',
+                  'iat':int(time.time()), 'exp':int(time.time()) + 300}
+        missing_nonce = jwt.encode(claims, self.private, algorithm='RS256', headers={'kid':'test-key'})
+        wrong_algorithm = jwt.encode({**claims, 'nonce':'expected-nonce'}, 'synthetic-test-key-with-32-bytes-minimum',
+                                     algorithm='HS256', headers={'kid':'test-key'})
+        for token in (missing_nonce, wrong_algorithm):
+            with self.assertRaises(IdentityValidationError):
+                self.check(token)
+
 
 if __name__ == '__main__':
     unittest.main()
