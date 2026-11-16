@@ -73,6 +73,39 @@ class IdentityPostgresTests(unittest.TestCase):
         with self.connect() as conn:
             self.assertIsNone(membership(conn, issuer='https://issuer.example', subject='person-1', tenant='tenant-a'))
 
+    def test_operator_grant_and_revoke_invalidates_existing_session(self):
+        from nawa_demo.migrate import migrate
+        from nawa_demo.identity_repository import membership, membership_by_key
+        from nawa_demo.membership_admin import grant, revoke
+        from nawa_demo.session_draft import SessionError, SessionStore
+        issuer, subject, tenant = 'https://issuer.example/realm', 'synthetic-user', 'tenant-a'
+        with self.connect() as conn:
+            migrate(conn)
+            with self.assertRaisesRegex(ValueError, 'provisioned first'):
+                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='analyst')
+            conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s)', (tenant,))
+            conn.execute('INSERT INTO nawa_identities (issuer, subject) VALUES (%s,%s)', (issuer, subject))
+            grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='analyst')
+            with self.assertRaisesRegex(ValueError, 'already exists'):
+                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='reviewer')
+        def lookup(identity_key, tenant_id):
+            with self.connect() as conn:
+                return membership_by_key(conn, identity_key=identity_key, tenant=tenant_id)
+        with self.connect() as conn:
+            principal = membership(conn, issuer=issuer, subject=subject, tenant=tenant)
+        sessions = SessionStore(lookup)
+        tokens = sessions.issue(principal.subject, tenant)
+        self.assertEqual(sessions.authorize_current(tokens['session'], 'view').role, 'analyst')
+        with self.connect() as conn:
+            self.assertTrue(revoke(conn, issuer=issuer, subject=subject, tenant=tenant))
+            self.assertFalse(revoke(conn, issuer=issuer, subject=subject, tenant=tenant))
+        with self.assertRaises(SessionError):
+            sessions.authorize_current(tokens['session'], 'view')
+        with self.connect() as conn:
+            self.assertIsNone(membership(conn, issuer=issuer, subject=subject, tenant=tenant))
+            with self.assertRaisesRegex(ValueError, 'already exists'):
+                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='reviewer')
+
     def test_tenant_scoped_operations_and_server_actor(self):
         from nawa_demo.migrate import migrate
         from nawa_demo.scoped_state import ScopedState, AccessDenied

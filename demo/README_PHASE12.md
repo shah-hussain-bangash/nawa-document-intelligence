@@ -19,6 +19,12 @@ The application itself uses HTTP and non-Secure cookies only in the explicit loo
 
 The local QA database and its synthetic fixture are separate from the original `nawa-postgres` container, the Phase 11 QA database and the v0.6.6 application. The QA fixture mount exposes synthetic test passwords to the QA application container so the automated check can sign in; this arrangement must never be used for actual users. Do not publish `.data/phase12-identity`, password files, certificates' private keys, session cookies or database volumes.
 
+## Synthetic membership operations
+
+The operator-only `nawa_demo.membership_admin` module provides explicit grant and revoke operations for local synthetic accounts. Grant requires an already active tenant and identity; it rejects existing memberships rather than silently changing a role or reactivating one. Revoke deactivates the matching local membership without deleting quotations. The next protected operation rechecks membership and rejects an existing session. The tool is not exposed as an HTTP endpoint and takes no passwords or tokens as arguments. Run it only with the intended isolated test database and operator access; command-line identifiers may be visible to other processes.
+
+This is not a complete employee onboarding or offboarding workflow. Revoking local membership does not disable the Keycloak account or end its provider session. There is no protected administrative audit trail, bulk provisioning, role-change workflow, or automatic identity-provider revocation synchronization. Those capabilities require separate design and operational ownership before real users are introduced.
+
 ## Acceptance still required
 
 Before marking Phase 12 complete, verify all changed tests in CI, conduct a targeted security review, document the membership provisioning and revocation operating process, validate the actual browser journey in a trusted local environment, and disclose unresolved production requirements. No claim of production readiness follows from the synthetic tests.
