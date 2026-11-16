@@ -13,7 +13,9 @@ import threading
 import time
 from .authorization import Principal, PERMISSIONS, authorized
 
-WRITE_ACTIONS = frozenset({'load', 'review_start', 'correct', 'decide'})
+# Future actions require CSRF by default. New read-only actions must be
+# explicitly reviewed and listed here before they can omit a CSRF token.
+READ_ACTIONS = frozenset({'list', 'view', 'compare', 'review_view'})
 
 
 def _hash(value):
@@ -70,7 +72,7 @@ class SessionStore:
             if not record or record['expires'] <= self.clock():
                 self._sessions.pop(key, None)
                 raise SessionError('Session unavailable')
-            if action in WRITE_ACTIONS:
+            if action not in READ_ACTIONS:
                 if not isinstance(csrf, str) or not csrf:
                     raise SessionError('Request denied')
                 if not secrets.compare_digest(record['csrf_hash'], _hash(csrf)):

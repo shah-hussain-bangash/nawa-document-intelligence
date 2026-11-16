@@ -1,6 +1,8 @@
 """Session primitives only; these tests do not establish HTTP security."""
 import unittest
+from unittest.mock import patch
 from nawa_demo.authorization import Principal
+from nawa_demo.authorization import PERMISSIONS
 from nawa_demo.session_draft import SessionError, SessionStore
 
 
@@ -58,6 +60,13 @@ class SessionDraftTests(unittest.TestCase):
             self.store.issue('issuer|subject', 'tenant-a', max_age=0)
         with self.assertRaises(ValueError):
             SessionStore(lambda s, t: None, ttl=301)
+
+    def test_new_permission_requires_csrf_by_default(self):
+        token, csrf = self.tokens['session'], self.tokens['csrf']
+        with patch.dict(PERMISSIONS, {'analyst': PERMISSIONS['analyst'] | {'future_action'}}):
+            with self.assertRaises(SessionError):
+                self.store.authorize(token, 'future_action', tenant='tenant-a')
+            self.assertEqual(self.store.authorize(token, 'future_action', tenant='tenant-a', csrf=csrf).role, 'analyst')
 
 
 if __name__ == '__main__':
