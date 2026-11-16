@@ -36,6 +36,7 @@ class PostgresIntegrationTests(unittest.TestCase):
         from nawa_demo.postgres_state import PostgresState
         from concurrent.futures import ThreadPoolExecutor
         state = PostgresState(self.connect)
+        state.ready()
         with self.connect() as conn:
             migrate(conn)  # repeated migration is idempotent
         english = state.add_sample('english_quote.txt')
@@ -60,6 +61,17 @@ class PostgresIntegrationTests(unittest.TestCase):
             state.review_decision({'id': invalid['id'], 'actor': 'reviewer-1', 'decision': 'approve',
                                    'reason': 'Invalid synthetic VAT', 'expected_revision': 1})
         self.assertEqual(state.review_show(invalid['id'])['revision'], 1)
+        duplicate = state.add_sample('english_quote.txt')
+        self.assertNotEqual(english['id'], duplicate['id'])
+        state.review_start(duplicate['id'])
+        unusual_actor = "reviewer'; DROP TABLE nawa_quotations; --"
+        reviewed = state.review_decision({'id': duplicate['id'], 'actor': unusual_actor,
+                                          'decision': 'reject', 'reason': 'Input handling check',
+                                          'expected_revision': 1})
+        self.assertEqual(reviewed['history'][-1]['actor'], unusual_actor)
+        self.assertEqual(state.get_quote(english['id'])['total'], '1050.00')
+        with self.assertRaisesRegex(ValueError, 'Quotation not found'):
+            state.get_quote("missing'; DROP TABLE nawa_quotations; --")
         with self.assertRaises(ValueError):
             state.review_decision({'id': invalid['id'], 'actor': 'reviewer-1', 'decision': 'reject',
                                    'reason': 'Stale', 'expected_revision': 0})
@@ -124,3 +136,4 @@ with HTTPServer(('127.0.0.1', 0), make_handler(state)) as server:
             proc.wait(timeout=5)
             proc.stdout.close()
             proc.stderr.close()
+
