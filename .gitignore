@@ -9,3 +9,6 @@ demo/phase7_report.json
 
 demo/review_demo.json
 demo/review_correction_demo.json
+.data/
+.env
+.env.*
