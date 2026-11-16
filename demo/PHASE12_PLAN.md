@@ -1,6 +1,6 @@
 # Phase 12: identity and server-side authorization
 
-Status: design in progress; no authentication or authorization has been added yet.
+Status: local synthetic OIDC and tenant-authorization prototype implemented and under review. It is not production-ready or independently security-assessed.
 
 ## Scope and compatibility
 
@@ -31,3 +31,4 @@ Existing Phase 11 records have no tenant identity. Do not automatically attach t
 ## Out of scope for this gate
 
 Production identity onboarding, MFA policy, independent security assessment, public deployment and regulatory certification require separate organizational approval and evidence.
+
