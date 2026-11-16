@@ -24,11 +24,19 @@ def _validate(issuer, subject, tenant):
         raise ValueError('Invalid membership identifier')
 
 
-def grant(connection, *, issuer, subject, tenant, role):
+def _audit_fields(operator, reason):
+    if (not isinstance(operator, str) or not operator.strip() or len(operator) > 200 or '\x00' in operator
+            or not isinstance(reason, str) or not reason.strip() or len(reason) > 500 or '\x00' in reason):
+        raise ValueError('Synthetic operator and reason are required')
+    return operator.strip(), reason.strip()
+
+
+def grant(connection, *, issuer, subject, tenant, role, operator, reason):
     """Grant one new membership; never silently reactivate or change a role."""
     _validate(issuer, subject, tenant)
     if not isinstance(role, str) or role not in PERMISSIONS:
         raise ValueError('Invalid role')
+    operator, reason = _audit_fields(operator, reason)
     with connection.transaction():
         with connection.cursor() as cur:
             cur.execute('SELECT active FROM nawa_tenants WHERE id=%s FOR UPDATE', (tenant,))
@@ -44,17 +52,27 @@ def grant(connection, *, issuer, subject, tenant, role):
                 raise ValueError('Membership already exists; no change was made')
             cur.execute('INSERT INTO nawa_memberships (issuer, subject, tenant_id, role) VALUES (%s,%s,%s,%s)',
                         (issuer, subject, tenant, role))
+            cur.execute('''INSERT INTO nawa_membership_events
+                (issuer, subject, tenant_id, action, role, operator_name, reason)
+                VALUES (%s,%s,%s,'grant',%s,%s,%s)''', (issuer, subject, tenant, role, operator, reason))
 
 
-def revoke(connection, *, issuer, subject, tenant):
+def revoke(connection, *, issuer, subject, tenant, operator, reason):
     """Deactivate one membership; do not delete identity, session or data rows."""
     _validate(issuer, subject, tenant)
+    operator, reason = _audit_fields(operator, reason)
     with connection.transaction():
         with connection.cursor() as cur:
             cur.execute('''UPDATE nawa_memberships SET active=false
-                WHERE issuer=%s AND subject=%s AND tenant_id=%s AND active=true RETURNING tenant_id''',
+                WHERE issuer=%s AND subject=%s AND tenant_id=%s AND active=true RETURNING role''',
                         (issuer, subject, tenant))
-            return cur.fetchone() is not None
+            row = cur.fetchone()
+            if row is None:
+                return False
+            cur.execute('''INSERT INTO nawa_membership_events
+                (issuer, subject, tenant_id, action, role, operator_name, reason)
+                VALUES (%s,%s,%s,'revoke',%s,%s,%s)''', (issuer, subject, tenant, row[0], operator, reason))
+            return True
 
 
 def main():
@@ -64,6 +82,8 @@ def main():
     parser.add_argument('--subject', required=True)
     parser.add_argument('--tenant', required=True)
     parser.add_argument('--role', choices=tuple(PERMISSIONS))
+    parser.add_argument('--operator', required=True, help='Self-asserted synthetic operator, not authenticated')
+    parser.add_argument('--reason', required=True, help='Synthetic reason; do not include secrets or personal data')
     args = parser.parse_args()
     if (args.operation == 'grant') != bool(args.role):
         parser.error('grant requires --role; revoke must not include --role')
@@ -73,10 +93,12 @@ def main():
                              user=os.environ['POSTGRES_USER'], password=os.environ['POSTGRES_PASSWORD'],
                              connect_timeout=5) as conn:
             if args.operation == 'grant':
-                grant(conn, issuer=args.issuer, subject=args.subject, tenant=args.tenant, role=args.role)
+                grant(conn, issuer=args.issuer, subject=args.subject, tenant=args.tenant, role=args.role,
+                      operator=args.operator, reason=args.reason)
                 print('Synthetic membership granted.')
             else:
-                changed = revoke(conn, issuer=args.issuer, subject=args.subject, tenant=args.tenant)
+                changed = revoke(conn, issuer=args.issuer, subject=args.subject, tenant=args.tenant,
+                                 operator=args.operator, reason=args.reason)
                 print('Synthetic membership revoked.' if changed else 'No active membership was changed.')
     except Exception:
         raise SystemExit('Membership operation failed; details withheld.') from None

@@ -82,12 +82,12 @@ class IdentityPostgresTests(unittest.TestCase):
         with self.connect() as conn:
             migrate(conn)
             with self.assertRaisesRegex(ValueError, 'provisioned first'):
-                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='analyst')
+                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='analyst', operator='qa-operator', reason='Synthetic test')
             conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s)', (tenant,))
             conn.execute('INSERT INTO nawa_identities (issuer, subject) VALUES (%s,%s)', (issuer, subject))
-            grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='analyst')
+            grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='analyst', operator='qa-operator', reason='Synthetic test')
             with self.assertRaisesRegex(ValueError, 'already exists'):
-                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='reviewer')
+                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='reviewer', operator='qa-operator', reason='Synthetic test')
         def lookup(identity_key, tenant_id):
             with self.connect() as conn:
                 return membership_by_key(conn, identity_key=identity_key, tenant=tenant_id)
@@ -97,14 +97,34 @@ class IdentityPostgresTests(unittest.TestCase):
         tokens = sessions.issue(principal.subject, tenant)
         self.assertEqual(sessions.authorize_current(tokens['session'], 'view').role, 'analyst')
         with self.connect() as conn:
-            self.assertTrue(revoke(conn, issuer=issuer, subject=subject, tenant=tenant))
-            self.assertFalse(revoke(conn, issuer=issuer, subject=subject, tenant=tenant))
+            self.assertTrue(revoke(conn, issuer=issuer, subject=subject, tenant=tenant, operator='qa-operator', reason='Synthetic test'))
+            self.assertFalse(revoke(conn, issuer=issuer, subject=subject, tenant=tenant, operator='qa-operator', reason='Synthetic test'))
         with self.assertRaises(SessionError):
             sessions.authorize_current(tokens['session'], 'view')
         with self.connect() as conn:
             self.assertIsNone(membership(conn, issuer=issuer, subject=subject, tenant=tenant))
+            events = conn.execute('SELECT action, operator_name FROM nawa_membership_events ORDER BY id').fetchall()
+            self.assertEqual(events, [('grant', 'qa-operator'), ('revoke', 'qa-operator')])
             with self.assertRaisesRegex(ValueError, 'already exists'):
-                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='reviewer')
+                grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='reviewer', operator='qa-operator', reason='Synthetic test')
+
+    def test_audit_failure_rolls_back_membership_revocation(self):
+        from nawa_demo.migrate import migrate
+        from nawa_demo.membership_admin import grant, revoke
+        issuer, subject, tenant = 'https://issuer.example/realm', 'synthetic-user', 'tenant-a'
+        with self.connect() as conn:
+            migrate(conn)
+            conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s)', (tenant,))
+            conn.execute('INSERT INTO nawa_identities (issuer, subject) VALUES (%s,%s)', (issuer, subject))
+            grant(conn, issuer=issuer, subject=subject, tenant=tenant, role='analyst', operator='qa', reason='test')
+            conn.execute("ALTER TABLE nawa_membership_events ADD CONSTRAINT qa_reject_revoke CHECK (action <> 'revoke')")
+        with self.connect() as conn:
+            with self.assertRaises(self.psycopg.errors.CheckViolation):
+                revoke(conn, issuer=issuer, subject=subject, tenant=tenant, operator='qa', reason='test')
+        with self.connect() as conn:
+            row = conn.execute('SELECT active FROM nawa_memberships WHERE subject=%s', (subject,)).fetchone()
+            self.assertEqual(row, (True,))
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_membership_events').fetchone()[0], 1)
 
     def test_tenant_scoped_operations_and_server_actor(self):
         from nawa_demo.migrate import migrate
