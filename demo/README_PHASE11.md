@@ -12,6 +12,15 @@ An example configuration check, without printing secrets:
 docker compose -f compose.yaml -f compose.postgres.yaml config --quiet
 ```
 
+Once ready to replace a stopped memory-only demo, start the opt-in stack from the repository root:
+
+```powershell
+docker compose -f compose.yaml -f compose.postgres.yaml up --build -d
+docker compose -f compose.yaml -f compose.postgres.yaml ps
+```
+
+Open `http://127.0.0.1:8765` on the same computer. The interface identifies the active storage mode. Stopping or recreating the prior in-memory application discards its in-memory records; this stack does not migrate them. The database starts empty in its new Compose-managed volume.
+
 Do not start the override against a running Phase 10 demo without first understanding that recreating its application container clears in-memory quotations and reviews. A separate image and database test schema can be used for verification without changing the live dashboard. Do not run `docker compose down -v` or delete a database volume without an explicit, verified data-retention decision.
 
 On startup in database mode, migrations are applied transactionally with stored checksums. Quotation JSON includes extraction evidence; review ledgers are updated under row locks with revision checks. Original uploaded files are not persisted. Hash-linked ledgers detect some accidental modification; they are not tamper-proof audit records. Actor IDs remain self-asserted.
