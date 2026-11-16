@@ -76,8 +76,8 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                                            code=query['code'][0])
                     return self._redirect('/', [
                         self._set_cookie('nawa_oidc_state', '', http_only=True, max_age=0),
-                        self._set_cookie('nawa_session', tokens['session'], http_only=True, max_age=1800),
-                        self._set_cookie('nawa_csrf', tokens['csrf'], http_only=False, max_age=1800)])
+                        self._set_cookie('nawa_session', tokens['session'], http_only=True, max_age=tokens['max_age']),
+                        self._set_cookie('nawa_csrf', tokens['csrf'], http_only=False, max_age=tokens['max_age'])])
                 except Exception:
                     return self._json({'error': 'Sign-in could not be completed'}, 403)
             if path == '/auth/me':

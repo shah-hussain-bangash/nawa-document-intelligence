@@ -7,6 +7,7 @@ answer from trusted server-side records, never from browser-supplied roles.
 from __future__ import annotations
 
 import hashlib
+import math
 import secrets
 import threading
 import time
@@ -24,8 +25,9 @@ class SessionError(ValueError):
 
 
 class SessionStore:
-    def __init__(self, membership_lookup, *, ttl=1800, limit=256, clock=time.monotonic):
-        if not callable(membership_lookup) or ttl <= 0 or limit <= 0:
+    def __init__(self, membership_lookup, *, ttl=300, limit=256, clock=time.monotonic):
+        if (not callable(membership_lookup) or type(ttl) not in (int, float)
+                or not math.isfinite(ttl) or ttl <= 0 or ttl > 300 or limit <= 0):
             raise ValueError('Invalid session configuration')
         self.lookup, self.ttl, self.limit, self.clock = membership_lookup, ttl, limit, clock
         self._sessions = {}
@@ -39,8 +41,13 @@ class SessionStore:
             raise SessionError('Session unavailable')
         return principal
 
-    def issue(self, subject, tenant):
+    def issue(self, subject, tenant, *, max_age=None):
         if not all(isinstance(x, str) and x.strip() for x in (subject, tenant)):
+            raise SessionError('Session unavailable')
+        if max_age is not None and (type(max_age) not in (int, float) or not math.isfinite(max_age) or max_age < 1):
+            raise SessionError('Session unavailable')
+        duration = int(min(self.ttl, max_age if max_age is not None else self.ttl))
+        if duration < 1:
             raise SessionError('Session unavailable')
         self._membership(subject, tenant)
         with self._lock:
@@ -51,8 +58,8 @@ class SessionStore:
             session = secrets.token_urlsafe(32)
             csrf = secrets.token_urlsafe(32)
             self._sessions[_hash(session)] = {'subject': subject, 'tenant': tenant,
-                                               'csrf_hash': _hash(csrf), 'expires': now + self.ttl}
-            return {'session': session, 'csrf': csrf}
+                                               'csrf_hash': _hash(csrf), 'expires': now + duration}
+            return {'session': session, 'csrf': csrf, 'max_age': duration}
 
     def authorize(self, session, action, *, tenant, csrf=None):
         if not isinstance(session, str) or not session or not isinstance(action, str):

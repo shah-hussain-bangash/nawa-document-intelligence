@@ -7,6 +7,7 @@ be used as API access tokens. Membership and session creation are separate.
 from __future__ import annotations
 
 import secrets
+import math
 import jwt
 
 
@@ -38,12 +39,15 @@ def verify_id_token(encoded, *, jwks, issuer, audience, nonce):
                             options={'require': ['iss', 'aud', 'sub', 'exp', 'iat', 'nonce']})
         if not isinstance(claims.get('sub'), str) or not claims['sub'].strip():
             raise ValueError('Invalid subject')
+        if (type(claims.get('exp')) not in (int, float) or not math.isfinite(claims['exp'])
+                or type(claims.get('iat')) not in (int, float) or not math.isfinite(claims['iat'])):
+            raise ValueError('Invalid token timing')
         if not isinstance(claims.get('nonce'), str) or not secrets.compare_digest(claims['nonce'], nonce):
             raise ValueError('Invalid nonce')
         if claims.get('azp', audience) != audience:
             raise ValueError('Invalid authorized party')
         if isinstance(claims['aud'], list) and len(claims['aud']) > 1 and 'azp' not in claims:
             raise ValueError('Missing authorized party')
-        return {'issuer': issuer, 'subject': claims['sub']}
+        return {'issuer': issuer, 'subject': claims['sub'], 'expires_at': claims['exp']}
     except (jwt.PyJWTError, ValueError, TypeError, KeyError):
         raise IdentityValidationError('Identity response could not be verified') from None

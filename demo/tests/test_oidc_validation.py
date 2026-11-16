@@ -31,7 +31,7 @@ class OidcValidationTests(unittest.TestCase):
 
     def test_invalid_claims_fail_closed(self):
         for changes in ({'iss': 'https://evil.example'}, {'aud': 'other'}, {'nonce': 'other'},
-                        {'exp': int(time.time()) - 1}, {'sub': ''}, {'azp': 'other'},
+                        {'exp': int(time.time()) - 1}, {'exp': str(int(time.time()) + 300)}, {'sub': ''}, {'azp': 'other'},
                         {'aud': ['nawa-client', 'other']}):
             with self.subTest(changes=changes), self.assertRaises(IdentityValidationError):
                 self.check(self.token(**changes))

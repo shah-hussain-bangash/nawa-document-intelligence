@@ -5,6 +5,7 @@ No credentials, tokens or login attempt values may be logged. This draft uses a
 process-local attempt and session store, unsuitable for multi-worker production.
 """
 from urllib.parse import urlencode, urlparse
+import time
 
 from .oidc_validation import verify_id_token
 
@@ -64,6 +65,9 @@ class OidcFlow:
             principal = self.resolve_membership(identity['issuer'], identity['subject'])
             if principal is None:
                 raise LoginError('Sign-in could not be completed')
-            return self.sessions.issue(principal.subject, principal.tenant)
+            remaining = int(identity['expires_at'] - time.time())
+            if remaining < 1:
+                raise LoginError('Sign-in could not be completed')
+            return self.sessions.issue(principal.subject, principal.tenant, max_age=remaining)
         except Exception:
             raise LoginError('Sign-in could not be completed') from None

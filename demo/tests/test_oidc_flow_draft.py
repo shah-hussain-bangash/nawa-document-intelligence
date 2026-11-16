@@ -50,6 +50,8 @@ class OidcFlowDraftTests(unittest.TestCase):
         self.provider.nonce = params['nonce'][0]
         self.assertEqual(params['code_challenge_method'], ['S256'])
         tokens = self.flow.callback(state=params['state'][0], state_cookie=start['state_cookie'], code='synthetic-code')
+        self.assertGreaterEqual(tokens['max_age'], 1)
+        self.assertLessEqual(tokens['max_age'], 300)
         self.assertEqual(self.sessions.authorize_current(tokens['session'], 'view').subject, 'trusted-subject')
         with self.assertRaises(LoginError):
             self.flow.callback(state=params['state'][0], state_cookie=start['state_cookie'], code='synthetic-code')

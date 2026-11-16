@@ -48,6 +48,17 @@ class SessionDraftTests(unittest.TestCase):
         with self.assertRaises(SessionError):
             self.store.issue('unknown', 'tenant-a')
 
+    def test_session_lifetime_is_bounded_by_identity_expiry(self):
+        tokens = self.store.issue('issuer|subject', 'tenant-a', max_age=3)
+        self.assertEqual(tokens['max_age'], 3)
+        self.clock[0] = 3
+        with self.assertRaises(SessionError):
+            self.store.authorize(tokens['session'], 'view', tenant='tenant-a')
+        with self.assertRaises(SessionError):
+            self.store.issue('issuer|subject', 'tenant-a', max_age=0)
+        with self.assertRaises(ValueError):
+            SessionStore(lambda s, t: None, ttl=301)
+
 
 if __name__ == '__main__':
     unittest.main()
