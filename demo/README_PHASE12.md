@@ -6,7 +6,8 @@ This is a local, synthetic-data-only identity prototype. It is not a production 
 
 - Authorization-code sign-in with PKCE, one-use state and nonce, signed ID-token verification, strict issuer/audience checks and verified HTTPS to the identity provider.
 - Opaque server-side sessions and session-bound CSRF tokens; membership and role are rechecked server-side. Sessions and pending login attempts are **in process memory**: restarting the application invalidates them, and multi-worker use is unsupported.
-- Server-scoped viewer, analyst and reviewer actions. Quotation ownership is associated with a tenant; existing Phase 11 records have no tenant assignment and are deliberately invisible in authenticated mode. Do not assign or migrate old records without a reviewed, explicit process.
+- Server-scoped viewer, analyst and reviewer actions. Quotation ownership is associated with a tenant; existing Phase 11 records have no tenant assignment. A database containing unassigned quotations cannot be switched into authenticated mode automatically. Use a separate database or a reviewed, explicit migration.
+- A database-mode startup guard prevents this application version from accidentally switching a database between demo and OIDC modes. Older application versions and privileged database clients do not enforce this guard: use separate databases and credentials, and do not treat it as database row-level security.
 - Actor IDs in review events are derived from the authenticated identity, not the submitted payload. The hash-linked ledger is not tamper-proof and is not an independently protected audit store.
 - An isolated Keycloak QA stack uses generated synthetic accounts, its own database, a test CA trusted only by the test process and ports bound to host loopback. The fixture file contains **synthetic passwords**; it is excluded from the image and Git, must not be shared, and the setup must never use real accounts or production credentials.
 

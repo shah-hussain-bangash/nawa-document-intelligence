@@ -12,6 +12,9 @@ from .dashboard import DashboardState, make_handler
 
 def serve():
     mode = os.environ.get('NAWA_STORAGE', 'memory')
+    auth_mode = os.environ.get('NAWA_AUTH', 'demo')
+    if auth_mode not in ('demo', 'oidc'):
+        raise ValueError('NAWA_AUTH must be demo or oidc')
     if mode == 'memory':
         state = DashboardState()
     elif mode == 'postgres':
@@ -25,9 +28,10 @@ def serve():
                                    connect_timeout=5)
         state = PostgresState(connect)
         state.storage_mode = 'postgres'
+        from .storage_mode import claim_database_mode
+        claim_database_mode(connect, auth_mode)
     else:
         raise ValueError('NAWA_STORAGE must be memory or postgres')
-    auth_mode = os.environ.get('NAWA_AUTH', 'demo')
     if auth_mode == 'demo':
         handler = make_handler(state)
     elif auth_mode == 'oidc':

@@ -11,20 +11,42 @@ class IdentityPostgresTests(unittest.TestCase):
         import psycopg
         from psycopg import sql
         cls.psycopg, cls.sql = psycopg, sql
-        cls.schema = 'nawa_identity_test_' + uuid4().hex
         cls.params = dict(host=os.environ['POSTGRES_HOST'], dbname=os.environ['POSTGRES_DB'],
                           user=os.environ['POSTGRES_USER'], password=os.environ['POSTGRES_PASSWORD'],
                           connect_timeout=5)
-        with psycopg.connect(**cls.params, autocommit=True) as conn:
-            conn.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(cls.schema)))
 
-    @classmethod
-    def tearDownClass(cls):
-        with cls.psycopg.connect(**cls.params, autocommit=True) as conn:
-            conn.execute(cls.sql.SQL('DROP SCHEMA {} CASCADE').format(cls.sql.Identifier(cls.schema)))
+    def setUp(self):
+        self.schema = 'nawa_identity_test_' + uuid4().hex
+        with self.psycopg.connect(**self.params, autocommit=True) as conn:
+            conn.execute(self.sql.SQL('CREATE SCHEMA {}').format(self.sql.Identifier(self.schema)))
+
+    def tearDown(self):
+        with self.psycopg.connect(**self.params, autocommit=True) as conn:
+            conn.execute(self.sql.SQL('DROP SCHEMA {} CASCADE').format(self.sql.Identifier(self.schema)))
 
     def connect(self):
         return self.psycopg.connect(**self.params, options='-c search_path=' + self.schema)
+
+    def test_database_mode_blocks_unsafe_switch_and_legacy_assignment(self):
+        from nawa_demo.postgres_state import PostgresState
+        from nawa_demo.storage_mode import claim_database_mode
+        state = PostgresState(self.connect)
+        state.add_sample('english_quote.txt')  # Existing unassigned Phase 11 data.
+        with self.assertRaisesRegex(RuntimeError, 'Legacy quotations'):
+            claim_database_mode(self.connect, 'oidc')
+        claim_database_mode(self.connect, 'demo')
+        claim_database_mode(self.connect, 'demo')
+        with self.assertRaisesRegex(RuntimeError, 'different access mode'):
+            claim_database_mode(self.connect, 'oidc')
+
+    def test_authenticated_database_cannot_start_in_demo_mode(self):
+        from nawa_demo.postgres_state import PostgresState
+        from nawa_demo.storage_mode import claim_database_mode
+        PostgresState(self.connect)
+        claim_database_mode(self.connect, 'oidc')
+        claim_database_mode(self.connect, 'oidc')
+        with self.assertRaisesRegex(RuntimeError, 'different access mode'):
+            claim_database_mode(self.connect, 'demo')
 
     def test_membership_is_server_provisioned_and_revocable(self):
         from nawa_demo.migrate import migrate
