@@ -114,7 +114,7 @@ def main():
             conn.execute('''INSERT INTO nawa_memberships (issuer, subject, tenant_id, role) VALUES (%s,%s,%s,%s)
                          ON CONFLICT (issuer, subject, tenant_id) DO UPDATE SET role=EXCLUDED.role, active=true''',
                          (ISSUER, user['subject'], 'tenant-a', role))
-    for _ in range(30):
+    for _ in range(60):
         try:
             jar, opener = client()
             status, _, _ = request(opener, ISSUER + '/.well-known/openid-configuration')
@@ -131,6 +131,7 @@ def main():
                            headers={'Content-Type':'application/json', 'Origin':ORIGIN})
     if status != 403: raise AssertionError('CSRF rejection')
     csrf = next(c.value for c in jar if c.name == 'nawa_csrf')
+    old_session = next(c.value for c in jar if c.name == 'nawa_session')
     headers = {'Content-Type':'application/json', 'Origin':ORIGIN, 'X-NAWA-CSRF':csrf}
     status, _, body = request(analyst, APP + '/api/load-sample', data=b'{"name":"english_quote.txt"}', headers=headers)
     if status != 200: raise AssertionError('analyst load')
@@ -160,6 +161,8 @@ def main():
     if status != 303: raise AssertionError('logout')
     status, _, _ = request(analyst, APP + '/api/quotations')
     if status != 403: raise AssertionError('logout revocation')
+    status, _, _ = request(analyst, APP + '/api/quotations', headers={'Cookie':'nawa_session=' + old_session})
+    if status != 403: raise AssertionError('revoked session replay')
     print('Local synthetic Keycloak checks passed: TLS, PKCE login, membership, CSRF, roles, actor, revocation and logout.')
 
 

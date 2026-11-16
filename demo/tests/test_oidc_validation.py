@@ -1,6 +1,7 @@
 """Signed synthetic tokens; these do not test a live provider or login flow."""
 import time
 import unittest
+import warnings
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from nawa_demo.oidc_validation import IdentityValidationError, verify_id_token
@@ -54,6 +55,27 @@ class OidcValidationTests(unittest.TestCase):
         for token in (missing_nonce, wrong_algorithm):
             with self.assertRaises(IdentityValidationError):
                 self.check(token)
+
+    def test_unsupported_key_hints_and_weak_keys_rejected(self):
+        import json
+        claims = {'iss':'https://issuer.example/realm', 'aud':'nawa-client', 'sub':'user-1',
+                  'iat':int(time.time()), 'exp':int(time.time()) + 300, 'nonce':'expected-nonce'}
+        for extra in ({'crit':['unknown'], 'unknown':'value'}, {'jku':'https://evil.example/keys'},
+                      {'x5u':'https://evil.example/cert'}):
+            token = jwt.encode(claims, self.private, algorithm='RS256', headers={'kid':'test-key', **extra})
+            with self.subTest(extra=extra), self.assertRaises(IdentityValidationError):
+                self.check(token)
+        token = self.token()
+        with self.assertRaises(IdentityValidationError):
+            self.check(token, [{**self.jwk, 'key_ops':['sign']}])
+        weak = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+        weak_jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(weak.public_key()))
+        weak_jwk.update({'kid':'test-key', 'alg':'RS256', 'use':'sig'})
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message='The RSA key is 1024 bits long.*')
+            weak_token = jwt.encode(claims, weak, algorithm='RS256', headers={'kid':'test-key'})
+        with self.assertRaises(IdentityValidationError):
+            self.check(weak_token, [weak_jwk])
 
 
 if __name__ == '__main__':

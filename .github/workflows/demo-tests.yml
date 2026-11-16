@@ -53,3 +53,24 @@ jobs:
         run: |
           cd demo
           python -m unittest discover -s tests -p 'test_*postgres*.py' -v
+
+  local-oidc-integration:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Create isolated synthetic identity fixture
+        run: |
+          python -m pip install 'cryptography>=42,<51'
+          cd demo
+          python -m nawa_demo.prepare_oidc_fixture --output ../.data/phase12-identity
+      - name: Build QA image
+        run: docker build -t nawa-phase12-test .
+      - name: Start isolated QA services
+        run: docker compose -p nawa-phase12-ci -f compose.phase12-qa.yaml up -d
+      - name: Verify local synthetic Keycloak flow
+        run: docker compose -p nawa-phase12-ci -f compose.phase12-qa.yaml exec -T nawa python -m nawa_demo.phase12_live_check

@@ -22,14 +22,18 @@ def verify_id_token(encoded, *, jwks, issuer, audience, nonce):
         if not isinstance(jwks, dict) or not isinstance(jwks.get('keys'), list):
             raise ValueError('Invalid key set')
         header = jwt.get_unverified_header(encoded)
-        if header.get('alg') != 'RS256' or not isinstance(header.get('kid'), str) or not header['kid']:
+        if (header.get('alg') != 'RS256' or not isinstance(header.get('kid'), str) or not header['kid']
+                or any(name in header for name in ('crit', 'jku', 'x5u'))):
             raise ValueError('Untrusted token header')
         keys = [key for key in jwks['keys'] if isinstance(key, dict)
                 and key.get('kid') == header['kid'] and key.get('kty') == 'RSA'
-                and key.get('use', 'sig') == 'sig' and key.get('alg', 'RS256') == 'RS256']
+                and key.get('use', 'sig') == 'sig' and key.get('alg', 'RS256') == 'RS256'
+                and ('key_ops' not in key or (isinstance(key['key_ops'], list) and 'verify' in key['key_ops']))]
         if len(keys) != 1:
             raise ValueError('Signing key unavailable or ambiguous')
         key = jwt.PyJWK.from_dict(keys[0], algorithm='RS256').key
+        if getattr(key, 'key_size', 0) < 2048:
+            raise ValueError('Signing key is too small')
         claims = jwt.decode(encoded, key, algorithms=['RS256'], issuer=issuer, audience=audience,
                             options={'require': ['iss', 'aud', 'sub', 'exp', 'iat', 'nonce']})
         if not isinstance(claims.get('sub'), str) or not claims['sub'].strip():
