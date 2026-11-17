@@ -1,6 +1,7 @@
 """Phase 10 container entrypoint tests; Docker daemon not needed."""
 import contextlib
 import io
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -8,6 +9,11 @@ from nawa_demo import dashboard_container
 
 
 class DockerEntrypointTests(unittest.TestCase):
+    def test_intake_cannot_be_enabled_in_demo_mode(self):
+        with patch.dict(os.environ, {'NAWA_INTAKE': 'synthetic', 'NAWA_AUTH': 'demo', 'NAWA_STORAGE': 'memory'}, clear=True):
+            with self.assertRaisesRegex(ValueError, 'requires OIDC and PostgreSQL'):
+                dashboard_container.serve()
+
     @patch('nawa_demo.dashboard_container.HTTPServer')
     @patch('nawa_demo.dashboard_container.make_handler')
     @patch('nawa_demo.dashboard_container.DashboardState')

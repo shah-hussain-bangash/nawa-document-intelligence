@@ -14,13 +14,14 @@ jobs:
           python-version: '3.11'
       - name: Install PDF and optional OCR dependencies
         run: |
-          python -m pip install -r demo/requirements-pdf.txt 'PyJWT[crypto]>=2.10,<3'
+          python -m pip install -r demo/requirements-pdf.txt -r demo/requirements-phase13.txt 'PyJWT[crypto]>=2.10,<3'
           sudo apt-get update
           sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-ara
       - name: Test synthetic quotation, PDF and OCR demos
         run: |
           cd demo
           python -m unittest discover -s tests -v
+          node tests/test_intake_ui.js
 
   postgres-integration:
     runs-on: ubuntu-latest
@@ -48,11 +49,49 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install test dependencies
-        run: python -m pip install -r demo/requirements-pdf.txt 'psycopg[binary]>=3.2,<4' 'PyJWT[crypto]>=2.10,<3'
+        run: python -m pip install -r demo/requirements-pdf.txt -r demo/requirements-phase13.txt 'psycopg[binary]>=3.2,<4' 'PyJWT[crypto]>=2.10,<3'
       - name: Test isolated PostgreSQL persistence
         run: |
           cd demo
           python -m unittest discover -s tests -p 'test_*postgres*.py' -v
+
+  phase13-postgres-integration:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nawa_test
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: nawa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nawa_test -d nawa_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      PGPASSWORD: synthetic-ci-only
+      NAWA_PHASE13_TEST_DSN: 'host=127.0.0.1 port=5432 dbname=nawa_test user=nawa_test password=synthetic-ci-only'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r demo/requirements-pdf.txt -r demo/requirements-phase13.txt 'psycopg[binary]>=3.2,<4' 'PyJWT[crypto]>=2.10,<3'
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+      - name: Create isolated synthetic schema
+        run: |
+          for file in demo/nawa_demo/migrations/00*.sql; do
+            psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U nawa_test -d nawa_test -f "$file"
+          done
+          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U nawa_test -d nawa_test -f docs/phase13-postgres-schema-draft.sql
+      - name: Test synthetic intake and recovery
+        run: |
+          cd demo
+          python -m unittest discover -s tests -p 'test_intake_postgres.py' -v
 
   local-oidc-integration:
     if: github.event_name == 'pull_request'

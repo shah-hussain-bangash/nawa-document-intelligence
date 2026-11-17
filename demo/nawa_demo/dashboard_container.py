@@ -13,8 +13,13 @@ from .dashboard import DashboardState, make_handler
 def serve():
     mode = os.environ.get('NAWA_STORAGE', 'memory')
     auth_mode = os.environ.get('NAWA_AUTH', 'demo')
+    intake_mode = os.environ.get('NAWA_INTAKE', 'off')
     if auth_mode not in ('demo', 'oidc'):
         raise ValueError('NAWA_AUTH must be demo or oidc')
+    if intake_mode not in ('off', 'synthetic'):
+        raise ValueError('NAWA_INTAKE must be off or synthetic')
+    if intake_mode == 'synthetic' and (auth_mode != 'oidc' or mode != 'postgres'):
+        raise ValueError('Synthetic intake requires OIDC and PostgreSQL')
     if mode == 'memory':
         state = DashboardState()
     elif mode == 'postgres':
@@ -67,7 +72,12 @@ def serve():
                         redirect_uri=origin + '/auth/callback',
                         provider=provider, attempts=LoginAttempts(), sessions=sessions,
                         resolve_membership=resolve)
-        handler = make_protected_handler(ScopedState(connect), sessions, state, flow=flow, allowed_origin=origin)
+        intake = None
+        if intake_mode == 'synthetic':
+            from .intake_runtime import build_synthetic_intake
+            intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'))
+        handler = make_protected_handler(ScopedState(connect), sessions, state, flow=flow,
+                                         allowed_origin=origin, intake=intake)
     else:
         raise ValueError('NAWA_AUTH must be demo or oidc')
     with HTTPServer(('0.0.0.0', 8765), handler) as server:

@@ -1,5 +1,6 @@
 """HTTP boundary tests with synthetic sessions; no real OIDC provider."""
 import json
+import base64
 import http.client
 import threading
 import unittest
@@ -24,6 +25,25 @@ class FakeScoped:
         return {'id': 'synthetic'}
 
 
+class FakeIntake:
+    def __init__(self):
+        self.calls = []
+    def submit(self, principal, filename, content):
+        if filename == 'bad.pdf':
+            raise ValueError('synthetic parser detail should not be disclosed')
+        self.calls.append((principal, filename, content))
+        return ('abc', True)
+    def state(self, principal, document_id):
+        return ('received', 0) if document_id == 'abc' and principal.tenant == 'tenant-a' else None
+    def result(self, principal, document_id):
+        return None
+    def link_version(self, principal, document_id, family_id, *, expected_previous):
+        self.calls.append((principal, document_id, family_id, expected_previous))
+        return expected_previous + 1
+    def version_history(self, principal, family_id):
+        return [(1, 'abc')] if family_id == 'family' and principal.tenant == 'tenant-a' else []
+
+
 class ProtectedApiTests(unittest.TestCase):
     def setUp(self):
         self.members = {('trusted', 'tenant-a'): Principal('trusted', 'tenant-a', 'analyst'),
@@ -32,7 +52,8 @@ class ProtectedApiTests(unittest.TestCase):
         self.analyst = self.sessions.issue('trusted', 'tenant-a')
         self.viewer = self.sessions.issue('viewer', 'tenant-a')
         self.scoped = FakeScoped()
-        self.server = HTTPServer(('127.0.0.1', 0), make_protected_handler(self.scoped, self.sessions, DashboardState()))
+        self.intake = FakeIntake()
+        self.server = HTTPServer(('127.0.0.1', 0), make_protected_handler(self.scoped, self.sessions, DashboardState(), intake=self.intake))
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.url = f'http://127.0.0.1:{self.server.server_port}'
@@ -63,6 +84,57 @@ class ProtectedApiTests(unittest.TestCase):
     def test_anonymous_and_forged_headers_do_not_reach_data(self):
         status, _ = self.request('/api/quotations', extra={'X-Role': 'reviewer', 'X-Tenant': 'tenant-a'})
         self.assertEqual(status, 403)
+
+    def test_intake_requires_session_origin_csrf_and_analyst_role(self):
+        path = '/api/intake/submit'
+        body = {'filename': 'sample.txt', 'content_base64': base64.b64encode(b'synthetic').decode()}
+        origin = 'http://127.0.0.1:8765'
+        self.assertEqual(self.request(path, payload=body, origin=origin)[0], 403)
+        cookie = 'nawa_session=' + self.analyst['session']
+        self.assertEqual(self.request(path, payload=body, cookie=cookie, origin=origin)[0], 403)
+        self.assertEqual(self.request(path, payload=body, cookie=cookie, csrf=self.analyst['csrf'], origin='https://evil.example')[0], 403)
+        self.assertEqual(self.request(path, payload=body, cookie='nawa_session='+self.viewer['session'], csrf=self.viewer['csrf'], origin=origin)[0], 403)
+        self.assertEqual(self.intake.calls, [])
+        status, data = self.request(path, payload=body, cookie=cookie, csrf=self.analyst['csrf'], origin=origin,
+                                    extra={'X-Tenant': 'forged'})
+        self.assertEqual((status, data['id']), (200, 'abc'))
+        self.assertEqual(self.intake.calls[0][0].tenant, 'tenant-a')
+        self.assertEqual(self.request('/api/intake/status?id=abc', cookie=cookie)[1]['state'], 'received')
+        self.assertEqual(self.request('/api/intake/result?id=abc', cookie=cookie)[0], 404)
+
+    def test_batch_reports_individual_results_without_leaking_errors(self):
+        cookie = 'nawa_session=' + self.analyst['session']
+        content = base64.b64encode(b'synthetic').decode()
+        body = {'files': [{'filename': 'ok.txt', 'content_base64': content},
+                          {'filename': 'bad.pdf', 'content_base64': content}]}
+        status, result = self.request('/api/intake/batch', payload=body, cookie=cookie,
+                                      csrf=self.analyst['csrf'], origin='http://127.0.0.1:8765')
+        self.assertEqual(status, 200)
+        self.assertEqual(result['files'][0]['id'], 'abc')
+        self.assertEqual(result['files'][1], {'error': 'Invalid or unsupported file'})
+        self.assertNotIn('parser detail', json.dumps(result))
+        self.assertEqual(len(self.intake.calls), 1)
+
+    def test_auth_config_advertises_intake_only_when_enabled(self):
+        status, data = self.request('/auth/config')
+        self.assertEqual(status, 200)
+        self.assertIs(data['intake_enabled'], True)
+
+    def test_version_routes_require_role_and_return_history(self):
+        body = {'id': 'abc', 'family_id': None, 'expected_previous': 0}
+        origin = 'http://127.0.0.1:8765'
+        viewer_cookie = 'nawa_session=' + self.viewer['session']
+        status, _ = self.request('/api/intake/version', payload=body, cookie=viewer_cookie,
+                                 csrf=self.viewer['csrf'], origin=origin)
+        self.assertEqual(status, 403)
+        analyst_cookie = 'nawa_session=' + self.analyst['session']
+        status, result = self.request('/api/intake/version', payload=body, cookie=analyst_cookie,
+                                      csrf=self.analyst['csrf'], origin=origin)
+        self.assertEqual(status, 200)
+        self.assertEqual(result['version'], 1)
+        self.assertEqual(len(result['family_id']), 32)
+        status, history = self.request('/api/intake/versions?family=family', cookie=viewer_cookie)
+        self.assertEqual((status, history['versions'][0]['id']), (200, 'abc'))
         self.assertEqual(self.scoped.calls, [])
         status, _ = self.request('/api/quotations', cookie='nawa_session=fake; nawa_session=other')
         self.assertEqual(status, 403)
