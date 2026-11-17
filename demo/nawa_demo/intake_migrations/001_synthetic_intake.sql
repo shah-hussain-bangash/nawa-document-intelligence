@@ -15,7 +15,7 @@ CREATE TABLE nawa_intake_jobs (
     id uuid PRIMARY KEY,
     tenant_id text NOT NULL,
     document_id uuid NOT NULL,
-    state text NOT NULL CHECK (state IN ('received', 'validated', 'processing', 'retry-pending', 'completed', 'failed')),
+    state text NOT NULL CHECK (state IN ('received', 'processing', 'retry-pending', 'completed', 'failed')),
     attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 3),
     claim_token_hash char(64) CHECK (claim_token_hash ~ '^[0-9a-f]{64}$'),
     lease_until timestamptz,
@@ -55,18 +55,6 @@ CREATE TABLE nawa_intake_promotions (
     UNIQUE (tenant_id, quotation_id),
     FOREIGN KEY (tenant_id, document_id) REFERENCES nawa_intake_documents(tenant_id, id) ON DELETE RESTRICT,
     FOREIGN KEY (tenant_id, quotation_id) REFERENCES nawa_quotation_tenants(tenant_id, quotation_id) ON DELETE RESTRICT
-);
-
--- Synthetic operator actions; privileged database users can alter them.
-CREATE TABLE nawa_intake_admin_events (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id text NOT NULL,
-    document_id uuid NOT NULL,
-    action text NOT NULL CHECK (action IN ('revalidate', 'retry')),
-    actor_hash char(64) NOT NULL CHECK (actor_hash ~ '^[0-9a-f]{64}$'),
-    reason text NOT NULL CHECK (length(reason) BETWEEN 1 AND 500),
-    created_at timestamptz NOT NULL DEFAULT now(),
-    FOREIGN KEY (tenant_id, document_id) REFERENCES nawa_intake_documents(tenant_id, id) ON DELETE RESTRICT
 );
 
 -- Proposed worker claim: use a short transaction and SELECT ... FOR UPDATE

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import shutil
 import unittest
+from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from uuid import uuid4
@@ -558,7 +559,7 @@ class PostgresIntakeTests(unittest.TestCase):
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 1)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 2)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
@@ -566,6 +567,62 @@ class PostgresIntakeTests(unittest.TestCase):
                 verify_intake_migrations(conn)
             with self.assertRaisesRegex(RuntimeError, 'history mismatch'):
                 apply_intake_migrations(conn)
+
+    def test_old_synthetic_schema_upgrades_without_losing_records(self):
+        name = 'nawa_phase13_qa_' + uuid4().hex[:12]
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        with psycopg.connect(DSN, autocommit=True) as admin:
+            admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(name)))
+        params['dbname'] = name
+        connect = lambda: psycopg.connect(**params)
+        issuer, tenant = 'https://synthetic-upgrade', 'tenant-upgrade'
+        subjects = {'analyst':uuid4().hex, 'reviewer':uuid4().hex}
+        principal = lambda role: Principal(json.dumps([issuer,subjects[role]], separators=(',',':')), tenant, role)
+        with TemporaryDirectory() as folder:
+            root = Path(folder)
+            old_migrations = root / 'old-migrations'
+            old_migrations.mkdir()
+            original = Path(__file__).resolve().parents[1] / 'nawa_demo/intake_migrations/001_synthetic_intake.sql'
+            shutil.copy2(original, old_migrations / original.name)
+            with connect() as conn:
+                migrate(conn)
+                with patch('nawa_demo.intake_migrate.MIGRATIONS', old_migrations):
+                    apply_intake_migrations(conn)
+                previous_checksum = conn.execute('SELECT checksum FROM nawa_intake_schema_migrations WHERE name=%s',
+                                                 (original.name,)).fetchone()[0]
+                conn.execute('INSERT INTO nawa_tenants(id) VALUES (%s)', (tenant,))
+                for role, subject in subjects.items():
+                    conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer,subject))
+                    conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                                 (issuer,subject,tenant,role))
+            store = LocalIntakeStore(root / 'files')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, metadata = store.save('queued.txt', content)
+            with connect() as conn:
+                conn.execute('''INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes)
+                                VALUES (%s,%s,%s,%s,%s)''',
+                             (document,tenant,metadata.filename,metadata.sha256,metadata.size))
+                conn.execute('INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state) VALUES (%s,%s,%s,%s)',
+                             (uuid4(),tenant,document,'received'))
+            reviews = ScopedState(connect)
+            quotation = reviews.add_sample(principal('analyst'), 'english_quote.txt')['id']
+            reviews.review_start(principal('analyst'), quotation)
+            before = reviews.review_decision(principal('reviewer'), {
+                'id':quotation,'decision':'approve','reason':'Synthetic upgrade','expected_revision':1})
+            with connect() as conn:
+                apply_intake_migrations(conn)
+                verify_intake_migrations(conn)
+                self.assertEqual(conn.execute('SELECT checksum FROM nawa_intake_schema_migrations WHERE name=%s',
+                                              (original.name,)).fetchone()[0], previous_checksum)
+            jobs = PostgresIntakeJobs(connect)
+            self.assertEqual(jobs.state(tenant, document), ('received', 0))
+            self.assertIsNone(jobs.claim(tenant))
+            service = ScopedIntake(connect, store)
+            self.assertEqual(service.requeue(principal('analyst'), document, action='revalidate',
+                                             reason='Synthetic upgrade')['state'], 'validated')
+            self.assertEqual(process_one(jobs, store, tenant), 'completed')
+            self.assertEqual(store.read_verified(document, metadata.sha256), content)
+            self.assertEqual(reviews.review_show(principal('reviewer'), quotation), before)
 
     def test_qa_snapshot_checks_result_and_source_integrity(self):
         with self.connect() as conn:
@@ -593,4 +650,3 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
-
