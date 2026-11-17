@@ -10,6 +10,7 @@ Status: internal engineering review of the draft, not an independent assessment 
 - Worker claims have hashed tokens, a bounded lease and retry count; concurrent workers and version updates are tested against a disposable PostgreSQL database. Authorized manual revalidation and failed-job retry require a reason, recheck the source and write a transactional synthetic event; repeated manual retries are not independently rate-limited.
 - Parser subprocesses have timeouts and OS resource limits, with different controls on Linux and Windows. Malformed, encrypted and unsupported PDF cases have synthetic tests.
 - A quiesced synthetic backup/restore and app/database restart test covers the source, extracted result and approved review evidence. Authenticated operations fail closed during a simulated database outage.
+- Internal review of revalidation and retry found tests for role and tenant checks, source integrity, required reasons, concurrent revalidation, transactional event rollback and worker recovery. The synthetic live check also verifies reviewer denial and analyst retry.
 
 ## Findings that remain open
 
