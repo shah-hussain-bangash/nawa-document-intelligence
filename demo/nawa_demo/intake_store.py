@@ -2,6 +2,7 @@
 from hashlib import sha256
 from pathlib import Path
 import re
+import stat
 from uuid import uuid4
 import os
 
@@ -43,8 +44,27 @@ class LocalIntakeStore:
             raise ValueError('Invalid document ID')
         if not isinstance(expected_sha256, str) or not _HASH.fullmatch(expected_sha256):
             raise ValueError('Invalid document digest')
-        with (self.directory / document_id).open('rb') as stream:
-            content = stream.read(MAX_DOCUMENT_BYTES + 1)
+        path = self.directory / document_id
+        fd = None
+        try:
+            before = path.lstat()
+            if not stat.S_ISREG(before.st_mode):
+                raise ValueError('Document source is not a regular file')
+            flags = os.O_RDONLY | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0)
+            fd = os.open(path, flags)
+            opened = os.fstat(fd)
+            after = path.lstat()
+            if (not stat.S_ISREG(opened.st_mode) or not stat.S_ISREG(after.st_mode)
+                    or not os.path.samestat(before, opened) or not os.path.samestat(after, opened)):
+                raise ValueError('Document source changed during opening')
+            with os.fdopen(fd, 'rb') as stream:
+                fd = None
+                content = stream.read(MAX_DOCUMENT_BYTES + 1)
+        except OSError as exc:
+            raise ValueError('Document source unavailable') from exc
+        finally:
+            if fd is not None:
+                os.close(fd)
         if len(content) > MAX_DOCUMENT_BYTES or sha256(content).hexdigest() != expected_sha256:
             raise ValueError('Document integrity check failed')
         return content
@@ -54,3 +74,4 @@ class LocalIntakeStore:
         if not isinstance(document_id, str) or not _ID.fullmatch(document_id):
             raise ValueError('Invalid document ID')
         (self.directory / document_id).unlink(missing_ok=True)
+
