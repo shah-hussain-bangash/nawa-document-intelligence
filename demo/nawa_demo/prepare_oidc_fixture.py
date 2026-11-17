@@ -21,7 +21,12 @@ def write_new(path, content):
         output.write(content)
 
 
-def prepare(target):
+def prepare(target, *, phase=12):
+    if phase not in (12, 13):
+        raise ValueError('Only synthetic Phase 12 or Phase 13 fixtures are supported')
+    realm_name = f'nawa-phase{phase}'
+    web_port = 18765 if phase == 12 else 19765
+    database = 'nawa_phase12' if phase == 12 else 'nawa_phase13_qa_demo'
     target.mkdir(parents=True, exist_ok=False)
     imports = target / 'import'
     imports.mkdir()
@@ -44,10 +49,10 @@ def prepare(target):
               .sign(ca_key, hashes.SHA256()))
     users = [{'subject': str(uuid4()), 'username': 'synthetic-' + role,
               'password': secrets.token_urlsafe(24), 'role': role} for role in ('analyst', 'reviewer', 'outsider')]
-    realm = {'realm': 'nawa-phase12', 'enabled': True, 'sslRequired': 'all', 'registrationAllowed': False,
-             'clients': [{'clientId': 'nawa-phase12', 'enabled': True, 'publicClient': True,
+    realm = {'realm': realm_name, 'enabled': True, 'sslRequired': 'all', 'registrationAllowed': False,
+             'clients': [{'clientId': realm_name, 'enabled': True, 'publicClient': True,
                           'standardFlowEnabled': True, 'directAccessGrantsEnabled': False,
-                          'redirectUris': ['http://127.0.0.1:18765/auth/callback'],
+                          'redirectUris': [f'http://127.0.0.1:{web_port}/auth/callback'],
                           'attributes': {'pkce.code.challenge.method': 'S256'}}],
              'users': [{'id': user['subject'], 'username': user['username'], 'enabled': True,
                         'firstName': 'Synthetic', 'lastName': user['role'].capitalize(),
@@ -60,13 +65,15 @@ def prepare(target):
               serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
     write_new(target / 'fixture.json', json.dumps({'users': users}).encode('utf-8'))
     write_new(imports / 'realm.json', json.dumps(realm).encode('utf-8'))
-    write_new(target / 'db.env', ('POSTGRES_USER=nawa_test\nPOSTGRES_DB=nawa_phase12\nPOSTGRES_PASSWORD='
+    write_new(target / 'db.env', ('POSTGRES_USER=nawa_test\nPOSTGRES_DB=' + database + '\nPOSTGRES_PASSWORD='
                                 + secrets.token_urlsafe(32) + '\n').encode('utf-8'))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--phase', type=int, choices=(12, 13), default=12)
     args = parser.parse_args()
-    prepare(args.output)
+    prepare(args.output, phase=args.phase)
     print('Created an isolated synthetic identity fixture. No credentials were printed.')
+

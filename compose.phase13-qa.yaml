@@ -1,0 +1,80 @@
+# Separate, synthetic-only QA; never use real users or documents.
+services:
+  db:
+    image: postgres:17
+    env_file: .data/phase13-identity/db.env
+    volumes:
+      - qa13_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  identity:
+    image: quay.io/keycloak/keycloak:26.4.7
+    command: ["start-dev", "--http-enabled=false", "--https-port=19443", "--hostname=https://localhost:19443", "--https-certificate-file=/opt/keycloak/conf/server.crt", "--https-certificate-key-file=/opt/keycloak/conf/server.key", "--import-realm"]
+    ports:
+      - "127.0.0.1:19443:19443"
+      - "127.0.0.1:19765:8765"
+    volumes:
+      - ./.data/phase13-identity/server.crt:/opt/keycloak/conf/server.crt:ro
+      - ./.data/phase13-identity/server.key:/opt/keycloak/conf/server.key:ro
+      - ./.data/phase13-identity/import:/opt/keycloak/data/import:ro
+  init-files:
+    image: nawa-phase13-test
+    user: "0:0"
+    entrypoint: ["sh", "-c", "chown 10001:10001 /intake && chmod 700 /intake"]
+    volumes:
+      - qa13_documents:/intake
+  init-db:
+    image: nawa-phase13-test
+    env_file: .data/phase13-identity/db.env
+    environment:
+      NAWA_STORAGE: postgres
+      NAWA_AUTH: oidc
+      NAWA_INTAKE: synthetic
+      POSTGRES_HOST: db
+    command: ["python", "-m", "nawa_demo.phase13_qa_init"]
+    volumes:
+      - ./.data/phase13-identity/fixture.json:/identity/fixture.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+  nawa:
+    image: nawa-phase13-test
+    network_mode: service:identity
+    env_file: .data/phase13-identity/db.env
+    environment:
+      NAWA_STORAGE: postgres
+      NAWA_AUTH: oidc
+      NAWA_INTAKE: synthetic
+      NAWA_INTAKE_DIR: /intake
+      NAWA_TENANT_ID: tenant-a
+      NAWA_WEB_ORIGIN: http://127.0.0.1:19765
+      POSTGRES_HOST: db
+      OIDC_ISSUER: https://localhost:19443/realms/nawa-phase13
+      OIDC_CLIENT_ID: nawa-phase13
+      OIDC_CA_FILE: /identity/ca.pem
+    volumes:
+      - qa13_documents:/intake
+      - ./.data/phase13-identity/ca.pem:/identity/ca.pem:ro
+      - ./.data/phase13-identity/fixture.json:/identity/fixture.json:ro
+    depends_on:
+      identity:
+        condition: service_started
+      init-db:
+        condition: service_completed_successfully
+      init-files:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+volumes:
+  qa13_database:
+  qa13_documents:
+
