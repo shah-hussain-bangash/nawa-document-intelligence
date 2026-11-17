@@ -31,7 +31,10 @@ async function fetch(pathname, options = {}) {
   if (pathname === '/auth/config') data = {mode:'oidc', intake_enabled:true};
   else if (pathname === '/auth/me') data = {role:'analyst'};
   else if (pathname === '/api/quotations') data = {quotations:[], storage:'postgres'};
-  else if (pathname === '/api/intake/batch') data = {files:[{id:'abc123', created:true}]};
+  else if (pathname === '/api/intake/batch') {
+    const file = JSON.parse(options.body).files[0];
+    data = file.filename === 'quota.txt' ? {files:[{error:'Synthetic document limit reached'}]} : {files:[{id:'abc123', created:true}]};
+  }
   else if (pathname === '/api/intake/status?id=abc123') data = {state:'completed', attempts:1};
   else if (pathname === '/api/intake/result?id=abc123') data = {result:{supplier:'Synthetic supplier', total:'1050.00'}};
   else if (pathname === '/api/intake/version') data = {family_id:'synthetic-family', version:1};
@@ -57,6 +60,11 @@ async function mainTest() {
   assert.equal(submission.options.headers['X-NAWA-CSRF'], 'synthetic-csrf');
   assert.deepEqual(JSON.parse(submission.options.body).files, [{filename:'synthetic.txt', content_base64:'dGVzdA=='}]);
   assert.match(get('intakeResults').children[0].textContent, /abc123/);
+  get('intakeFiles').files = [{name:'quota.txt', size:4, arrayBuffer:async () => Uint8Array.from([116,101,115,116]).buffer}];
+  await get('intakeSubmit').events.click();
+  assert.match(get('intakeResults').children[0].textContent, /limit reached/);
+  assert.match(get('message').textContent, /0 of 1 files/);
+  assert.equal(get('message').className, 'message error');
   get('intakeId').value = 'abc123';
   await get('intakeCheck').events.click();
   assert.match(get('intakeStatus').textContent, /completed.*1050\.00/);

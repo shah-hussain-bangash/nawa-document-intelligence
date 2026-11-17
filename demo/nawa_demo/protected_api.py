@@ -13,6 +13,7 @@ from uuid import uuid4
 from .dashboard import MAX_BODY, make_handler
 from .session_draft import SessionError
 from .scoped_state import AccessDenied
+from .intake_postgres import IntakeRejected
 
 
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
@@ -210,6 +211,8 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                                 content = base64.b64decode(encoded, validate=True)
                                 document_id, created = intake.submit(principal, item.get('filename'), content)
                                 results.append({'id': document_id, 'created': created})
+                            except IntakeRejected:
+                                results.append({'error': 'Synthetic document limit reached'})
                             except (ValueError, TypeError):
                                 # Each file is independent: do not return contents or parser errors.
                                 results.append({'error': 'Invalid or unsupported file'})
@@ -238,6 +241,8 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 return self._json(result)
             except (SessionError, AccessDenied, PermissionError):
                 return self._json({'error': 'Authentication or permission required'}, 403)
+            except IntakeRejected:
+                return self._json({'error': 'Synthetic document limit reached'}, 400)
             except (ValueError, TypeError, KeyError, UnicodeError):
                 return self._json({'error': 'Invalid or unavailable request'}, 400)
             except Exception:

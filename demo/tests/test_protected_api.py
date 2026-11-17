@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 from nawa_demo.authorization import Principal
 from nawa_demo.dashboard import DashboardState
 from nawa_demo.protected_api import make_protected_handler
+from nawa_demo.intake_postgres import IntakeRejected
 from nawa_demo.session_draft import SessionStore
 
 
@@ -31,6 +32,8 @@ class FakeIntake:
     def submit(self, principal, filename, content):
         if filename == 'bad.pdf':
             raise ValueError('synthetic parser detail should not be disclosed')
+        if filename == 'quota.txt':
+            raise IntakeRejected('internal detail should not be disclosed')
         self.calls.append((principal, filename, content))
         return ('abc', True)
     def state(self, principal, document_id):
@@ -117,6 +120,15 @@ class ProtectedApiTests(unittest.TestCase):
         self.assertEqual(result['files'][1], {'error': 'Invalid or unsupported file'})
         self.assertNotIn('parser detail', json.dumps(result))
         self.assertEqual(len(self.intake.calls), 1)
+
+    def test_quota_rejection_has_clear_safe_message(self):
+        cookie = 'nawa_session=' + self.analyst['session']
+        item = {'filename':'quota.txt', 'content_base64':base64.b64encode(b'synthetic').decode()}
+        args = {'cookie':cookie, 'csrf':self.analyst['csrf'], 'origin':'http://127.0.0.1:8765'}
+        status, result = self.request('/api/intake/submit', payload=item, **args)
+        self.assertEqual((status, result), (400, {'error':'Synthetic document limit reached'}))
+        status, result = self.request('/api/intake/batch', payload={'files':[item]}, **args)
+        self.assertEqual((status, result['files'][0]), (200, {'error':'Synthetic document limit reached'}))
 
     def test_auth_config_advertises_intake_only_when_enabled(self):
         status, data = self.request('/auth/config')

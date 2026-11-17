@@ -34,7 +34,8 @@ $('intakeSubmit').addEventListener('click',()=>task(async()=>{
   if(new TextEncoder().encode(JSON.stringify({files:batch})).length>8*1024*1024)throw new Error('The selected batch is too large; submit fewer files');
   const result=await request('/api/intake/batch',{files:batch});const root=$('intakeResults');clear(root);
   result.files.forEach((item,index)=>{const detail=item.error||`${item.created?'Submitted':'Already submitted'} · ID: ${item.id}`;root.append(el('p',`${files[index].name}: ${detail}`,'row'));});
-  message('Batch submitted. Check each document status below.');
+  const accepted=result.files.filter(item=>item.id).length;
+  message(`${accepted} of ${files.length} files accepted or already stored.`,accepted===0);
 }));
 $('intakeCheck').addEventListener('click',()=>task(async()=>{
   const id=$('intakeId').value.trim();if(!id)throw new Error('Enter a document ID');
