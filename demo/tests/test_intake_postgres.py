@@ -116,6 +116,18 @@ class PostgresIntakeTests(unittest.TestCase):
         self.assertEqual(self.jobs.finish(self.tenant, job, final_token, success=False), 'failed')
         self.assertIsNone(self.jobs.claim(self.tenant))
 
+    def test_unvalidated_received_job_is_not_processed(self):
+        document = uuid4().hex
+        self.jobs.register(self.tenant, document, check_document('x.txt', b'synthetic'))
+        with self.connect() as conn:
+            conn.execute("UPDATE nawa_intake_jobs SET state='received' WHERE tenant_id=%s AND document_id=%s",
+                         (self.tenant, document))
+        self.assertIsNone(self.jobs.claim(self.tenant))
+        with self.connect() as conn:
+            conn.execute("UPDATE nawa_intake_jobs SET state='validated' WHERE tenant_id=%s AND document_id=%s",
+                         (self.tenant, document))
+        self.assertIsNotNone(self.jobs.claim(self.tenant))
+
     def test_synthetic_file_to_result_through_postgres(self):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
@@ -200,7 +212,7 @@ class PostgresIntakeTests(unittest.TestCase):
             stored = list(Path(folder).iterdir())
             self.assertEqual(len(stored), 1)
             self.assertEqual(stored[0].read_bytes(), b'synthetic')
-            self.assertEqual(self.jobs.state(self.tenant, stored[0].name), ('received', 0))
+            self.assertEqual(self.jobs.state(self.tenant, stored[0].name), ('validated', 0))
 
     def test_concurrent_promotions_create_one_quotation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex

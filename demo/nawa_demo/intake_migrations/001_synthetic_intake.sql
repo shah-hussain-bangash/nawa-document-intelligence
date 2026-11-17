@@ -15,7 +15,7 @@ CREATE TABLE nawa_intake_jobs (
     id uuid PRIMARY KEY,
     tenant_id text NOT NULL,
     document_id uuid NOT NULL,
-    state text NOT NULL CHECK (state IN ('received', 'processing', 'retry-pending', 'completed', 'failed')),
+    state text NOT NULL CHECK (state IN ('received', 'validated', 'processing', 'retry-pending', 'completed', 'failed')),
     attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 3),
     claim_token_hash char(64) CHECK (claim_token_hash ~ '^[0-9a-f]{64}$'),
     lease_until timestamptz,

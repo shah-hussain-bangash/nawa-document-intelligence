@@ -16,7 +16,7 @@ class IntakeJobsTests(unittest.TestCase):
             self.assertEqual(jobs.register('a', 'id2', metadata), ('id1', False))
             self.assertEqual(jobs.register('b', 'id3', metadata), ('id3', True))
             reopened = IntakeJobs(path)
-            self.assertEqual(reopened.state('a', 'id1'), ('received', 0))
+            self.assertEqual(reopened.state('a', 'id1'), ('validated', 0))
             self.assertIsNone(reopened.state('b', 'id1'))
 
     def test_expired_claim_recovered_and_retry_bounded(self):
@@ -45,3 +45,4 @@ class IntakeJobsTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

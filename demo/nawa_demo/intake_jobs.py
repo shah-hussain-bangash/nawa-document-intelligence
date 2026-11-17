@@ -46,7 +46,7 @@ class IntakeJobs:
             db.execute('INSERT INTO documents VALUES (?, ?, ?, ?, ?)',
                        (document_id, tenant, metadata.filename, metadata.sha256, metadata.size))
             db.execute('INSERT INTO jobs (id, document_id, state) VALUES (?, ?, ?)',
-                       (uuid4().hex, document_id, 'received'))
+                       (uuid4().hex, document_id, 'validated'))
             return document_id, True
 
     def claim(self, tenant, worker, *, lease_seconds=60, max_attempts=3, now=None):
@@ -61,7 +61,7 @@ class IntakeJobs:
                        (now, max_attempts, tenant))
             row = db.execute('''SELECT jobs.id FROM jobs JOIN documents ON documents.id=jobs.document_id
                 WHERE documents.tenant=? AND jobs.attempts < ? AND
-                (jobs.state IN ('received', 'retry-pending') OR
+                (jobs.state IN ('validated', 'retry-pending') OR
                  (jobs.state='processing' AND jobs.lease_until <= ?))
                 ORDER BY jobs.rowid LIMIT 1''', (tenant, max_attempts, now)).fetchone()
             if row is None:
@@ -118,3 +118,4 @@ class IntakeJobs:
         """List references for an offline maintenance check, not a user API."""
         with self._connect() as db:
             return db.execute('SELECT id, sha256 FROM documents ORDER BY id').fetchall()
+

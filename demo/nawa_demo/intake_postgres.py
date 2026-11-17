@@ -49,7 +49,7 @@ class PostgresIntakeJobs:
                                 (tenant, metadata.sha256))
                     return cur.fetchone()[0].hex, False
                 cur.execute('INSERT INTO nawa_intake_jobs (id,tenant_id,document_id,state) VALUES (%s,%s,%s,%s)',
-                            (uuid4(), tenant, identifier, 'received'))
+                            (uuid4(), tenant, identifier, 'validated'))
                 return identifier.hex, True
 
     def claim(self, tenant, worker='synthetic-worker', *, lease_seconds=60, max_attempts=3):
@@ -64,7 +64,7 @@ class PostgresIntakeJobs:
                     AND lease_until <= now() AND attempts >= %s''', (tenant, max_attempts))
                 cur.execute('''WITH candidate AS (
                     SELECT id FROM nawa_intake_jobs WHERE tenant_id=%s AND attempts<%s AND
-                    (state IN ('received','retry-pending') OR (state='processing' AND lease_until<=now()))
+                    (state IN ('validated','retry-pending') OR (state='processing' AND lease_until<=now()))
                     ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1)
                     UPDATE nawa_intake_jobs j SET state='processing',attempts=j.attempts+1,
                     claim_token_hash=%s,lease_until=now()+(%s * interval '1 second'),updated_at=now()

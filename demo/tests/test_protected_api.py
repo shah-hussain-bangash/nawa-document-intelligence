@@ -37,7 +37,7 @@ class FakeIntake:
         self.calls.append((principal, filename, content))
         return ('abc', True)
     def state(self, principal, document_id):
-        return ('received', 0) if document_id == 'abc' and principal.tenant == 'tenant-a' else None
+        return ('validated', 0) if document_id == 'abc' and principal.tenant == 'tenant-a' else None
     def result(self, principal, document_id):
         return None
     def link_version(self, principal, document_id, family_id, *, expected_previous):
@@ -105,7 +105,7 @@ class ProtectedApiTests(unittest.TestCase):
                                     extra={'X-Tenant': 'forged'})
         self.assertEqual((status, data['id']), (200, 'abc'))
         self.assertEqual(self.intake.calls[0][0].tenant, 'tenant-a')
-        self.assertEqual(self.request('/api/intake/status?id=abc', cookie=cookie)[1]['state'], 'received')
+        self.assertEqual(self.request('/api/intake/status?id=abc', cookie=cookie)[1]['state'], 'validated')
         self.assertEqual(self.request('/api/intake/result?id=abc', cookie=cookie)[0], 404)
 
     def test_batch_reports_individual_results_without_leaking_errors(self):

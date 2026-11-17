@@ -63,9 +63,9 @@ def main():
                 ('00000000-0000-0000-0000-000000000001','a','one.txt',repeat('a',64),1),
                 ('00000000-0000-0000-0000-000000000002','a','two.txt',repeat('b',64),1);
                 INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state) VALUES
-                ('10000000-0000-0000-0000-000000000001','a','00000000-0000-0000-0000-000000000001','received'),
-                ('10000000-0000-0000-0000-000000000002','a','00000000-0000-0000-0000-000000000002','received');"""])
-            claim = """WITH candidate AS (SELECT id FROM nawa_intake_jobs WHERE tenant_id='a' AND state='received'
+                ('10000000-0000-0000-0000-000000000001','a','00000000-0000-0000-0000-000000000001','validated'),
+                ('10000000-0000-0000-0000-000000000002','a','00000000-0000-0000-0000-000000000002','validated');"""])
+            claim = """WITH candidate AS (SELECT id FROM nawa_intake_jobs WHERE tenant_id='a' AND state='validated'
                 ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
                 UPDATE nawa_intake_jobs j SET state='processing', attempts=attempts+1,
                 claim_token_hash=repeat('c',64), lease_until=now()+interval '1 minute'

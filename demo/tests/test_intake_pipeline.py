@@ -32,7 +32,7 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue(created)
             self.assertEqual(pipeline.submit('tenant-a', 'duplicate.txt', content), (document_id, False))
             self.assertEqual([p.name for p in files.iterdir()], [document_id])
-            self.assertEqual(IntakeJobs(jobs_path).state('tenant-a', document_id), ('received', 0))
+            self.assertEqual(IntakeJobs(jobs_path).state('tenant-a', document_id), ('validated', 0))
             self.assertEqual(LocalIntakeStore(files).read_verified(
                 document_id, check_document('quote.txt', content).sha256), content)
 
@@ -59,7 +59,7 @@ class PipelineTests(unittest.TestCase):
                 SyntheticIntakePipeline(store, UncertainJobs()).submit('a', 'x.txt', b'test')
             stored = list(store.directory.iterdir())
             self.assertEqual(len(stored), 1)
-            self.assertEqual(jobs.state('a', stored[0].name), ('received', 0))
+            self.assertEqual(jobs.state('a', stored[0].name), ('validated', 0))
             self.assertEqual(stored[0].read_bytes(), b'test')
 
     def test_invalid_upload_does_not_create_a_job(self):
@@ -74,3 +74,4 @@ class PipelineTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
