@@ -14,5 +14,9 @@ docs
 **/review_correction_demo.json
 **/.venv
 **/node_modules
+.deps
+.deps-pdf
+.deps-jwt
+.deps-yaml
 .data
 **/.data

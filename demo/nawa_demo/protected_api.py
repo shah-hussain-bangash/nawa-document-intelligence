@@ -5,16 +5,19 @@ the scoped service must enforce tenant boundaries in every database operation.
 No unauthenticated fallback is allowed for protected paths.
 """
 from http.cookies import SimpleCookie, CookieError
+import base64
 import json
 from urllib.parse import urlsplit, parse_qs
+from uuid import uuid4
 
 from .dashboard import MAX_BODY, make_handler
 from .session_draft import SessionError
-from .scoped_state import AccessDenied
+from .scoped_state import AccessDenied, ReviewNotInitialized
+from .intake_postgres import IntakeRejected
 
 
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
-                           allowed_origin='http://127.0.0.1:8765'):
+                           allowed_origin='http://127.0.0.1:8765', intake=None):
     Base = make_handler(health_state)
 
     class Handler(Base):
@@ -59,7 +62,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
         def do_GET(self):
             path = urlsplit(self.path).path
             if path == '/auth/config':
-                return self._json({'mode': 'oidc'})
+                return self._json({'mode': 'oidc', 'intake_enabled': intake is not None})
             if path == '/auth/login' and flow is not None:
                 try:
                     result = flow.begin()
@@ -88,6 +91,48 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                     return self._json({'error': 'Authentication or permission required'}, 403)
                 except Exception:
                     return self._json({'error': 'Identity service unavailable'}, 503)
+            if path == '/api/intake/documents' and intake is not None:
+                try:
+                    principal = self._principal('list')
+                    return self._json({'documents':intake.list_documents(principal)})
+                except (SessionError, AccessDenied, PermissionError):
+                    return self._json({'error':'Authentication or permission required'}, 403)
+                except Exception:
+                    return self._json({'error':'Intake unavailable'}, 503)
+            if path in ('/api/intake/status', '/api/intake/result') and intake is not None:
+                try:
+                    principal = self._principal('view')
+                    ids = parse_qs(urlsplit(self.path).query, keep_blank_values=True).get('id', [])
+                    if len(ids) != 1:
+                        raise ValueError('Invalid request')
+                    value = intake.state(principal, ids[0]) if path.endswith('/status') else intake.result(principal, ids[0])
+                    if value is None:
+                        return self._json({'error': 'Not found'}, 404)
+                    if path.endswith('/status'):
+                        return self._json({'state': value[0], 'attempts': value[1]})
+                    return self._json({'result': value})
+                except (SessionError, AccessDenied, PermissionError):
+                    return self._json({'error': 'Authentication or permission required'}, 403)
+                except (ValueError, TypeError):
+                    return self._json({'error': 'Invalid request'}, 400)
+                except Exception:
+                    return self._json({'error': 'Intake unavailable'}, 503)
+            if path == '/api/intake/versions' and intake is not None:
+                try:
+                    principal = self._principal('view')
+                    families = parse_qs(urlsplit(self.path).query, keep_blank_values=True).get('family', [])
+                    if len(families) != 1:
+                        raise ValueError('Invalid request')
+                    versions = intake.version_history(principal, families[0])
+                    if not versions:
+                        return self._json({'error': 'Not found'}, 404)
+                    return self._json({'versions': [{'version': version, 'id': document} for version, document in versions]})
+                except (SessionError, AccessDenied, PermissionError):
+                    return self._json({'error': 'Authentication or permission required'}, 403)
+                except (ValueError, TypeError):
+                    return self._json({'error': 'Invalid request'}, 400)
+                except Exception:
+                    return self._json({'error': 'Intake unavailable'}, 503)
             if path == '/api/quotations':
                 try:
                     principal = self._principal('list')
@@ -118,25 +163,90 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
             actions = {'/api/load-sample': 'load', '/api/upload': 'load', '/api/compare': 'compare',
                        '/api/review/start': 'review_start', '/api/review/show': 'review_view',
                        '/api/review/decide': 'decide', '/api/review/correct': 'correct'}
+            if intake is not None:
+                actions['/api/intake/submit'] = 'load'
+                actions['/api/intake/batch'] = 'load'
+                actions['/api/intake/version'] = 'load'
+                actions['/api/intake/promote'] = 'load'
+                actions['/api/intake/revalidate'] = 'load'
+                actions['/api/intake/retry'] = 'load'
             action = actions.get(path)
             if action is None:
+                # Consume only bounded bodies so a 404 is delivered reliably
+                # on Windows instead of resetting a socket with unread bytes.
+                try:
+                    length = int(self.headers.get('Content-Length', '0'))
+                    if 0 < length <= MAX_BODY and not self.headers.get('Transfer-Encoding'):
+                        self.connection.settimeout(10)
+                        self.rfile.read(length)
+                except (ValueError, OSError):
+                    self.close_connection = True
                 return self._json({'error': 'Not found'}, 404)
             try:
+                if self.headers.get_content_type() != 'application/json':
+                    raise ValueError('Content-Type must be application/json')
+                length = int(self.headers.get('Content-Length', '-1'))
+                if length < 1 or length > MAX_BODY or self.headers.get('Transfer-Encoding'):
+                    raise ValueError('Request body size invalid')
+                # Consume a bounded body before returning an authorization error.
+                # Otherwise Windows can reset the connection instead of delivering
+                # the 403 when unread bytes remain in the socket.
+                self.connection.settimeout(10)
+                raw = self.rfile.read(length)
+                if len(raw) != length:
+                    raise ValueError('Incomplete request body')
                 # All POST requests require an expected browser origin. State
                 # changes additionally require the session-bound CSRF token.
                 if self.headers.get('Origin') != allowed_origin:
                     return self._json({'error': 'Request denied'}, 403)
                 principal = self._principal(action)
-                if self.headers.get_content_type() != 'application/json':
-                    raise ValueError('Content-Type must be application/json')
-                length = int(self.headers.get('Content-Length', '-1'))
-                if length < 1 or length > MAX_BODY:
-                    raise ValueError('Request body size invalid')
-                payload = json.loads(self.rfile.read(length).decode('utf-8'))
+                payload = json.loads(raw.decode('utf-8'))
                 if not isinstance(payload, dict):
                     raise ValueError('Expected JSON object')
                 if action == 'load':
-                    if path == '/api/upload':
+                    if path in ('/api/intake/revalidate', '/api/intake/retry'):
+                        operation = 'revalidate' if path.endswith('/revalidate') else 'retry'
+                        result = intake.requeue(principal, payload.get('id'), action=operation, reason=payload.get('reason'))
+                    elif path == '/api/intake/promote':
+                        result = intake.promote(principal, payload.get('id'))
+                    elif path == '/api/intake/version':
+                        family = payload.get('family_id') or uuid4().hex
+                        document_id = payload.get('id')
+                        expected = payload.get('expected_previous')
+                        if (not isinstance(family, str) or not isinstance(document_id, str)
+                                or type(expected) is not int or expected < 0):
+                            raise ValueError('Invalid version')
+                        version = intake.link_version(principal, document_id, family, expected_previous=expected)
+                        result = {'family_id': family, 'version': version}
+                    elif path == '/api/intake/batch':
+                        files = payload.get('files')
+                        if not isinstance(files, list) or not 1 <= len(files) <= 10:
+                            raise ValueError('Batch must contain 1 to 10 files')
+                        results = []
+                        for item in files:
+                            try:
+                                if not isinstance(item, dict):
+                                    raise ValueError('Invalid item')
+                                encoded = item.get('content_base64')
+                                if not isinstance(encoded, str) or len(encoded) > MAX_BODY:
+                                    raise ValueError('Invalid upload')
+                                content = base64.b64decode(encoded, validate=True)
+                                document_id, created = intake.submit(principal, item.get('filename'), content)
+                                results.append({'id': document_id, 'created': created})
+                            except IntakeRejected:
+                                results.append({'error': 'Synthetic document limit reached'})
+                            except (ValueError, TypeError):
+                                # Each file is independent: do not return contents or parser errors.
+                                results.append({'error': 'Invalid or unsupported file'})
+                        result = {'files': results}
+                    elif path == '/api/intake/submit':
+                        encoded = payload.get('content_base64')
+                        if not isinstance(encoded, str) or len(encoded) > MAX_BODY:
+                            raise ValueError('Invalid upload')
+                        content = base64.b64decode(encoded, validate=True)
+                        document_id, created = intake.submit(principal, payload.get('filename'), content)
+                        result = {'id': document_id, 'created': created}
+                    elif path == '/api/upload':
                         result = scoped.add_upload(principal, payload.get('filename'), payload.get('content_base64'))
                     else:
                         result = scoped.add_sample(principal, payload.get('name'))
@@ -151,11 +261,16 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 else:
                     result = scoped.review_correction(principal, payload)
                 return self._json(result)
-            except (SessionError, AccessDenied):
+            except (SessionError, AccessDenied, PermissionError):
                 return self._json({'error': 'Authentication or permission required'}, 403)
+            except ReviewNotInitialized:
+                return self._json({'error': 'Review is not initialized'}, 404)
+            except IntakeRejected:
+                return self._json({'error': 'Synthetic document limit reached'}, 400)
             except (ValueError, TypeError, KeyError, UnicodeError):
                 return self._json({'error': 'Invalid or unavailable request'}, 400)
             except Exception:
                 return self._json({'error': 'Quotation storage unavailable'}, 503)
 
     return Handler
+

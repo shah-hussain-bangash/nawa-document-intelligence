@@ -63,13 +63,13 @@ def login(user, *, expected=303):
     if status != 303: raise AssertionError('login start')
     url = headers['Location']
     parsed = urlparse(url)
-    if parsed.scheme != 'https' or parsed.netloc != 'localhost:18443': raise AssertionError('authorization origin')
+    if parsed.scheme != 'https' or parsed.netloc != urlparse(ISSUER).netloc: raise AssertionError('authorization origin')
     if parse_qs(parsed.query).get('code_challenge_method') != ['S256']: raise AssertionError('PKCE')
     status, _, html = request(opener, url)
     if status != 200: raise AssertionError('identity page')
     form = LoginForm(); form.feed(html.decode('utf-8'))
     action = urlparse(form.action or '')
-    if action.scheme != 'https' or action.netloc != 'localhost:18443': raise AssertionError('login origin')
+    if action.scheme != 'https' or action.netloc != urlparse(ISSUER).netloc: raise AssertionError('login origin')
     body = urlencode({**form.values, 'username': user['username'], 'password': user['password']}).encode()
     status, headers, _ = request(opener, form.action, data=body,
                                  headers={'Content-Type': 'application/x-www-form-urlencoded'})
@@ -77,14 +77,14 @@ def login(user, *, expected=303):
     callback = urlparse(headers['Location'])
     # Keycloak may ask an imported synthetic user to complete their profile.
     # Only the known profile action at the trusted local issuer is permitted.
-    if (callback.scheme == 'https' and callback.netloc == 'localhost:18443'
+    if (callback.scheme == 'https' and callback.netloc == urlparse(ISSUER).netloc
             and callback.path.endswith('/login-actions/required-action')
             and parse_qs(callback.query).get('execution') == ['VERIFY_PROFILE']):
         status, _, html = request(opener, headers['Location'])
         if status != 200: raise AssertionError('synthetic profile page')
         profile = LoginForm('kc-update-profile-form'); profile.feed(html.decode('utf-8'))
         action = urlparse(profile.action or '')
-        if action.scheme != 'https' or action.netloc != 'localhost:18443':
+        if action.scheme != 'https' or action.netloc != urlparse(ISSUER).netloc:
             raise AssertionError('synthetic profile origin')
         profile.values.update({'firstName':'Synthetic', 'lastName':user['role'].capitalize(),
                                'email':user['username'] + '@example.invalid'})
@@ -92,7 +92,7 @@ def login(user, *, expected=303):
                                      headers={'Content-Type':'application/x-www-form-urlencoded'})
         if status not in (302, 303): raise AssertionError('synthetic profile update')
         callback = urlparse(headers['Location'])
-    if callback.scheme != 'http' or callback.netloc != '127.0.0.1:18765' or callback.path != '/auth/callback':
+    if callback.scheme != 'http' or callback.netloc != urlparse(ORIGIN).netloc or callback.path != '/auth/callback':
         raise AssertionError('callback origin')
     status, _, _ = request(opener, APP + callback.path + '?' + callback.query)
     if status != expected: raise AssertionError('callback status')
@@ -172,3 +172,4 @@ if __name__ == '__main__':
     except Exception as exc:
         print('Local identity check failed:', type(exc).__name__, '(sensitive details withheld).')
         raise SystemExit(1) from None
+

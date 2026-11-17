@@ -21,6 +21,10 @@ class AccessDenied(ValueError):
     pass
 
 
+class ReviewNotInitialized(ValueError):
+    pass
+
+
 class ScopedState:
     def __init__(self, connect):
         self._connect = connect
@@ -127,7 +131,7 @@ class ScopedState:
             self._quote(conn, principal, item_id)
             row = conn.execute('SELECT revision, ledger FROM nawa_reviews WHERE quotation_id = %s', (item_id,)).fetchone()
         if row is None:
-            raise ValueError('Review is not initialized')
+            raise ReviewNotInitialized('Review is not initialized')
         result = inspect(row[1])
         if result['revision'] != row[0]:
             raise ValueError('Review revision mismatch')
@@ -164,3 +168,4 @@ class ScopedState:
 
     def review_correction(self, principal, payload):
         return self._change(principal, payload, 'correct')
+
