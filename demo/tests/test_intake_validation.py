@@ -71,6 +71,9 @@ class IntakeValidationTests(unittest.TestCase):
             self.assertEqual(open_pdf(fixture), 'lenient fallback used')
             self.assertEqual(reader.call_count, 2)
         with patch('nawa_demo.intake_pdf.PdfReader', side_effect=parse) as reader:
+            self.assertEqual(open_pdf(fixture.replace(b'\r\n', b'\n')), 'lenient fallback used')
+            self.assertEqual(reader.call_count, 2)
+        with patch('nawa_demo.intake_pdf.PdfReader', side_effect=parse) as reader:
             with self.assertRaises(PdfReadError):
                 open_pdf(fixture + b'changed')
             self.assertEqual(reader.call_count, 1)
