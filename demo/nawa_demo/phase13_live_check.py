@@ -2,8 +2,6 @@
 import base64
 import json
 from pathlib import Path
-import subprocess
-import sys
 import time
 from uuid import uuid4
 
@@ -43,12 +41,11 @@ def main():
     if status != 200:
         raise AssertionError('Synthetic upload failed')
     document_id = json.loads(result)['id']
-    for _ in range(10):
-        subprocess.run([sys.executable, '-m', 'nawa_demo.intake_worker_cli'],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=35)
+    for _ in range(60):
         status, _, result = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + document_id)
         if status == 200 and json.loads(result)['state'] == 'completed':
             break
+        time.sleep(1)
     else:
         raise AssertionError('Synthetic worker did not complete document')
     status, _, result = oidc.request(analyst, oidc.APP + '/api/intake/result?id=' + document_id)
@@ -94,6 +91,13 @@ def main():
     other_document = json.loads(other_result)['id']
     if other_document == document_id:
         raise AssertionError('Tenant documents share an identifier')
+    for _ in range(60):
+        status, _, other_state = oidc.request(other, oidc.APP + '/api/intake/status?id=' + other_document)
+        if status == 200 and json.loads(other_state)['state'] == 'completed':
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError('Tenant B synthetic worker did not complete document')
     oidc.APP, oidc.ORIGIN = app_a, origin_a
     status, _, _ = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + other_document)
     if status != 404:

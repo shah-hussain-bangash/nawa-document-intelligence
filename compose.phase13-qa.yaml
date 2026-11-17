@@ -110,6 +110,66 @@ services:
       - no-new-privileges:true
     pids_limit: 128
     mem_limit: 512m
+  worker-a:
+    image: nawa-phase13-test
+    network_mode: service:identity
+    env_file: .data/phase13-identity/db.env
+    environment:
+      NAWA_STORAGE: postgres
+      NAWA_AUTH: oidc
+      NAWA_INTAKE: synthetic
+      NAWA_INTAKE_DIR: /intake
+      NAWA_TENANT_ID: tenant-a
+      POSTGRES_HOST: db
+    command: ["python", "-m", "nawa_demo.intake_worker_cli", "--loop"]
+    volumes:
+      - qa13_documents:/intake
+    depends_on:
+      identity:
+        condition: service_started
+      init-db:
+        condition: service_completed_successfully
+      init-files:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    stop_grace_period: 30s
+  worker-b:
+    image: nawa-phase13-test
+    network_mode: service:identity
+    env_file: .data/phase13-identity/db.env
+    environment:
+      NAWA_STORAGE: postgres
+      NAWA_AUTH: oidc
+      NAWA_INTAKE: synthetic
+      NAWA_INTAKE_DIR: /intake
+      NAWA_TENANT_ID: tenant-b
+      POSTGRES_HOST: db
+    command: ["python", "-m", "nawa_demo.intake_worker_cli", "--loop"]
+    volumes:
+      - qa13_documents:/intake
+    depends_on:
+      identity:
+        condition: service_started
+      init-db:
+        condition: service_completed_successfully
+      init-files:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    stop_grace_period: 30s
 volumes:
   qa13_database:
   qa13_documents:

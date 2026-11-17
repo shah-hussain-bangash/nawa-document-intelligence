@@ -1,4 +1,6 @@
 from contextlib import contextmanager
+from contextlib import redirect_stdout
+import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import os
@@ -6,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from nawa_demo.intake_runtime import build_synthetic_intake
-from nawa_demo.intake_worker_cli import main
+from nawa_demo.intake_worker_cli import main, run_loop
 from nawa_demo.intake_migrate import main as migrate_main
 from nawa_demo.intake_migrate import _files
 
@@ -14,7 +16,27 @@ from nawa_demo.intake_migrate import _files
 class RuntimeTests(unittest.TestCase):
     def test_worker_requires_explicit_test_mode(self):
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
-            main()
+            main([])
+
+    def test_worker_retries_failure_without_logging_error_details(self):
+        class Stop:
+            count = 0
+            def is_set(self):
+                return self.count >= 2
+            def wait(self, _interval):
+                self.count += 1
+        calls = []
+        def run_one():
+            calls.append(True)
+            if len(calls) == 1:
+                raise RuntimeError('private synthetic detail')
+            return 'completed'
+        output = io.StringIO()
+        with redirect_stdout(output):
+            run_loop(run_one, Stop(), 0.5)
+        self.assertEqual(len(calls), 2)
+        self.assertIn('completed', output.getvalue())
+        self.assertNotIn('private synthetic detail', output.getvalue())
 
     def test_migration_refuses_unapproved_database_configuration(self):
         with patch.dict(os.environ, {'NAWA_INTAKE':'synthetic', 'NAWA_AUTH':'oidc',
