@@ -8,6 +8,7 @@ from unittest.mock import patch
 from nawa_demo.intake_runtime import build_synthetic_intake
 from nawa_demo.intake_worker_cli import main
 from nawa_demo.intake_migrate import main as migrate_main
+from nawa_demo.intake_migrate import _files
 
 
 class RuntimeTests(unittest.TestCase):
@@ -21,19 +22,24 @@ class RuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'nawa_phase13_qa_'):
                 migrate_main()
 
+    def test_migration_input_normalizes_windows_and_linux_line_endings(self):
+        with TemporaryDirectory() as folder:
+            migration = Path(folder) / '001_test.sql'
+            with patch('nawa_demo.intake_migrate.MIGRATIONS', Path(folder)):
+                migration.write_bytes(b'SELECT 1;\r\nSELECT 2;\r\n')
+                windows = _files()
+                migration.write_bytes(b'SELECT 1;\nSELECT 2;\n')
+                self.assertEqual(_files(), windows)
+
     def test_runtime_requires_absolute_directory_and_existing_schema(self):
-        class Result:
-            def fetchone(self):
-                return (None, None)
-        class Connection:
-            def execute(self, statement):
-                return Result()
         @contextmanager
         def connect():
-            yield Connection()
+            yield object()
         with self.assertRaisesRegex(ValueError, 'absolute'):
             build_synthetic_intake(connect, 'relative')
         with TemporaryDirectory() as folder:
-            with self.assertRaisesRegex(ValueError, 'schema'):
-                build_synthetic_intake(connect, str(Path(folder)))
+            with patch('nawa_demo.intake_runtime.verify_intake_migrations', side_effect=ValueError('schema')):
+                with self.assertRaisesRegex(ValueError, 'schema'):
+                    build_synthetic_intake(connect, str(Path(folder)))
             self.assertEqual(list(Path(folder).iterdir()), [])
+

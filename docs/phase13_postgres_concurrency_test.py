@@ -50,7 +50,15 @@ def main():
                 raise RuntimeError('Isolated PostgreSQL readiness timed out')
             identity_schema = SCHEMA.parent.parent / 'demo' / 'nawa_demo' / 'migrations' / '002_identity_foundation.sql'
             run(base + ['-c', 'CREATE TABLE nawa_quotations (id text PRIMARY KEY);',
-                        '-f', str(identity_schema), '-f', str(SCHEMA)])
+                        '-f', str(identity_schema)])
+            project = SCHEMA.parent.parent
+            env = os.environ.copy()
+            env['NAWA_PHASE13_TEST_DSN'] = f'host=127.0.0.1 port={port} dbname=postgres user=nawa_test'
+            env['PYTHONPATH'] = os.pathsep.join((str(project / '.deps'), str(project / '.deps-pdf')))
+            setup = ('import os,psycopg; from nawa_demo.intake_migrate import apply_intake_migrations; '
+                     'conn=psycopg.connect(os.environ["NAWA_PHASE13_TEST_DSN"]); '
+                     'apply_intake_migrations(conn); conn.commit(); conn.close()')
+            run([sys.executable, '-c', setup], cwd=project / 'demo', env=env)
             run(base + ['-c', """INSERT INTO nawa_tenants VALUES ('a');
                 INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes) VALUES
                 ('00000000-0000-0000-0000-000000000001','a','one.txt',repeat('a',64),1),
@@ -88,10 +96,6 @@ def main():
             if count != '2':
                 raise AssertionError('Expected exactly two claimed jobs')
             print('PASS: two concurrent PostgreSQL workers claimed different synthetic jobs')
-            project = SCHEMA.parent.parent
-            env = os.environ.copy()
-            env['NAWA_PHASE13_TEST_DSN'] = f'host=127.0.0.1 port={port} dbname=postgres user=nawa_test'
-            env['PYTHONPATH'] = os.pathsep.join((str(project / '.deps'), str(project / '.deps-pdf')))
             result = run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tests',
                           '-p', 'test_intake_postgres.py', '-v'], cwd=project / 'demo', env=env)
             print(result.stderr.strip())
@@ -108,3 +112,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

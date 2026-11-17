@@ -5,6 +5,7 @@ from pathlib import Path
 from .intake_postgres import PostgresIntakeJobs
 from .intake_store import LocalIntakeStore
 from .intake_worker import process_one
+from .intake_migrate import verify_intake_migrations
 
 
 def main():
@@ -20,9 +21,12 @@ def main():
                                user=os.environ['POSTGRES_USER'], password=os.environ['POSTGRES_PASSWORD'],
                                port=os.environ.get('POSTGRES_PORT', '5432'),
                                connect_timeout=5)
+    with connect() as conn:
+        verify_intake_migrations(conn)
     state = process_one(PostgresIntakeJobs(connect), LocalIntakeStore(directory), tenant)
     print('Synthetic intake worker:', state or 'no job')
 
 
 if __name__ == '__main__':
     main()
+

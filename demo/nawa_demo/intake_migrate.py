@@ -10,10 +10,33 @@ from pathlib import Path
 MIGRATIONS = Path(__file__).with_name('intake_migrations')
 
 
-def apply_intake_migrations(connection):
-    files = [(path.name, path.read_bytes()) for path in sorted(MIGRATIONS.glob('[0-9][0-9][0-9]_*.sql'))]
+def _files():
+    # Normalize checkout line endings so the same migration has the same
+    # checksum on Windows and Linux.
+    files = [(path.name, path.read_text(encoding='utf-8').encode('utf-8'))
+             for path in sorted(MIGRATIONS.glob('[0-9][0-9][0-9]_*.sql'))]
     if not files:
         raise RuntimeError('No intake migrations found')
+    return files
+
+
+def verify_intake_migrations(connection):
+    """Fail closed on missing tables or changed migration records; do not apply."""
+    expected = {name: hashlib.sha256(content).hexdigest() for name, content in _files()}
+    with connection.cursor() as cur:
+        cur.execute("""SELECT to_regclass('nawa_intake_schema_migrations'),
+            to_regclass('nawa_intake_documents'), to_regclass('nawa_intake_jobs'),
+            to_regclass('nawa_intake_versions')""")
+        row = cur.fetchone()
+        if not row or any(value is None for value in row):
+            raise ValueError('Synthetic intake schema is not installed')
+        cur.execute('SELECT name,checksum FROM nawa_intake_schema_migrations')
+        if dict(cur.fetchall()) != expected:
+            raise ValueError('Synthetic intake migration history mismatch')
+
+
+def apply_intake_migrations(connection):
+    files = _files()
     with connection.transaction():
         with connection.cursor() as cur:
             cur.execute('SELECT pg_advisory_xact_lock(%s)', (6892110313,))
@@ -52,3 +75,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

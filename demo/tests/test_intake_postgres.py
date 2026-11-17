@@ -33,7 +33,7 @@ from nawa_demo.identity_repository import membership_by_key
 from nawa_demo.protected_api import make_protected_handler
 from nawa_demo.session_draft import SessionStore
 from nawa_demo.intake_runtime import build_synthetic_intake
-from nawa_demo.intake_migrate import apply_intake_migrations
+from nawa_demo.intake_migrate import apply_intake_migrations, verify_intake_migrations
 from nawa_demo.migrate import migrate
 
 DSN = os.environ.get('NAWA_PHASE13_TEST_DSN')
@@ -314,9 +314,13 @@ class PostgresIntakeTests(unittest.TestCase):
             migrate(conn)
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
+            verify_intake_migrations(conn)
             self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 1)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
+            with self.assertRaisesRegex(ValueError, 'history mismatch'):
+                verify_intake_migrations(conn)
             with self.assertRaisesRegex(RuntimeError, 'history mismatch'):
                 apply_intake_migrations(conn)
+

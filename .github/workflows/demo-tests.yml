@@ -63,15 +63,22 @@ jobs:
         env:
           POSTGRES_USER: nawa_test
           POSTGRES_PASSWORD: synthetic-ci-only
-          POSTGRES_DB: nawa_test
+          POSTGRES_DB: nawa_phase13_qa_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U nawa_test -d nawa_test"
+          --health-cmd "pg_isready -U nawa_test -d nawa_phase13_qa_ci"
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       PGPASSWORD: synthetic-ci-only
-      NAWA_PHASE13_TEST_DSN: 'host=127.0.0.1 port=5432 dbname=nawa_test user=nawa_test password=synthetic-ci-only'
+      NAWA_PHASE13_TEST_DSN: 'host=127.0.0.1 port=5432 dbname=nawa_phase13_qa_ci user=nawa_test password=synthetic-ci-only'
+      NAWA_INTAKE: synthetic
+      NAWA_AUTH: oidc
+      NAWA_STORAGE: postgres
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_DB: nawa_phase13_qa_ci
+      POSTGRES_USER: nawa_test
+      POSTGRES_PASSWORD: synthetic-ci-only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -85,9 +92,10 @@ jobs:
       - name: Create isolated synthetic schema
         run: |
           for file in demo/nawa_demo/migrations/00*.sql; do
-            psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U nawa_test -d nawa_test -f "$file"
+            psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U nawa_test -d nawa_phase13_qa_ci -f "$file"
           done
-          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U nawa_test -d nawa_test -f docs/phase13-postgres-schema-draft.sql
+          cd demo
+          python -m nawa_demo.intake_migrate
       - name: Test synthetic intake and recovery
         run: |
           cd demo
@@ -113,3 +121,4 @@ jobs:
         run: docker compose -p nawa-phase12-ci -f compose.phase12-qa.yaml up -d
       - name: Verify local synthetic Keycloak flow
         run: docker compose -p nawa-phase12-ci -f compose.phase12-qa.yaml exec -T nawa python -m nawa_demo.phase12_live_check
+
