@@ -9,6 +9,16 @@ from nawa_demo import dashboard_container
 
 
 class DockerEntrypointTests(unittest.TestCase):
+    @patch('nawa_demo.dashboard_container.HTTPServer')
+    def test_configurable_test_port_and_invalid_port(self, http_cls):
+        with patch.dict(os.environ, {'NAWA_BIND_PORT':'8766'}, clear=True):
+            with contextlib.redirect_stdout(io.StringIO()):
+                dashboard_container.serve()
+        self.assertEqual(http_cls.call_args.args[0], ('0.0.0.0', 8766))
+        with patch.dict(os.environ, {'NAWA_BIND_PORT':'80'}, clear=True):
+            with self.assertRaisesRegex(ValueError, 'unprivileged'):
+                dashboard_container.serve()
+
     def test_intake_cannot_be_enabled_in_demo_mode(self):
         with patch.dict(os.environ, {'NAWA_INTAKE': 'synthetic', 'NAWA_AUTH': 'demo', 'NAWA_STORAGE': 'memory'}, clear=True):
             with self.assertRaisesRegex(ValueError, 'requires OIDC and PostgreSQL'):
@@ -42,3 +52,4 @@ class DockerEntrypointTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

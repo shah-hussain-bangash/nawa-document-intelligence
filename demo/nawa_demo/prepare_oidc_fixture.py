@@ -49,10 +49,13 @@ def prepare(target, *, phase=12):
               .sign(ca_key, hashes.SHA256()))
     users = [{'subject': str(uuid4()), 'username': 'synthetic-' + role,
               'password': secrets.token_urlsafe(24), 'role': role} for role in ('analyst', 'reviewer', 'outsider')]
+    redirect_uris = [f'http://127.0.0.1:{web_port}/auth/callback']
+    if phase == 13:
+        redirect_uris.append('http://127.0.0.1:19766/auth/callback')
     realm = {'realm': realm_name, 'enabled': True, 'sslRequired': 'all', 'registrationAllowed': False,
              'clients': [{'clientId': realm_name, 'enabled': True, 'publicClient': True,
                           'standardFlowEnabled': True, 'directAccessGrantsEnabled': False,
-                          'redirectUris': [f'http://127.0.0.1:{web_port}/auth/callback'],
+                          'redirectUris': redirect_uris,
                           'attributes': {'pkce.code.challenge.method': 'S256'}}],
              'users': [{'id': user['subject'], 'username': user['username'], 'enabled': True,
                         'firstName': 'Synthetic', 'lastName': user['role'].capitalize(),

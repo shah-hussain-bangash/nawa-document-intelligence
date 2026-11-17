@@ -14,6 +14,9 @@ def serve():
     mode = os.environ.get('NAWA_STORAGE', 'memory')
     auth_mode = os.environ.get('NAWA_AUTH', 'demo')
     intake_mode = os.environ.get('NAWA_INTAKE', 'off')
+    bind_port = int(os.environ.get('NAWA_BIND_PORT', '8765'))
+    if not 1024 <= bind_port <= 65535:
+        raise ValueError('NAWA_BIND_PORT must be an unprivileged TCP port')
     if auth_mode not in ('demo', 'oidc'):
         raise ValueError('NAWA_AUTH must be demo or oidc')
     if intake_mode not in ('off', 'synthetic'):
@@ -80,8 +83,8 @@ def serve():
                                          allowed_origin=origin, intake=intake)
     else:
         raise ValueError('NAWA_AUTH must be demo or oidc')
-    with HTTPServer(('0.0.0.0', 8765), handler) as server:
-        print('NAWA synthetic Docker dashboard: http://127.0.0.1:8765', flush=True)
+    with HTTPServer(('0.0.0.0', bind_port), handler) as server:
+        print(f'NAWA synthetic Docker dashboard container port: {bind_port}', flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
@@ -90,3 +93,4 @@ def serve():
 
 if __name__ == '__main__':
     serve()
+

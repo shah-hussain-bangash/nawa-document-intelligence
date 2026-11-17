@@ -16,6 +16,7 @@ services:
     ports:
       - "127.0.0.1:19443:19443"
       - "127.0.0.1:19765:8765"
+      - "127.0.0.1:19766:8766"
     volumes:
       - ./.data/phase13-identity/server.crt:/opt/keycloak/conf/server.crt:ro
       - ./.data/phase13-identity/server.key:/opt/keycloak/conf/server.key:ro
@@ -51,6 +52,41 @@ services:
       NAWA_INTAKE_DIR: /intake
       NAWA_TENANT_ID: tenant-a
       NAWA_WEB_ORIGIN: http://127.0.0.1:19765
+      POSTGRES_HOST: db
+      OIDC_ISSUER: https://localhost:19443/realms/nawa-phase13
+      OIDC_CLIENT_ID: nawa-phase13
+      OIDC_CA_FILE: /identity/ca.pem
+    volumes:
+      - qa13_documents:/intake
+      - ./.data/phase13-identity/ca.pem:/identity/ca.pem:ro
+      - ./.data/phase13-identity/fixture.json:/identity/fixture.json:ro
+    depends_on:
+      identity:
+        condition: service_started
+      init-db:
+        condition: service_completed_successfully
+      init-files:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+  nawa-b:
+    image: nawa-phase13-test
+    network_mode: service:identity
+    env_file: .data/phase13-identity/db.env
+    environment:
+      NAWA_STORAGE: postgres
+      NAWA_AUTH: oidc
+      NAWA_INTAKE: synthetic
+      NAWA_INTAKE_DIR: /intake
+      NAWA_TENANT_ID: tenant-b
+      NAWA_BIND_PORT: 8766
+      NAWA_WEB_ORIGIN: http://127.0.0.1:19766
       POSTGRES_HOST: db
       OIDC_ISSUER: https://localhost:19443/realms/nawa-phase13
       OIDC_CLIENT_ID: nawa-phase13

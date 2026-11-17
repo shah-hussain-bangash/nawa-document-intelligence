@@ -21,15 +21,17 @@ def main():
                          connect_timeout=5) as conn:
         migrate(conn)
         apply_intake_migrations(conn)
-        conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s) ON CONFLICT DO NOTHING', ('tenant-a',))
+        conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s),(%s) ON CONFLICT DO NOTHING', ('tenant-a', 'tenant-b'))
         for user in users:
-            if user['role'] not in ('analyst', 'reviewer'):
+            if user['role'] not in ('analyst', 'reviewer', 'outsider'):
                 continue
+            tenant = 'tenant-b' if user['role'] == 'outsider' else 'tenant-a'
+            role = 'analyst' if user['role'] == 'outsider' else user['role']
             conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s) ON CONFLICT DO NOTHING',
                          (ISSUER, user['subject']))
             conn.execute('''INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)
                 ON CONFLICT (issuer,subject,tenant_id) DO UPDATE SET role=EXCLUDED.role,active=true''',
-                (ISSUER, user['subject'], 'tenant-a', user['role']))
+                (ISSUER, user['subject'], tenant, role))
     print('Dedicated synthetic Phase 13 QA database initialized.')
 
 

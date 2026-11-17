@@ -55,13 +55,45 @@ def main():
     if status != 200 or json.loads(result)['result']['total'] != '1050.00':
         raise AssertionError('Synthetic result mismatch')
 
+    # This user is provisioned for tenant B only and must not sign in to A.
+    oidc.login(users['outsider'], expected=403)
+    app_a, origin_a = oidc.APP, oidc.ORIGIN
+    oidc.APP, oidc.ORIGIN = 'http://127.0.0.1:8766', 'http://127.0.0.1:19766'
+    for _ in range(30):
+        try:
+            status, _, _ = oidc.request(analyst, oidc.APP + '/api/ready')
+            if status == 200:
+                break
+        except Exception:
+            pass
+        time.sleep(1)
+    else:
+        raise AssertionError('Tenant B application unavailable')
+    other_jar, other = oidc.login(users['outsider'])
+    other_csrf = next(cookie.value for cookie in other_jar if cookie.name == 'nawa_csrf')
+    other_headers = {'Content-Type':'application/json', 'Origin':oidc.ORIGIN, 'X-NAWA-CSRF':other_csrf}
+    for endpoint in ('status', 'result'):
+        status, _, _ = oidc.request(other, oidc.APP + '/api/intake/' + endpoint + '?id=' + document_id)
+        if status != 404:
+            raise AssertionError('Cross-tenant document access was not denied')
+    status, _, other_result = oidc.request(other, oidc.APP + '/api/intake/submit', data=body, headers=other_headers)
+    if status != 200 or not json.loads(other_result)['created']:
+        raise AssertionError('Cross-tenant duplicate handling mismatch')
+    other_document = json.loads(other_result)['id']
+    if other_document == document_id:
+        raise AssertionError('Tenant documents share an identifier')
+    oidc.APP, oidc.ORIGIN = app_a, origin_a
+    status, _, _ = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + other_document)
+    if status != 404:
+        raise AssertionError('Reverse cross-tenant document access was not denied')
+
     review_jar, reviewer = oidc.login(users['reviewer'])
     review_csrf = next(cookie.value for cookie in review_jar if cookie.name == 'nawa_csrf')
     status, _, _ = oidc.request(reviewer, oidc.APP + '/api/intake/submit', data=body,
                                 headers={**headers, 'X-NAWA-CSRF':review_csrf})
     if status != 403:
         raise AssertionError('Reviewer upload was not denied')
-    print('Synthetic Phase 13 QA passed: Keycloak login, CSRF, upload, worker, result and role denial.')
+    print('Synthetic Phase 13 QA passed: Keycloak login, CSRF, upload, worker, result, role and cross-tenant denial.')
 
 
 if __name__ == '__main__':

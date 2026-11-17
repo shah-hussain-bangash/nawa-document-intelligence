@@ -13,7 +13,8 @@ class Phase13FixtureTests(unittest.TestCase):
             prepare(target, phase=13)
             realm = json.loads((target / 'import' / 'realm.json').read_text(encoding='utf-8'))
             self.assertEqual(realm['realm'], 'nawa-phase13')
-            self.assertEqual(realm['clients'][0]['redirectUris'], ['http://127.0.0.1:19765/auth/callback'])
+            self.assertEqual(realm['clients'][0]['redirectUris'], ['http://127.0.0.1:19765/auth/callback',
+                                                                  'http://127.0.0.1:19766/auth/callback'])
             self.assertIn('POSTGRES_DB=nawa_phase13_qa_demo\n', (target / 'db.env').read_text(encoding='utf-8'))
             with self.assertRaises(FileExistsError):
                 prepare(target, phase=13)
