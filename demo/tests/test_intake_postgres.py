@@ -224,6 +224,33 @@ class PostgresIntakeTests(unittest.TestCase):
                                      (self.tenant,)).fetchone()[0]
             self.assertEqual(count, 1)
 
+    def test_promotion_refuses_changed_source_before_and_after_creation(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            principal = Principal(identity_key, self.tenant, 'analyst')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = service.submit(principal, 'english.txt', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            source = Path(folder) / document
+            source.write_bytes(b'tampered')
+            with self.assertRaisesRegex(ValueError, 'integrity'):
+                service.promote(principal, document)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_quotation_tenants WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 0)
+            source.write_bytes(content)
+            self.assertTrue(service.promote(principal, document)['created'])
+            source.write_bytes(b'tampered again')
+            with self.assertRaisesRegex(ValueError, 'integrity'):
+                service.promote(principal, document)
+
     def test_http_synthetic_session_to_postgres_result(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))

@@ -78,12 +78,15 @@ class ScopedIntake:
         document = UUID(document_id)
         with self.connect() as conn:
             self._recheck(conn, principal, 'load')
-            row = conn.execute('''SELECT j.state,j.result FROM nawa_intake_documents d
+            row = conn.execute('''SELECT j.state,j.result,d.sha256 FROM nawa_intake_documents d
                 JOIN nawa_intake_jobs j ON j.tenant_id=d.tenant_id AND j.document_id=d.id
                 WHERE d.tenant_id=%s AND d.id=%s FOR UPDATE OF d,j''',
                 (principal.tenant, document)).fetchone()
             if row is None or row[0] != 'completed' or not isinstance(row[1], dict):
                 raise ValueError('Completed document unavailable')
+            # Recheck the current source before returning or creating a review
+            # record; processing may have completed before the file changed.
+            self.store.read_verified(document.hex, row[2].strip())
             previous = conn.execute('''SELECT q.id,q.quotation FROM nawa_intake_promotions p
                 JOIN nawa_quotations q ON q.id=p.quotation_id
                 WHERE p.tenant_id=%s AND p.document_id=%s''',
