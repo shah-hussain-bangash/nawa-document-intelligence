@@ -1,0 +1,8 @@
+[
+  {"passage_id":"en-quote-v1-p1","document_id":"en-quote","version":"v1","tenant_id":"demo-a","page":1,"text":"Supplier Example English Supplies. Subtotal AED 1000.00. VAT rate 5 percent. Grand total AED 1050.00.","allowed_principals":["reviewer-a"],"source":"english_supplier.pdf","method":"synthetic"},
+  {"passage_id":"ar-quote-v1-p1","document_id":"ar-quote","version":"v1","tenant_id":"demo-a","page":1,"text":"اسم المورد شركة المثال للتوريدات. المجموع الفرعي ٩٠٠٫٠٠ درهم. نسبة الضريبة ٥. قيمة الضريبة ٤٥٫٠٠. الإجمالي ٩٤٥٫٠٠.","allowed_principals":["reviewer-a"],"source":"arabic_text_supplier.pdf","method":"synthetic"},
+  {"passage_id":"policy-v1-p2","document_id":"procurement-policy","version":"v1","tenant_id":"demo-a","page":2,"text":"Procurement review requires a human reviewer to verify evidence and confirm VAT discrepancies before approval.","allowed_principals":["reviewer-a","auditor-a"],"source":"synthetic_policy.pdf","method":"synthetic"},
+  {"passage_id":"restricted-v1-p1","document_id":"restricted-quote","version":"v1","tenant_id":"demo-a","page":1,"text":"Confidential supplier Falcon Robotics quoted AED 2000 for inspection services.","allowed_principals":["admin-a"],"source":"restricted.pdf","method":"synthetic"},
+  {"passage_id":"other-tenant-v1-p1","document_id":"tenant-b-quote","version":"v1","tenant_id":"demo-b","page":1,"text":"Exclusive tenant B quotation for satellite equipment. Supplier Orion.","allowed_principals":["reviewer-a"],"source":"tenant_b.pdf","method":"synthetic"}
+]
+
