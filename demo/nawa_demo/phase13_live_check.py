@@ -44,6 +44,9 @@ def main():
     if status != 200:
         raise AssertionError('Synthetic upload failed')
     document_id = json.loads(result)['id']
+    status, _, listing = oidc.request(analyst, oidc.APP + '/api/intake/documents')
+    if status != 200 or document_id not in {item['id'] for item in json.loads(listing)['documents']}:
+        raise AssertionError('Synthetic document was not listed')
     for _ in range(60):
         status, _, result = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + document_id)
         if status == 200 and json.loads(result)['state'] == 'completed':
@@ -94,6 +97,10 @@ def main():
     other_document = json.loads(other_result)['id']
     if other_document == document_id:
         raise AssertionError('Tenant documents share an identifier')
+    status, _, listing = oidc.request(other, oidc.APP + '/api/intake/documents')
+    other_ids = {item['id'] for item in json.loads(listing)['documents']} if status == 200 else set()
+    if other_document not in other_ids or document_id in other_ids:
+        raise AssertionError('Tenant document listing was not isolated')
     for _ in range(60):
         status, _, other_state = oidc.request(other, oidc.APP + '/api/intake/status?id=' + other_document)
         if status == 200 and json.loads(other_state)['state'] == 'completed':

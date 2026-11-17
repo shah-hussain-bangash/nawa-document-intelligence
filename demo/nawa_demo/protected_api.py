@@ -91,6 +91,14 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                     return self._json({'error': 'Authentication or permission required'}, 403)
                 except Exception:
                     return self._json({'error': 'Identity service unavailable'}, 503)
+            if path == '/api/intake/documents' and intake is not None:
+                try:
+                    principal = self._principal('list')
+                    return self._json({'documents':intake.list_documents(principal)})
+                except (SessionError, AccessDenied, PermissionError):
+                    return self._json({'error':'Authentication or permission required'}, 403)
+                except Exception:
+                    return self._json({'error':'Intake unavailable'}, 503)
             if path in ('/api/intake/status', '/api/intake/result') and intake is not None:
                 try:
                     principal = self._principal('view')

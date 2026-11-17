@@ -57,6 +57,18 @@ class ScopedIntake:
             self._recheck(conn, principal, 'view')
             return PostgresIntakeJobs(lambda: nullcontext(conn)).state(principal.tenant, document_id)
 
+    def list_documents(self, principal):
+        self._require(principal, 'list')
+        with self.connect() as conn:
+            self._recheck(conn, principal, 'list')
+            rows = conn.execute('''SELECT d.id,d.filename,j.state,j.attempts,d.created_at
+                FROM nawa_intake_documents d JOIN nawa_intake_jobs j
+                  ON j.tenant_id=d.tenant_id AND j.document_id=d.id
+                WHERE d.tenant_id=%s ORDER BY d.created_at DESC,d.id DESC LIMIT 20''',
+                (principal.tenant,)).fetchall()
+        return [{'id':row[0].hex, 'filename':row[1], 'state':row[2], 'attempts':row[3],
+                 'created_at':row[4].isoformat()} for row in rows]
+
     def result(self, principal, document_id):
         self._require(principal, 'view')
         with self.connect() as conn:

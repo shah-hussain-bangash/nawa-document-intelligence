@@ -38,6 +38,8 @@ class FakeIntake:
         return ('abc', True)
     def state(self, principal, document_id):
         return ('validated', 0) if document_id == 'abc' and principal.tenant == 'tenant-a' else None
+    def list_documents(self, principal):
+        return [{'id':'abc','filename':'synthetic.txt','state':'validated','attempts':0}] if principal.tenant == 'tenant-a' else []
     def result(self, principal, document_id):
         return None
     def link_version(self, principal, document_id, family_id, *, expected_previous):
@@ -184,6 +186,13 @@ class ProtectedApiTests(unittest.TestCase):
         status, result = self.request(path, payload=body, cookie=analyst, csrf=self.analyst['csrf'], origin=origin)
         self.assertEqual((status, result['state']), (200, 'validated'))
         self.assertEqual(self.intake.calls[-1][2], 'retry')
+
+    def test_document_list_requires_session_and_uses_session_tenant(self):
+        self.assertEqual(self.request('/api/intake/documents')[0], 403)
+        cookie = 'nawa_session=' + self.viewer['session']
+        status, result = self.request('/api/intake/documents', cookie=cookie, extra={'X-Tenant':'forged'})
+        self.assertEqual(status, 200)
+        self.assertEqual(result['documents'][0]['id'], 'abc')
         self.assertEqual(self.scoped.calls, [])
         status, _ = self.request('/api/quotations', cookie='nawa_session=fake; nawa_session=other')
         self.assertEqual(status, 403)

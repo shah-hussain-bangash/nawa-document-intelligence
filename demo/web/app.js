@@ -37,6 +37,19 @@ $('intakeSubmit').addEventListener('click',()=>task(async()=>{
   const accepted=result.files.filter(item=>item.id).length;
   message(`${accepted} of ${files.length} files accepted or already stored.`,accepted===0);
 }));
+$('intakeRefresh').addEventListener('click',()=>task(async()=>{
+  const response=await fetch('/api/intake/documents');const result=await response.json();
+  if(!response.ok)throw new Error(result.error||'Documents unavailable');
+  const root=$('intakeJobs');clear(root);
+  if(!result.documents.length){root.append(el('p','No synthetic documents found.','empty'));return;}
+  for(const item of result.documents){
+    const row=el('div',undefined,'row');
+    row.append(el('span',`${item.filename} · ${item.state} · attempts: ${item.attempts} · ID: ${item.id}`));
+    const use=el('button','Use document','secondary');
+    use.addEventListener('click',()=>{$('intakeId').value=item.id;$('intakeStatus').textContent='Document selected. Check its status or choose an action.';});
+    row.append(use);root.append(row);
+  }
+}));
 $('intakeCheck').addEventListener('click',()=>task(async()=>{
   const id=$('intakeId').value.trim();if(!id)throw new Error('Enter a document ID');
   const response=await fetch('/api/intake/status?id='+encodeURIComponent(id));const status=await response.json();

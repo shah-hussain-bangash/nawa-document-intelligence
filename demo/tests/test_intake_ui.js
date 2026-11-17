@@ -36,6 +36,7 @@ async function fetch(pathname, options = {}) {
     data = file.filename === 'quota.txt' ? {files:[{error:'Synthetic document limit reached'}]} : {files:[{id:'abc123', created:true}]};
   }
   else if (pathname === '/api/intake/status?id=abc123') data = {state:'completed', attempts:1};
+  else if (pathname === '/api/intake/documents') data = {documents:[{id:'abc123',filename:'synthetic.txt',state:'completed',attempts:1}]};
   else if (pathname === '/api/intake/result?id=abc123') data = {result:{supplier:'Synthetic supplier', total:'1050.00'}};
   else if (pathname === '/api/intake/version') data = {family_id:'synthetic-family', version:1};
   else if (pathname === '/api/intake/versions?family=synthetic-family') data = {versions:[{version:1,id:'abc123'}]};
@@ -66,7 +67,10 @@ async function mainTest() {
   assert.match(get('intakeResults').children[0].textContent, /limit reached/);
   assert.match(get('message').textContent, /0 of 1 files/);
   assert.equal(get('message').className, 'message error');
-  get('intakeId').value = 'abc123';
+  await get('intakeRefresh').events.click();
+  assert.match(get('intakeJobs').children[0].children[0].textContent, /synthetic\.txt.*abc123/);
+  get('intakeJobs').children[0].children[1].events.click();
+  assert.equal(get('intakeId').value, 'abc123');
   await get('intakeCheck').events.click();
   assert.match(get('intakeStatus').textContent, /completed.*1050\.00/);
   await get('intakePromote').events.click();

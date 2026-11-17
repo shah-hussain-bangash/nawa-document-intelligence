@@ -188,6 +188,8 @@ class PostgresIntakeTests(unittest.TestCase):
             service = ScopedIntake(self.connect, store)
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
             document, _ = service.submit(analyst, 'english.txt', content)
+            self.assertEqual([item['id'] for item in service.list_documents(analyst)], [document])
+            self.assertEqual(service.list_documents(viewer), [])
             with self.connect() as conn:
                 conn.execute("UPDATE nawa_intake_jobs SET state='received' WHERE tenant_id=%s AND document_id=%s",
                              (self.tenant, document))
@@ -305,6 +307,8 @@ class PostgresIntakeTests(unittest.TestCase):
                              (issuer, subject, self.tenant))
             with self.assertRaises(PermissionError):
                 service.result(analyst, document)
+            with self.assertRaises(PermissionError):
+                service.list_documents(analyst)
             with self.assertRaises(PermissionError):
                 service.version_history(analyst, family)
             with self.assertRaises(PermissionError):
