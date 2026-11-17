@@ -74,6 +74,8 @@ jobs:
           python -m unittest discover -s tests -p 'test_intake_store.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests -p 'test_intake_worker.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/browser_intake_mock.py
           exit $LASTEXITCODE
 
   phase13-postgres-integration:
