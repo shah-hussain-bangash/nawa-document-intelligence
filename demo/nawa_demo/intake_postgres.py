@@ -5,6 +5,7 @@ import secrets
 from uuid import UUID, uuid4
 
 MAX_DOCUMENTS_PER_TENANT = 20
+MAX_BYTES_PER_TENANT = 16 * 1024 * 1024
 
 
 class IntakeRejected(ValueError):
@@ -34,8 +35,10 @@ class PostgresIntakeJobs:
                 existing = cur.fetchone()
                 if existing:
                     return existing[0].hex, False
-                cur.execute('SELECT count(*) FROM nawa_intake_documents WHERE tenant_id=%s', (tenant,))
-                if cur.fetchone()[0] >= MAX_DOCUMENTS_PER_TENANT:
+                cur.execute('''SELECT count(*), COALESCE(sum(size_bytes),0)
+                    FROM nawa_intake_documents WHERE tenant_id=%s''', (tenant,))
+                count, used_bytes = cur.fetchone()
+                if count >= MAX_DOCUMENTS_PER_TENANT or used_bytes + metadata.size > MAX_BYTES_PER_TENANT:
                     raise IntakeRejected('Synthetic document quota reached')
                 cur.execute('''INSERT INTO nawa_intake_documents (id,tenant_id,filename,sha256,size_bytes)
                     VALUES (%s,%s,%s,%s,%s) ON CONFLICT (tenant_id,sha256) DO NOTHING RETURNING id''',

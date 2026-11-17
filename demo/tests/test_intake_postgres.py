@@ -21,8 +21,8 @@ try:
 except ImportError:
     psycopg = None
 
-from nawa_demo.intake_postgres import IntakeRejected, MAX_DOCUMENTS_PER_TENANT, PostgresIntakeJobs
-from nawa_demo.intake_validation import check_document
+from nawa_demo.intake_postgres import IntakeRejected, MAX_BYTES_PER_TENANT, MAX_DOCUMENTS_PER_TENANT, PostgresIntakeJobs
+from nawa_demo.intake_validation import MAX_DOCUMENT_BYTES, check_document
 from nawa_demo.intake_pipeline import SyntheticIntakePipeline
 from nawa_demo.intake_store import LocalIntakeStore
 from nawa_demo.intake_worker import process_one
@@ -255,6 +255,37 @@ class PostgresIntakeTests(unittest.TestCase):
                 count = conn.execute('SELECT count(*) FROM nawa_intake_documents WHERE tenant_id=%s',
                                      (self.tenant,)).fetchone()[0]
             self.assertEqual(count, MAX_DOCUMENTS_PER_TENANT)
+
+    def test_tenant_byte_quota_is_atomic_and_allows_duplicates(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            principal = Principal(identity_key, self.tenant, 'analyst')
+            first, _ = service.submit(principal, 'one.txt', b'A' * MAX_DOCUMENT_BYTES)
+            service.submit(principal, 'two.txt', b'B' * MAX_DOCUMENT_BYTES)
+            service.submit(principal, 'three.txt', b'C' * MAX_DOCUMENT_BYTES)
+            service.submit(principal, 'four.txt', b'D' * (MAX_DOCUMENT_BYTES - 1))
+            def submit(content):
+                try:
+                    return service.submit(principal, 'last.txt', content)
+                except IntakeRejected:
+                    return None
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                outcomes = list(pool.map(submit, (b'x', b'y')))
+            self.assertEqual(sum(item is not None for item in outcomes), 1)
+            self.assertEqual(service.submit(principal, 'duplicate.txt', b'A' * MAX_DOCUMENT_BYTES), (first, False))
+            self.assertEqual(len(list(Path(folder).iterdir())), 5)
+            self.assertEqual(sum(path.stat().st_size for path in Path(folder).iterdir()), MAX_BYTES_PER_TENANT)
+            with self.connect() as conn:
+                size = conn.execute('SELECT sum(size_bytes) FROM nawa_intake_documents WHERE tenant_id=%s',
+                                    (self.tenant,)).fetchone()[0]
+            self.assertEqual(size, MAX_BYTES_PER_TENANT)
 
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
