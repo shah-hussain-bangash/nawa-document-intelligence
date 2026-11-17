@@ -42,6 +42,9 @@ class FakeIntake:
         return expected_previous + 1
     def version_history(self, principal, family_id):
         return [(1, 'abc')] if family_id == 'family' and principal.tenant == 'tenant-a' else []
+    def promote(self, principal, document_id):
+        self.calls.append((principal, document_id))
+        return {'id':'quote1', 'quotation':{'total':'1050.00'}, 'created':True}
 
 
 class ProtectedApiTests(unittest.TestCase):
@@ -135,6 +138,21 @@ class ProtectedApiTests(unittest.TestCase):
         self.assertEqual(len(result['family_id']), 32)
         status, history = self.request('/api/intake/versions?family=family', cookie=viewer_cookie)
         self.assertEqual((status, history['versions'][0]['id']), (200, 'abc'))
+
+    def test_promotion_requires_analyst_and_session_csrf(self):
+        origin = 'http://127.0.0.1:8765'
+        body = {'id':'abc'}
+        viewer_cookie = 'nawa_session=' + self.viewer['session']
+        status, _ = self.request('/api/intake/promote', payload=body, cookie=viewer_cookie,
+                                 csrf=self.viewer['csrf'], origin=origin)
+        self.assertEqual(status, 403)
+        analyst_cookie = 'nawa_session=' + self.analyst['session']
+        status, _ = self.request('/api/intake/promote', payload=body, cookie=analyst_cookie, origin=origin)
+        self.assertEqual(status, 403)
+        status, result = self.request('/api/intake/promote', payload=body, cookie=analyst_cookie,
+                                      csrf=self.analyst['csrf'], origin=origin)
+        self.assertEqual((status, result['id']), (200, 'quote1'))
+        self.assertEqual(self.intake.calls[-1][0].tenant, 'tenant-a')
         self.assertEqual(self.scoped.calls, [])
         status, _ = self.request('/api/quotations', cookie='nawa_session=fake; nawa_session=other')
         self.assertEqual(status, 403)
@@ -228,3 +246,4 @@ class ProtectedApiTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

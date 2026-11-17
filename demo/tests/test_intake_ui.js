@@ -7,7 +7,7 @@ const path = require('node:path');
 
 function element() {
   return {
-    hidden: true, textContent: '', className: '', value: '', files: [], children: [], events: {},
+    hidden: true, textContent: '', className: '', value: '', files: [], children: [], events: {}, dataset: {},
     addEventListener(name, handler) { this.events[name] = handler; },
     append(...nodes) { this.children.push(...nodes); },
     replaceChildren(...nodes) { this.children = nodes; },
@@ -36,6 +36,8 @@ async function fetch(pathname, options = {}) {
   else if (pathname === '/api/intake/result?id=abc123') data = {result:{supplier:'Synthetic supplier', total:'1050.00'}};
   else if (pathname === '/api/intake/version') data = {family_id:'synthetic-family', version:1};
   else if (pathname === '/api/intake/versions?family=synthetic-family') data = {versions:[{version:1,id:'abc123'}]};
+  else if (pathname === '/api/intake/promote') data = {id:'quote1',created:true,quotation:{document:'synthetic.txt',supplier:'Synthetic',total:'1050.00',checks:{valid:true},evidence:{}}};
+  else if (pathname === '/api/review/show') data = {status:'approved',revision:1,history:[]};
   else throw new Error('Unexpected request: ' + pathname);
   return {ok:true, status:200, json:async () => data};
 }
@@ -58,6 +60,8 @@ async function mainTest() {
   get('intakeId').value = 'abc123';
   await get('intakeCheck').events.click();
   assert.match(get('intakeStatus').textContent, /completed.*1050\.00/);
+  await get('intakePromote').events.click();
+  assert.equal(get('count').textContent, 1);
   get('versionPrevious').value = '0';
   await get('versionLink').events.click();
   assert.equal(get('versionFamily').value, 'synthetic-family');
@@ -67,3 +71,4 @@ async function mainTest() {
 }
 
 mainTest().catch(error => { console.error(error); process.exitCode = 1; });
+

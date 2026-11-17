@@ -154,6 +154,14 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertIsNone(service.state(viewer, document))
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
             self.assertEqual(service.result(analyst, document)['total'], '1050.00')
+            promoted = service.promote(analyst, document)
+            self.assertTrue(promoted['created'])
+            self.assertEqual(promoted['quotation']['total'], '1050.00')
+            repeated = service.promote(analyst, document)
+            self.assertFalse(repeated['created'])
+            self.assertEqual(repeated['id'], promoted['id'])
+            with self.assertRaises(PermissionError):
+                service.promote(viewer, document)
             self.assertIsNone(service.result(viewer, document))
             with self.connect() as conn:
                 conn.execute('UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s',
@@ -162,6 +170,8 @@ class PostgresIntakeTests(unittest.TestCase):
                 service.result(analyst, document)
             with self.assertRaises(PermissionError):
                 service.version_history(analyst, family)
+            with self.assertRaises(PermissionError):
+                service.promote(analyst, document)
             with self.assertRaises(PermissionError):
                 service.submit(analyst, 'again.txt', content)
             self.assertEqual(len(list(Path(folder).iterdir())), 1)
@@ -190,6 +200,29 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertEqual(len(stored), 1)
             self.assertEqual(stored[0].read_bytes(), b'synthetic')
             self.assertEqual(self.jobs.state(self.tenant, stored[0].name), ('received', 0))
+
+    def test_concurrent_promotions_create_one_quotation(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            principal = Principal(identity_key, self.tenant, 'analyst')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = service.submit(principal, 'english.txt', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                results = list(pool.map(lambda _: service.promote(principal, document), range(4)))
+            self.assertEqual(sum(item['created'] for item in results), 1)
+            self.assertEqual(len({item['id'] for item in results}), 1)
+            with self.connect() as conn:
+                count = conn.execute('SELECT count(*) FROM nawa_quotation_tenants WHERE tenant_id=%s',
+                                     (self.tenant,)).fetchone()[0]
+            self.assertEqual(count, 1)
 
     def test_http_synthetic_session_to_postgres_result(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
@@ -229,6 +262,14 @@ class PostgresIntakeTests(unittest.TestCase):
                 self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
                 with urlopen(Request(base + '/api/intake/result?id=' + document, headers={'Cookie': headers['Cookie']}), timeout=10) as response:
                     self.assertEqual(json.load(response)['result']['total'], '1050.00')
+                promotion = json.dumps({'id':document}).encode()
+                with urlopen(Request(base + '/api/intake/promote', data=promotion, headers=headers), timeout=10) as response:
+                    first = json.load(response)
+                self.assertTrue(first['created'])
+                with urlopen(Request(base + '/api/intake/promote', data=promotion, headers=headers), timeout=10) as response:
+                    repeated = json.load(response)
+                self.assertFalse(repeated['created'])
+                self.assertEqual(first['id'], repeated['id'])
                 arabic = (Path(__file__).resolve().parents[1] / 'samples/arabic_quote.txt').read_bytes()
                 batch = {'files': [{'filename': 'duplicate.txt', 'content_base64': base64.b64encode(content).decode()},
                                    {'filename': 'arabic.txt', 'content_base64': base64.b64encode(arabic).decode()},

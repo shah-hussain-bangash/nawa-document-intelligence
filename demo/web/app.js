@@ -48,6 +48,11 @@ $('intakeCheck').addEventListener('click',()=>task(async()=>{
   }
   $('intakeStatus').textContent=text;
 }));
+$('intakePromote').addEventListener('click',()=>task(async()=>{
+  const id=$('intakeId').value.trim();if(!id)throw new Error('Enter a completed document ID');
+  const result=await request('/api/intake/promote',{id});loaded(result);
+  message(result.created?'Document added to quotation review.':'Document is already in quotation review.');
+}));
 $('versionLink').addEventListener('click',()=>task(async()=>{
   const id=$('intakeId').value.trim();const family=$('versionFamily').value.trim();const raw=$('versionPrevious').value.trim();
   if(!id||!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw)))throw new Error('Enter a document ID and a valid latest version number');
@@ -66,3 +71,4 @@ $('compareBtn').addEventListener('click',()=>task(async()=>{const ids=Array.from
 async function initialize(){const main=document.querySelector('main');main.hidden=true;try{const config=await fetch('/auth/config');if(!config.ok)throw new Error('Authentication configuration unavailable');const auth=await config.json();authMode=auth.mode;if(!['demo','oidc'].includes(authMode))throw new Error('Unknown authentication mode');if(authMode==='oidc'){const me=await fetch('/auth/me');if(me.status===403){$('signin').hidden=false;return;}if(!me.ok)throw new Error('Identity service unavailable');$('logout').hidden=false;if(auth.intake_enabled===true)$('intakePanel').hidden=false;}else{$('footerNote').textContent+=' · Reviewer identities are not authenticated';}main.hidden=false;const response=await fetch('/api/quotations');const result=await response.json();if(!response.ok)throw new Error(result.error||'Storage unavailable');for(const row of result.quotations)records.set(row.id,row.quotation);$('count').textContent=records.size;if(records.size){selected=records.keys().next().value;renderItems();renderDetails();renderReview();}const note=$('storageMode');if(note)note.textContent=result.storage==='postgres'?'PostgreSQL development storage':'Local, in-memory decisions';}catch(error){$('signin').hidden=false;$('signinError').textContent=error.message;}}
 $('logout').addEventListener('click',()=>task(async()=>{const response=await fetch('/auth/logout',{method:'POST',headers:{'X-NAWA-CSRF':csrfToken()}});if(!response.ok)throw new Error('Sign-out failed');window.location.reload();}));
 initialize();
+

@@ -158,6 +158,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 actions['/api/intake/submit'] = 'load'
                 actions['/api/intake/batch'] = 'load'
                 actions['/api/intake/version'] = 'load'
+                actions['/api/intake/promote'] = 'load'
             action = actions.get(path)
             if action is None:
                 return self._json({'error': 'Not found'}, 404)
@@ -183,7 +184,9 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 if not isinstance(payload, dict):
                     raise ValueError('Expected JSON object')
                 if action == 'load':
-                    if path == '/api/intake/version':
+                    if path == '/api/intake/promote':
+                        result = intake.promote(principal, payload.get('id'))
+                    elif path == '/api/intake/version':
                         family = payload.get('family_id') or uuid4().hex
                         document_id = payload.get('id')
                         expected = payload.get('expected_previous')
@@ -241,3 +244,4 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 return self._json({'error': 'Quotation storage unavailable'}, 503)
 
     return Handler
+

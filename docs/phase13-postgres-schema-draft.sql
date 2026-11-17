@@ -46,6 +46,19 @@ CREATE TABLE nawa_intake_versions (
     FOREIGN KEY (tenant_id, document_id) REFERENCES nawa_intake_documents(tenant_id, id) ON DELETE RESTRICT
 );
 
+-- A completed intake source can be promoted to one tenant-owned quotation.
+CREATE UNIQUE INDEX nawa_quotation_tenants_pair ON nawa_quotation_tenants (tenant_id, quotation_id);
+CREATE TABLE nawa_intake_promotions (
+    tenant_id text NOT NULL,
+    document_id uuid NOT NULL,
+    quotation_id text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, document_id),
+    UNIQUE (tenant_id, quotation_id),
+    FOREIGN KEY (tenant_id, document_id) REFERENCES nawa_intake_documents(tenant_id, id) ON DELETE RESTRICT,
+    FOREIGN KEY (tenant_id, quotation_id) REFERENCES nawa_quotation_tenants(tenant_id, quotation_id) ON DELETE RESTRICT
+);
+
 -- Proposed worker claim: use a short transaction and SELECT ... FOR UPDATE
 -- SKIP LOCKED, generate a fresh random token and store only its hash, then
 -- atomically set processing, increment attempts, and set a lease. Completion
@@ -53,3 +66,4 @@ CREATE TABLE nawa_intake_versions (
 -- Source-file storage and SQL cannot commit atomically: crashed submissions
 -- require explicit reconciliation. No access control is implied by tenant_id;
 -- verified, active membership must be enforced by the application on every call.
+

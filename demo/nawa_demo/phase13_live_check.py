@@ -54,6 +54,18 @@ def main():
     status, _, result = oidc.request(analyst, oidc.APP + '/api/intake/result?id=' + document_id)
     if status != 200 or json.loads(result)['result']['total'] != '1050.00':
         raise AssertionError('Synthetic result mismatch')
+    promote_payload = json.dumps({'id':document_id}).encode()
+    status, _, promoted_body = oidc.request(analyst, oidc.APP + '/api/intake/promote', data=promote_payload, headers=headers)
+    if status != 200 or not json.loads(promoted_body)['created']:
+        raise AssertionError('Synthetic review promotion failed')
+    quotation_id = json.loads(promoted_body)['id']
+    status, _, repeated = oidc.request(analyst, oidc.APP + '/api/intake/promote', data=promote_payload, headers=headers)
+    if status != 200 or json.loads(repeated)['created'] or json.loads(repeated)['id'] != quotation_id:
+        raise AssertionError('Synthetic review promotion was not idempotent')
+    status, _, _ = oidc.request(analyst, oidc.APP + '/api/review/start',
+                                data=json.dumps({'id':quotation_id}).encode(), headers=headers)
+    if status != 200:
+        raise AssertionError('Synthetic promoted review could not start')
 
     # This user is provisioned for tenant B only and must not sign in to A.
     oidc.login(users['outsider'], expected=403)
@@ -93,7 +105,7 @@ def main():
                                 headers={**headers, 'X-NAWA-CSRF':review_csrf})
     if status != 403:
         raise AssertionError('Reviewer upload was not denied')
-    print('Synthetic Phase 13 QA passed: Keycloak login, CSRF, upload, worker, result, role and cross-tenant denial.')
+    print('Synthetic Phase 13 QA passed: login, intake, worker, review, CSRF, role and cross-tenant denial.')
 
 
 if __name__ == '__main__':

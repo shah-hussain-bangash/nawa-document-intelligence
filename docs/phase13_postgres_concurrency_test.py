@@ -48,9 +48,8 @@ def main():
                 time.sleep(.1)
             else:
                 raise RuntimeError('Isolated PostgreSQL readiness timed out')
-            identity_schema = SCHEMA.parent.parent / 'demo' / 'nawa_demo' / 'migrations' / '002_identity_foundation.sql'
-            run(base + ['-c', 'CREATE TABLE nawa_quotations (id text PRIMARY KEY);',
-                        '-f', str(identity_schema)])
+            migrations = SCHEMA.parent.parent / 'demo' / 'nawa_demo' / 'migrations'
+            run(base + ['-f', str(migrations / '001_initial.sql'), '-f', str(migrations / '002_identity_foundation.sql')])
             project = SCHEMA.parent.parent
             env = os.environ.copy()
             env['NAWA_PHASE13_TEST_DSN'] = f'host=127.0.0.1 port={port} dbname=postgres user=nawa_test'
