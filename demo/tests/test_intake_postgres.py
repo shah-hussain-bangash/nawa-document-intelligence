@@ -7,6 +7,7 @@ import threading
 import subprocess
 import sys
 import shutil
+import time
 import unittest
 from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
@@ -119,6 +120,45 @@ class PostgresIntakeTests(unittest.TestCase):
         _, final_token = self.jobs.claim(self.tenant)
         self.assertEqual(self.jobs.finish(self.tenant, job, final_token, success=False), 'failed')
         self.assertIsNone(self.jobs.claim(self.tenant))
+
+    def test_interrupted_worker_job_is_reclaimed_after_lease_expiry(self):
+        with TemporaryDirectory() as folder:
+            root = Path(folder)
+            store = LocalIntakeStore(root / 'files')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = SyntheticIntakePipeline(store, self.jobs).submit(self.tenant, 'english.txt', content)
+            marker = root / 'claimed'
+            env = os.environ.copy()
+            env['NAWA_SYNTHETIC_TENANT'] = self.tenant
+            env['NAWA_SYNTHETIC_MARKER'] = str(marker)
+            code = ('import os,time,psycopg; from pathlib import Path; '
+                    'from nawa_demo.intake_postgres import PostgresIntakeJobs; '
+                    'jobs=PostgresIntakeJobs(lambda: psycopg.connect(os.environ["NAWA_PHASE13_TEST_DSN"])); '
+                    'claim=jobs.claim(os.environ["NAWA_SYNTHETIC_TENANT"],lease_seconds=4); '
+                    'assert claim is not None; Path(os.environ["NAWA_SYNTHETIC_MARKER"]).write_text("claimed"); '
+                    'time.sleep(60)')
+            child = subprocess.Popen([sys.executable, '-c', code], env=env, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            try:
+                deadline = time.monotonic() + 10
+                while not marker.exists() and child.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                self.assertTrue(marker.exists(), 'Synthetic worker did not claim its job')
+                self.assertEqual(self.jobs.state(self.tenant, document), ('processing', 1))
+            finally:
+                if child.poll() is None:
+                    child.terminate()
+                child.wait(timeout=10)
+            deadline = time.monotonic() + 12
+            while time.monotonic() < deadline:
+                state = process_one(self.jobs, store, self.tenant)
+                if state == 'completed':
+                    break
+                time.sleep(0.25)
+            else:
+                self.fail('Synthetic job was not recovered after the worker stopped')
+            self.assertEqual(self.jobs.state(self.tenant, document), ('completed', 2))
+            self.assertEqual(self.jobs.result(self.tenant, document)['total'], '1050.00')
 
     def test_unvalidated_received_job_is_not_processed(self):
         document = uuid4().hex
