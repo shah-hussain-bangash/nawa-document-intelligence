@@ -1,11 +1,13 @@
 """Draft server-side intake boundary; no HTTP endpoint is connected."""
 from contextlib import nullcontext
 import json
+import hashlib
 from uuid import UUID, uuid4
 
 from .authorization import Principal, authorized
 from .identity_repository import membership_by_key
 from .intake_postgres import IntakeRejected, PostgresIntakeJobs
+from .intake_validation import check_document
 
 
 class ScopedIntake:
@@ -73,6 +75,34 @@ class ScopedIntake:
         with self.connect() as conn:
             self._recheck(conn, principal, 'view')
             return PostgresIntakeJobs(lambda: nullcontext(conn)).version_history(principal.tenant, family_id)
+
+    def requeue(self, principal, document_id, *, action, reason):
+        """Revalidate a received or failed source and transactionally record the action."""
+        self._require(principal, 'load')
+        if (not isinstance(document_id, str) or action not in ('revalidate', 'retry')
+                or not isinstance(reason, str) or not reason.strip() or len(reason) > 500):
+            raise ValueError('Invalid request')
+        document = UUID(document_id)
+        expected = 'received' if action == 'revalidate' else 'failed'
+        with self.connect() as conn:
+            self._recheck(conn, principal, 'load')
+            row = conn.execute('''SELECT d.filename,d.sha256,j.state FROM nawa_intake_documents d
+                JOIN nawa_intake_jobs j ON j.tenant_id=d.tenant_id AND j.document_id=d.id
+                WHERE d.tenant_id=%s AND d.id=%s FOR UPDATE OF d,j''',
+                (principal.tenant, document)).fetchone()
+            if row is None or row[2] != expected:
+                raise ValueError('Document is unavailable for this action')
+            content = self.store.read_verified(document.hex, row[1].strip())
+            metadata = check_document(row[0], content)
+            if metadata.sha256 != row[1].strip():
+                raise ValueError('Document integrity check failed')
+            conn.execute('''UPDATE nawa_intake_jobs SET state='validated', attempts=0,
+                claim_token_hash=NULL, lease_until=NULL, result=NULL, updated_at=now()
+                WHERE tenant_id=%s AND document_id=%s''', (principal.tenant, document))
+            actor_hash = hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+            conn.execute('''INSERT INTO nawa_intake_admin_events (tenant_id,document_id,action,actor_hash,reason)
+                VALUES (%s,%s,%s,%s,%s)''', (principal.tenant, document, action, actor_hash, reason.strip()))
+        return {'id':document.hex, 'state':'validated'}
 
     def promote(self, principal, document_id):
         """Atomically publish one completed synthetic result to tenant review."""

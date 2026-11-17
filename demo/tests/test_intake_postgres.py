@@ -2,6 +2,7 @@
 import os
 import json
 import base64
+import hashlib
 import threading
 import subprocess
 import sys
@@ -127,6 +128,86 @@ class PostgresIntakeTests(unittest.TestCase):
             conn.execute("UPDATE nawa_intake_jobs SET state='validated' WHERE tenant_id=%s AND document_id=%s",
                          (self.tenant, document))
         self.assertIsNotNone(self.jobs.claim(self.tenant))
+
+    def test_revalidate_and_retry_are_scoped_audited_and_concurrent_safe(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.other, 'viewer'))
+        analyst = Principal(identity_key, self.tenant, 'analyst')
+        viewer = Principal(identity_key, self.other, 'viewer')
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = service.submit(analyst, 'english.txt', content)
+            with self.connect() as conn:
+                conn.execute("UPDATE nawa_intake_jobs SET state='received' WHERE tenant_id=%s AND document_id=%s",
+                             (self.tenant, document))
+            with self.assertRaises(PermissionError):
+                service.requeue(viewer, document, action='revalidate', reason='Synthetic QA')
+            (Path(folder) / document).write_bytes(b'tampered')
+            with self.assertRaises(ValueError):
+                service.requeue(analyst, document, action='revalidate', reason='Synthetic QA')
+            self.assertEqual(self.jobs.state(self.tenant, document), ('received', 0))
+            (Path(folder) / document).write_bytes(content)
+            def revalidate(_):
+                try:
+                    return service.requeue(analyst, document, action='revalidate', reason='Synthetic QA')
+                except ValueError:
+                    return None
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                outcomes = list(pool.map(revalidate, range(2)))
+            self.assertEqual(sum(value is not None for value in outcomes), 1)
+            with self.connect() as conn:
+                conn.execute("UPDATE nawa_intake_jobs SET state='failed',attempts=3 WHERE tenant_id=%s AND document_id=%s",
+                             (self.tenant, document))
+            with self.assertRaises(ValueError):
+                service.requeue(analyst, document, action='retry', reason=' ')
+            self.assertEqual(service.requeue(analyst, document, action='retry', reason='Synthetic retry')['state'], 'validated')
+            self.assertEqual(self.jobs.state(self.tenant, document), ('validated', 0))
+            with self.connect() as conn:
+                events = conn.execute('''SELECT action,actor_hash,reason FROM nawa_intake_admin_events
+                    WHERE tenant_id=%s AND document_id=%s ORDER BY id''', (self.tenant, document)).fetchall()
+            actor = hashlib.sha256(identity_key.encode()).hexdigest()
+            self.assertEqual(events, [('revalidate', actor, 'Synthetic QA'), ('retry', actor, 'Synthetic retry')])
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+
+    def test_retry_event_failure_rolls_back_state(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        analyst = Principal(identity_key, self.tenant, 'analyst')
+        suffix = uuid4().hex
+        function, trigger = 'nawa_test_failure_' + suffix, 'nawa_test_trigger_' + suffix
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            document, _ = service.submit(analyst, 'x.txt', b'synthetic')
+            with self.connect() as conn:
+                conn.execute("UPDATE nawa_intake_jobs SET state='failed',attempts=3 WHERE tenant_id=%s AND document_id=%s",
+                             (self.tenant, document))
+                conn.execute(psycopg.sql.SQL("CREATE FUNCTION {}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic event failure'; END $$").format(psycopg.sql.Identifier(function)))
+                conn.execute(psycopg.sql.SQL('CREATE TRIGGER {} BEFORE INSERT ON nawa_intake_admin_events FOR EACH ROW WHEN (NEW.tenant_id = {}) EXECUTE FUNCTION {}()').format(
+                    psycopg.sql.Identifier(trigger), psycopg.sql.Literal(self.tenant), psycopg.sql.Identifier(function)))
+            try:
+                with self.assertRaises(psycopg.Error):
+                    service.requeue(analyst, document, action='retry', reason='Synthetic retry')
+                self.assertEqual(self.jobs.state(self.tenant, document), ('failed', 3))
+                with self.connect() as conn:
+                    self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_admin_events WHERE tenant_id=%s',
+                                                  (self.tenant,)).fetchone()[0], 0)
+            finally:
+                with self.connect() as conn:
+                    conn.execute(psycopg.sql.SQL('DROP TRIGGER {} ON nawa_intake_admin_events').format(psycopg.sql.Identifier(trigger)))
+                    conn.execute(psycopg.sql.SQL('DROP FUNCTION {}()').format(psycopg.sql.Identifier(function)))
 
     def test_synthetic_file_to_result_through_postgres(self):
         with TemporaryDirectory() as folder:

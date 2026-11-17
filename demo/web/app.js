@@ -54,6 +54,15 @@ $('intakePromote').addEventListener('click',()=>task(async()=>{
   const result=await request('/api/intake/promote',{id});loaded(result);
   message(result.created?'Document added to quotation review.':'Document is already in quotation review.');
 }));
+for(const [button,action] of [['intakeRevalidate','revalidate'],['intakeRetry','retry']]){
+  $(button).addEventListener('click',()=>task(async()=>{
+    const id=$('intakeId').value.trim(), reason=$('requeueReason').value.trim();
+    if(!id||!reason)throw new Error('Enter a document ID and a reason');
+    const result=await request('/api/intake/'+action,{id,reason});
+    $('intakeStatus').textContent=`Status: ${result.state}. The worker will process the document.`;
+    message('The request was recorded.');
+  }));
+}
 $('versionLink').addEventListener('click',()=>task(async()=>{
   const id=$('intakeId').value.trim();const family=$('versionFamily').value.trim();const raw=$('versionPrevious').value.trim();
   if(!id||!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw)))throw new Error('Enter a document ID and a valid latest version number');

@@ -57,6 +57,18 @@ CREATE TABLE nawa_intake_promotions (
     FOREIGN KEY (tenant_id, quotation_id) REFERENCES nawa_quotation_tenants(tenant_id, quotation_id) ON DELETE RESTRICT
 );
 
+-- Synthetic operator actions; privileged database users can alter them.
+CREATE TABLE nawa_intake_admin_events (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id text NOT NULL,
+    document_id uuid NOT NULL,
+    action text NOT NULL CHECK (action IN ('revalidate', 'retry')),
+    actor_hash char(64) NOT NULL CHECK (actor_hash ~ '^[0-9a-f]{64}$'),
+    reason text NOT NULL CHECK (length(reason) BETWEEN 1 AND 500),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (tenant_id, document_id) REFERENCES nawa_intake_documents(tenant_id, id) ON DELETE RESTRICT
+);
+
 -- Proposed worker claim: use a short transaction and SELECT ... FOR UPDATE
 -- SKIP LOCKED, generate a fresh random token and store only its hash, then
 -- atomically set processing, increment attempts, and set a lease. Completion

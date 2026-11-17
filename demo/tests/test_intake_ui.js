@@ -40,6 +40,7 @@ async function fetch(pathname, options = {}) {
   else if (pathname === '/api/intake/version') data = {family_id:'synthetic-family', version:1};
   else if (pathname === '/api/intake/versions?family=synthetic-family') data = {versions:[{version:1,id:'abc123'}]};
   else if (pathname === '/api/intake/promote') data = {id:'quote1',created:true,quotation:{document:'synthetic.txt',supplier:'Synthetic',total:'1050.00',checks:{valid:true},evidence:{}}};
+  else if (pathname === '/api/intake/retry') data = {id:'abc123', state:'validated'};
   else if (pathname === '/api/review/show') data = {status:'approved',revision:1,history:[]};
   else throw new Error('Unexpected request: ' + pathname);
   return {ok:true, status:200, json:async () => data};
@@ -70,6 +71,9 @@ async function mainTest() {
   assert.match(get('intakeStatus').textContent, /completed.*1050\.00/);
   await get('intakePromote').events.click();
   assert.equal(get('count').textContent, 1);
+  get('requeueReason').value = 'Synthetic retry';
+  await get('intakeRetry').events.click();
+  assert.match(get('intakeStatus').textContent, /validated/);
   get('versionPrevious').value = '0';
   await get('versionLink').events.click();
   assert.equal(get('versionFamily').value, 'synthetic-family');

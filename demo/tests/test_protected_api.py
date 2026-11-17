@@ -48,6 +48,11 @@ class FakeIntake:
     def promote(self, principal, document_id):
         self.calls.append((principal, document_id))
         return {'id':'quote1', 'quotation':{'total':'1050.00'}, 'created':True}
+    def requeue(self, principal, document_id, *, action, reason):
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError('A reason is required')
+        self.calls.append((principal, document_id, action, reason))
+        return {'id':document_id, 'state':'validated'}
 
 
 class ProtectedApiTests(unittest.TestCase):
@@ -165,6 +170,20 @@ class ProtectedApiTests(unittest.TestCase):
                                       csrf=self.analyst['csrf'], origin=origin)
         self.assertEqual((status, result['id']), (200, 'quote1'))
         self.assertEqual(self.intake.calls[-1][0].tenant, 'tenant-a')
+
+    def test_requeue_requires_reason_analyst_and_csrf(self):
+        path = '/api/intake/retry'
+        body = {'id':'abc', 'reason':'Synthetic retry'}
+        origin = 'http://127.0.0.1:8765'
+        viewer = 'nawa_session=' + self.viewer['session']
+        analyst = 'nawa_session=' + self.analyst['session']
+        self.assertEqual(self.request(path, payload=body, cookie=viewer, csrf=self.viewer['csrf'], origin=origin)[0], 403)
+        self.assertEqual(self.request(path, payload=body, cookie=analyst, origin=origin)[0], 403)
+        self.assertEqual(self.request(path, payload={'id':'abc','reason':''}, cookie=analyst,
+                                      csrf=self.analyst['csrf'], origin=origin)[0], 400)
+        status, result = self.request(path, payload=body, cookie=analyst, csrf=self.analyst['csrf'], origin=origin)
+        self.assertEqual((status, result['state']), (200, 'validated'))
+        self.assertEqual(self.intake.calls[-1][2], 'retry')
         self.assertEqual(self.scoped.calls, [])
         status, _ = self.request('/api/quotations', cookie='nawa_session=fake; nawa_session=other')
         self.assertEqual(status, 403)

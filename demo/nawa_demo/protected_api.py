@@ -160,6 +160,8 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 actions['/api/intake/batch'] = 'load'
                 actions['/api/intake/version'] = 'load'
                 actions['/api/intake/promote'] = 'load'
+                actions['/api/intake/revalidate'] = 'load'
+                actions['/api/intake/retry'] = 'load'
             action = actions.get(path)
             if action is None:
                 return self._json({'error': 'Not found'}, 404)
@@ -185,7 +187,10 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 if not isinstance(payload, dict):
                     raise ValueError('Expected JSON object')
                 if action == 'load':
-                    if path == '/api/intake/promote':
+                    if path in ('/api/intake/revalidate', '/api/intake/retry'):
+                        operation = 'revalidate' if path.endswith('/revalidate') else 'retry'
+                        result = intake.requeue(principal, payload.get('id'), action=operation, reason=payload.get('reason'))
+                    elif path == '/api/intake/promote':
                         result = intake.promote(principal, payload.get('id'))
                     elif path == '/api/intake/version':
                         family = payload.get('family_id') or uuid4().hex

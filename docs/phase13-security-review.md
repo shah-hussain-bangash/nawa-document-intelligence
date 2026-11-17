@@ -7,7 +7,7 @@ Status: internal engineering review of the draft, not an independent assessment 
 - Current server-side membership and role are rechecked for protected intake operations; two tenant-bound test applications reject each other's document access.
 - Uploads have file, batch and per-tenant document-count and registered-byte bounds. Known quota rejections remove their temporary source; uncertain database outcomes retain it for offline reconciliation.
 - Stored files are checked for regular-file identity when opened and their SHA-256 is rechecked before processing and review promotion. This does not make storage immutable.
-- Worker claims have hashed tokens, a bounded lease and retry count; concurrent workers and version updates are tested against a disposable PostgreSQL database.
+- Worker claims have hashed tokens, a bounded lease and retry count; concurrent workers and version updates are tested against a disposable PostgreSQL database. Authorized manual revalidation and failed-job retry require a reason, recheck the source and write a transactional synthetic event; repeated manual retries are not independently rate-limited.
 - Parser subprocesses have timeouts and OS resource limits, with different controls on Linux and Windows. Malformed, encrypted and unsupported PDF cases have synthetic tests.
 - A quiesced synthetic backup/restore and app/database restart test covers the source, extracted result and approved review evidence. Authenticated operations fail closed during a simulated database outage.
 
@@ -18,7 +18,7 @@ Status: internal engineering review of the draft, not an independent assessment 
 3. **Storage and availability:** the source directory must be private and controlled. Hard links, parent-directory replacement, privileged modifications, and changes after a successful hash check are not fully prevented. The registered-byte limit is not a filesystem quota or rate limit. Unknown commit outcomes can leave orphan files; inventory is offline and does not automatically repair or delete them.
 4. **Parsing:** resource limits are not a sandbox, and OS limits differ by platform. Parser libraries may have vulnerabilities; untrusted production documents, active content analysis and image-only OCR are outside this prototype's validated scope. Four exact bundled synthetic PDF fixtures have explicitly hash-allowlisted lenient parsing variants.
 5. **Operations and recovery:** backups require coordinated pause of writes and separate backup of database and source files. Automated retention, encryption at rest, distributed worker supervision, monitoring and recovery objectives are not established. Test backups are temporary.
-6. **Audit and lifecycle:** local review events are hash-linked but can be rewritten by a privileged database user. Independent audit storage, retention policy, deletion controls and governance approval are not implemented.
+6. **Audit and lifecycle:** local review events are hash-linked and manual intake retry events are transactional, but privileged database users can alter them. Independent audit storage, retention policy, deletion controls and governance approval are not implemented.
 
 The draft must remain synthetic-only until these controls are designed, independently reviewed and tested for the intended environment. Passing CI is evidence for the tested cases, not a certification.
 
