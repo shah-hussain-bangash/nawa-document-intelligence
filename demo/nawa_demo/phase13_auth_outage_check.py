@@ -12,6 +12,7 @@ import ssl
 import subprocess
 import time
 from urllib.request import ProxyHandler, HTTPCookieProcessor, HTTPSHandler, build_opener
+from uuid import uuid4
 
 from . import phase12_live_check as oidc
 
@@ -78,6 +79,19 @@ def main():
     status, _, body = oidc.request(analyst, url)
     if status != 200 or json.loads(body)['result']['total'] != '1050.00':
         raise AssertionError('Synthetic result unavailable after recovery')
+    sample = Path('demo/samples/english_quote.txt').read_bytes() + ('\n# recovery-' + uuid4().hex + '\n').encode()
+    payload = json.dumps({'filename':'recovery.txt', 'content_base64':base64.b64encode(sample).decode()}).encode()
+    status, _, body = oidc.request(analyst, oidc.APP + '/api/intake/submit', data=payload, headers=headers)
+    if status != 200:
+        raise AssertionError('Synthetic submission failed after recovery')
+    new_document = json.loads(body)['id']
+    for _ in range(60):
+        status, _, body = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + new_document)
+        if status == 200 and json.loads(body)['state'] == 'completed':
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError('Synthetic worker did not resume after database recovery')
     print('PASS: authenticated synthetic reads and writes fail safely during a database outage and recover afterward.')
 
 
