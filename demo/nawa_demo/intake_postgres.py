@@ -4,6 +4,12 @@ import json
 import secrets
 from uuid import UUID, uuid4
 
+MAX_DOCUMENTS_PER_TENANT = 20
+
+
+class IntakeRejected(ValueError):
+    """A known rejection before a new document row was inserted."""
+
 
 class PostgresIntakeJobs:
     """Connection factory must provide transactional psycopg connections.
@@ -20,6 +26,17 @@ class PostgresIntakeJobs:
         identifier = UUID(document_id)
         with self.connect() as conn:
             with conn.cursor() as cur:
+                # Serialize duplicate and quota decisions for this tenant.
+                cur.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))',
+                            ('nawa-intake-quota:' + tenant,))
+                cur.execute('SELECT id FROM nawa_intake_documents WHERE tenant_id=%s AND sha256=%s',
+                            (tenant, metadata.sha256))
+                existing = cur.fetchone()
+                if existing:
+                    return existing[0].hex, False
+                cur.execute('SELECT count(*) FROM nawa_intake_documents WHERE tenant_id=%s', (tenant,))
+                if cur.fetchone()[0] >= MAX_DOCUMENTS_PER_TENANT:
+                    raise IntakeRejected('Synthetic document quota reached')
                 cur.execute('''INSERT INTO nawa_intake_documents (id,tenant_id,filename,sha256,size_bytes)
                     VALUES (%s,%s,%s,%s,%s) ON CONFLICT (tenant_id,sha256) DO NOTHING RETURNING id''',
                     (identifier, tenant, metadata.filename, metadata.sha256, metadata.size))
@@ -148,3 +165,4 @@ class PostgresIntakeJobs:
                 cur.execute('''SELECT version,document_id FROM nawa_intake_versions
                     WHERE tenant_id=%s AND family_id=%s ORDER BY version''', (tenant, UUID(family_id)))
                 return [(row[0], row[1].hex) for row in cur.fetchall()]
+

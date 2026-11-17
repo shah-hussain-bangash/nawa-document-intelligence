@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from .authorization import Principal, authorized
 from .identity_repository import membership_by_key
-from .intake_postgres import PostgresIntakeJobs
+from .intake_postgres import IntakeRejected, PostgresIntakeJobs
 
 
 class ScopedIntake:
@@ -35,6 +35,10 @@ class ScopedIntake:
                 jobs = PostgresIntakeJobs(lambda: nullcontext(conn))
                 registration_attempted = True
                 registered, created = jobs.register(principal.tenant, document_id, metadata)
+        except IntakeRejected:
+            # This explicit rejection occurs before insertion or commit.
+            self.store.discard(document_id)
+            raise
         except Exception:
             # If registration or commit failed, the commit outcome may be
             # unknown. Preserve bytes for the offline reconciliation check.

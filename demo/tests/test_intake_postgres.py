@@ -21,7 +21,7 @@ try:
 except ImportError:
     psycopg = None
 
-from nawa_demo.intake_postgres import PostgresIntakeJobs
+from nawa_demo.intake_postgres import IntakeRejected, MAX_DOCUMENTS_PER_TENANT, PostgresIntakeJobs
 from nawa_demo.intake_validation import check_document
 from nawa_demo.intake_pipeline import SyntheticIntakePipeline
 from nawa_demo.intake_store import LocalIntakeStore
@@ -224,6 +224,37 @@ class PostgresIntakeTests(unittest.TestCase):
                 count = conn.execute('SELECT count(*) FROM nawa_quotation_tenants WHERE tenant_id=%s',
                                      (self.tenant,)).fetchone()[0]
             self.assertEqual(count, 1)
+
+    def test_tenant_quota_is_atomic_and_rejected_files_are_removed(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            principal = Principal(identity_key, self.tenant, 'analyst')
+            first = None
+            for index in range(MAX_DOCUMENTS_PER_TENANT - 1):
+                document, _ = service.submit(principal, f'{index}.txt', f'synthetic-{index}'.encode())
+                first = first or document
+            def submit(index):
+                try:
+                    return service.submit(principal, f'last-{index}.txt', f'new-{index}'.encode())
+                except IntakeRejected:
+                    return None
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                outcomes = list(pool.map(submit, range(2)))
+            self.assertEqual(sum(item is not None for item in outcomes), 1)
+            self.assertEqual(len(list(Path(folder).iterdir())), MAX_DOCUMENTS_PER_TENANT)
+            self.assertEqual(service.submit(principal, 'duplicate.txt', b'synthetic-0'), (first, False))
+            self.assertEqual(len(list(Path(folder).iterdir())), MAX_DOCUMENTS_PER_TENANT)
+            with self.connect() as conn:
+                count = conn.execute('SELECT count(*) FROM nawa_intake_documents WHERE tenant_id=%s',
+                                     (self.tenant,)).fetchone()[0]
+            self.assertEqual(count, MAX_DOCUMENTS_PER_TENANT)
 
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex

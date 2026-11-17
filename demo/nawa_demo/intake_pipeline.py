@@ -1,4 +1,5 @@
 """Offline synthetic intake integration; caller-provided tenants are untrusted."""
+from .intake_postgres import IntakeRejected
 
 
 class SyntheticIntakePipeline:
@@ -16,7 +17,12 @@ class SyntheticIntakePipeline:
         if not isinstance(tenant, str) or not tenant.strip():
             raise ValueError('Tenant is required')
         document_id, metadata = self.store.save(filename, content)
-        registered_id, created = self.jobs.register(tenant, document_id, metadata)
+        try:
+            registered_id, created = self.jobs.register(tenant, document_id, metadata)
+        except IntakeRejected:
+            self.store.discard(document_id)
+            raise
         if not created:
             self.store.discard(document_id)
         return registered_id, created
+
