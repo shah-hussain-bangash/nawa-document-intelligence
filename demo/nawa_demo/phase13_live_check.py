@@ -105,6 +105,12 @@ def main():
                                 headers={**headers, 'X-NAWA-CSRF':review_csrf})
     if status != 403:
         raise AssertionError('Reviewer upload was not denied')
+    decision = json.dumps({'id':quotation_id, 'decision':'approve',
+                           'reason':'Synthetic QA review', 'expected_revision':1}).encode()
+    status, _, review_body = oidc.request(reviewer, oidc.APP + '/api/review/decide', data=decision,
+                                          headers={**headers, 'X-NAWA-CSRF':review_csrf})
+    if status != 200 or json.loads(review_body)['status'] != 'approved' or json.loads(review_body)['revision'] != 2:
+        raise AssertionError('Synthetic reviewer decision failed')
     print('Synthetic Phase 13 QA passed: login, intake, worker, review, CSRF, role and cross-tenant denial.')
 
 

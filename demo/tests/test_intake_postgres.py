@@ -36,6 +36,7 @@ from nawa_demo.intake_runtime import build_synthetic_intake
 from nawa_demo.intake_migrate import apply_intake_migrations, verify_intake_migrations
 from nawa_demo.migrate import migrate
 from nawa_demo.phase13_qa_snapshot import snapshot
+from nawa_demo.scoped_state import ScopedState
 
 DSN = os.environ.get('NAWA_PHASE13_TEST_DSN')
 
@@ -396,13 +397,26 @@ class PostgresIntakeTests(unittest.TestCase):
     def test_qa_snapshot_checks_result_and_source_integrity(self):
         with self.connect() as conn:
             conn.execute("INSERT INTO nawa_tenants(id) VALUES ('tenant-a') ON CONFLICT DO NOTHING")
+            for subject, role in (('snapshot-analyst', 'analyst'), ('snapshot-reviewer', 'reviewer')):
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', ('https://snapshot',subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             ('https://snapshot',subject,'tenant-a',role))
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes() + b'\n# qa-test\n'
-            doc, _ = SyntheticIntakePipeline(store, self.jobs).submit('tenant-a', 'synthetic.txt', content)
+            analyst = Principal(json.dumps(['https://snapshot','snapshot-analyst'], separators=(',',':')), 'tenant-a', 'analyst')
+            reviewer = Principal(json.dumps(['https://snapshot','snapshot-reviewer'], separators=(',',':')), 'tenant-a', 'reviewer')
+            intake = ScopedIntake(self.connect, store)
+            doc, _ = intake.submit(analyst, 'synthetic.txt', content)
             self.assertEqual(process_one(self.jobs, store, 'tenant-a'), 'completed')
+            quotation = intake.promote(analyst, doc)['id']
+            reviews = ScopedState(self.connect)
+            reviews.review_start(analyst, quotation)
+            reviews.review_decision(reviewer, {'id':quotation,'decision':'approve',
+                                               'reason':'Synthetic test','expected_revision':1})
             result = snapshot(self.connect, folder)
             self.assertEqual((result['document_id'], result['total']), (doc, '1050.00'))
+            self.assertEqual((result['review_status'], result['review_revision']), ('approved', 2))
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
