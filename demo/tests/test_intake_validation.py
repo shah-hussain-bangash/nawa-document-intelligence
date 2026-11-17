@@ -6,8 +6,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from pypdf import PdfWriter
+from pypdf.errors import PdfReadError
 
 from nawa_demo.intake_validation import MAX_DOCUMENT_BYTES, check_document
+from nawa_demo.intake_pdf import open_pdf
 
 
 class IntakeValidationTests(unittest.TestCase):
@@ -61,9 +63,19 @@ class IntakeValidationTests(unittest.TestCase):
     def test_only_exact_known_fixture_gets_lenient_fallback(self):
         fixture = (Path(__file__).resolve().parents[1] / 'samples/pdf/english_supplier.pdf').read_bytes()
         self.assertEqual(check_document('synthetic.pdf', fixture).media_type, 'application/pdf')
-        with self.assertRaises(ValueError):
-            check_document('changed.pdf', fixture + b'changed')
+        def parse(_stream, *, strict):
+            if strict:
+                raise PdfReadError('synthetic strict-parser failure')
+            return 'lenient fallback used'
+        with patch('nawa_demo.intake_pdf.PdfReader', side_effect=parse) as reader:
+            self.assertEqual(open_pdf(fixture), 'lenient fallback used')
+            self.assertEqual(reader.call_count, 2)
+        with patch('nawa_demo.intake_pdf.PdfReader', side_effect=parse) as reader:
+            with self.assertRaises(PdfReadError):
+                open_pdf(fixture + b'changed')
+            self.assertEqual(reader.call_count, 1)
 
 
 if __name__ == '__main__':
     unittest.main()
+
