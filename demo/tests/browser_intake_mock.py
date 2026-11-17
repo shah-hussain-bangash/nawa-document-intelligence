@@ -32,9 +32,9 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def send(self, content, kind='application/json', cookie=None):
+    def send(self, content, kind='application/json', cookie=None, status=200):
         raw = content if isinstance(content, bytes) else json.dumps(content).encode('utf-8')
-        self.send_response(200)
+        self.send_response(status)
         self.send_header('Content-Type', kind)
         self.send_header('Content-Length', str(len(raw)))
         self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'")
@@ -73,7 +73,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send({'id':'quote1','created':True,'quotation':{'document':'synthetic.txt',
                 'supplier':'Synthetic supplier','currency':'AED','subtotal':'1000.00','vat_rate_percent':'5.00',
                 'vat_amount':'50.00','total':'1050.00','checks':{'valid':True},'evidence':{}}})
-        if self.path == '/api/review/show': return self.send({'status':'approved','revision':1,'history':[]})
+        if self.path == '/api/review/show':
+            if not getattr(self.server, 'synthetic_review_started', False):
+                return self.send({'error':'Review is not initialized'}, status=404)
+            return self.send({'status':'pending_review','revision':1,'history':[]})
+        if self.path == '/api/review/start':
+            self.server.synthetic_review_started = True
+            return self.send({'status':'pending_review','revision':1,'history':[]})
         self.send_error(404)
 
 

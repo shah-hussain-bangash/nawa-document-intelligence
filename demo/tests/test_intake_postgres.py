@@ -470,7 +470,8 @@ class PostgresIntakeTests(unittest.TestCase):
         tokens = sessions.issue(identity_key, self.tenant)
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
-            handler = make_protected_handler(None, sessions, DashboardState(), intake=ScopedIntake(self.connect, store))
+            handler = make_protected_handler(ScopedState(self.connect), sessions, DashboardState(),
+                                             intake=ScopedIntake(self.connect, store))
             server = HTTPServer(('127.0.0.1', 0), handler)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -500,6 +501,14 @@ class PostgresIntakeTests(unittest.TestCase):
                     repeated = json.load(response)
                 self.assertFalse(repeated['created'])
                 self.assertEqual(first['id'], repeated['id'])
+                review_payload = json.dumps({'id':first['id']}).encode()
+                with self.assertRaises(HTTPError) as no_review:
+                    urlopen(Request(base + '/api/review/show', data=review_payload, headers=headers), timeout=10)
+                self.assertEqual(no_review.exception.code, 404)
+                self.assertEqual(json.load(no_review.exception)['error'], 'Review is not initialized')
+                no_review.exception.close()
+                with urlopen(Request(base + '/api/review/start', data=review_payload, headers=headers), timeout=10) as response:
+                    self.assertEqual(json.load(response)['status'], 'pending_review')
                 arabic = (Path(__file__).resolve().parents[1] / 'samples/arabic_quote.txt').read_bytes()
                 batch = {'files': [{'filename': 'duplicate.txt', 'content_base64': base64.b64encode(content).decode()},
                                    {'filename': 'arabic.txt', 'content_base64': base64.b64encode(arabic).decode()},

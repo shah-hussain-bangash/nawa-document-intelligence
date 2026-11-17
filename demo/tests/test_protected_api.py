@@ -12,6 +12,7 @@ from nawa_demo.authorization import Principal
 from nawa_demo.dashboard import DashboardState
 from nawa_demo.protected_api import make_protected_handler
 from nawa_demo.intake_postgres import IntakeRejected
+from nawa_demo.scoped_state import ReviewNotInitialized
 from nawa_demo.session_draft import SessionStore
 
 
@@ -24,6 +25,10 @@ class FakeScoped:
     def add_sample(self, principal, name):
         self.calls.append(('load', principal, name))
         return {'id': 'synthetic'}
+    def review_show(self, principal, document_id):
+        if document_id != 'owned':
+            raise ValueError('Quotation not found')
+        raise ReviewNotInitialized('Review is not initialized')
 
 
 class FakeIntake:
@@ -193,6 +198,14 @@ class ProtectedApiTests(unittest.TestCase):
         status, result = self.request('/api/intake/documents', cookie=cookie, extra={'X-Tenant':'forged'})
         self.assertEqual(status, 200)
         self.assertEqual(result['documents'][0]['id'], 'abc')
+
+    def test_owned_unstarted_review_is_distinct_from_unavailable_quotation(self):
+        cookie = 'nawa_session=' + self.analyst['session']
+        origin = 'http://127.0.0.1:8765'
+        status, result = self.request('/api/review/show', payload={'id':'owned'}, cookie=cookie, origin=origin)
+        self.assertEqual((status, result), (404, {'error':'Review is not initialized'}))
+        status, result = self.request('/api/review/show', payload={'id':'foreign'}, cookie=cookie, origin=origin)
+        self.assertEqual((status, result), (400, {'error':'Invalid or unavailable request'}))
         self.assertEqual(self.scoped.calls, [])
         status, _ = self.request('/api/quotations', cookie='nawa_session=fake; nawa_session=other')
         self.assertEqual(status, 403)

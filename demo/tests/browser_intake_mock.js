@@ -23,6 +23,11 @@
     await waitFor(() => document.getElementById('intakeStatus').textContent.includes('1050.00'));
     document.getElementById('intakePromote').click();
     await waitFor(() => document.getElementById('count').textContent === '1');
+    await waitFor(() => document.getElementById('review').querySelector('button'));
+    const start = document.getElementById('review').querySelector('button');
+    if (!start.textContent.includes('Start review')) throw new Error('Start review is unavailable');
+    start.click();
+    await waitFor(() => document.getElementById('review').textContent.includes('pending_review'));
     document.body.setAttribute('data-synthetic-ui-check', 'PASS');
   } catch (error) {
     document.body.setAttribute('data-synthetic-ui-check', 'FAIL');

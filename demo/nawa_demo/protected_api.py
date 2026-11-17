@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from .dashboard import MAX_BODY, make_handler
 from .session_draft import SessionError
-from .scoped_state import AccessDenied
+from .scoped_state import AccessDenied, ReviewNotInitialized
 from .intake_postgres import IntakeRejected
 
 
@@ -172,6 +172,15 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 actions['/api/intake/retry'] = 'load'
             action = actions.get(path)
             if action is None:
+                # Consume only bounded bodies so a 404 is delivered reliably
+                # on Windows instead of resetting a socket with unread bytes.
+                try:
+                    length = int(self.headers.get('Content-Length', '0'))
+                    if 0 < length <= MAX_BODY and not self.headers.get('Transfer-Encoding'):
+                        self.connection.settimeout(10)
+                        self.rfile.read(length)
+                except (ValueError, OSError):
+                    self.close_connection = True
                 return self._json({'error': 'Not found'}, 404)
             try:
                 if self.headers.get_content_type() != 'application/json':
@@ -254,6 +263,8 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 return self._json(result)
             except (SessionError, AccessDenied, PermissionError):
                 return self._json({'error': 'Authentication or permission required'}, 403)
+            except ReviewNotInitialized:
+                return self._json({'error': 'Review is not initialized'}, 404)
             except IntakeRejected:
                 return self._json({'error': 'Synthetic document limit reached'}, 400)
             except (ValueError, TypeError, KeyError, UnicodeError):
