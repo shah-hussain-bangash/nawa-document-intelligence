@@ -182,4 +182,23 @@ jobs:
           test "$ready" = 1
           docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml exec -T nawa python -m nawa_demo.phase13_qa_snapshot > /tmp/nawa13-after.json
           cmp /tmp/nawa13-before.json /tmp/nawa13-after.json
+      - name: Verify safe response and recovery after database outage
+        run: |
+          set -eu
+          restore_db() { docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml start db >/dev/null 2>&1 || true; }
+          trap restore_db EXIT
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml stop db
+          code=$(curl --silent --show-error --max-time 10 -o /tmp/nawa13-outage.json -w '%{http_code}' http://127.0.0.1:19765/api/ready)
+          test "$code" = 503
+          python -c "import json; assert json.load(open('/tmp/nawa13-outage.json')) == {'error': 'Quotation storage unavailable'}"
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml start db
+          ready=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent --max-time 10 http://127.0.0.1:19765/api/ready >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml exec -T nawa python -m nawa_demo.phase13_qa_snapshot > /tmp/nawa13-recovered.json
+          cmp /tmp/nawa13-before.json /tmp/nawa13-recovered.json
+          trap - EXIT
 
