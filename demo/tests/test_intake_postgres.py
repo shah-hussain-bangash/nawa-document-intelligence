@@ -351,12 +351,27 @@ class PostgresIntakeTests(unittest.TestCase):
         restore_name = 'nawa_restore_' + uuid4().hex[:12]
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
         common = ['-h', params['host'], '-p', params['port'], '-U', params['user']]
+        issuer = 'https://synthetic-backup'
+        subjects = {'analyst':uuid4().hex, 'reviewer':uuid4().hex}
+        with self.connect() as conn:
+            for role, subject in subjects.items():
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer,subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer,subject,self.tenant,role))
+        principal = lambda role: Principal(json.dumps([issuer,subjects[role]], separators=(',',':')), self.tenant, role)
         with TemporaryDirectory() as folder:
             root = Path(folder)
             store = LocalIntakeStore(root / 'source')
             content = (Path(__file__).resolve().parents[1] / 'samples/arabic_quote.txt').read_bytes()
-            document, _ = SyntheticIntakePipeline(store, self.jobs).submit(self.tenant, 'arabic.txt', content)
+            intake = ScopedIntake(self.connect, store)
+            document, _ = intake.submit(principal('analyst'), 'arabic.txt', content)
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            quotation = intake.promote(principal('analyst'), document)['id']
+            reviews = ScopedState(self.connect)
+            reviews.review_start(principal('analyst'), quotation)
+            original_review = reviews.review_decision(principal('reviewer'), {
+                'id':quotation, 'decision':'approve', 'reason':'Synthetic backup check', 'expected_revision':1})
+            self.assertEqual((original_review['status'], original_review['revision']), ('approved', 2))
             digest = check_document('arabic.txt', content).sha256
 
             # No intake or worker writes occur while the two snapshots are made.
@@ -373,6 +388,9 @@ class PostgresIntakeTests(unittest.TestCase):
             restored_store = LocalIntakeStore(root / 'backup-files')
             self.assertEqual(restored.result(self.tenant, document)['total'], '945.00')
             self.assertEqual(restored_store.read_verified(document, digest), content)
+            restored_review = ScopedState(lambda: psycopg.connect(**restored_params)).review_show(
+                principal('reviewer'), quotation)
+            self.assertEqual(restored_review, original_review)
 
     def test_explicit_intake_migration_is_idempotent_and_detects_changed_history(self):
         name = 'nawa_phase13_qa_' + uuid4().hex[:12]
