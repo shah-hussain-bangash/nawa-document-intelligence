@@ -11,6 +11,7 @@ from nawa_demo.intake_runtime import build_synthetic_intake
 from nawa_demo.intake_worker_cli import main, run_loop
 from nawa_demo.intake_migrate import main as migrate_main
 from nawa_demo.intake_migrate import _files
+from nawa_demo.intake_migration_inspect import main as inspect_main
 
 
 class RuntimeTests(unittest.TestCase):
@@ -43,6 +44,12 @@ class RuntimeTests(unittest.TestCase):
                                      'NAWA_STORAGE':'postgres', 'POSTGRES_DB':'nawa_demo'}, clear=True):
             with self.assertRaisesRegex(ValueError, 'nawa_phase13_qa_'):
                 migrate_main()
+
+    def test_migration_inspector_refuses_non_qa_database(self):
+        with patch.dict(os.environ, {'NAWA_INTAKE':'synthetic', 'NAWA_AUTH':'oidc',
+                                     'NAWA_STORAGE':'postgres', 'POSTGRES_DB':'nawa_demo'}, clear=True):
+            with self.assertRaisesRegex(ValueError, 'nawa_phase13_qa_'):
+                inspect_main()
 
     def test_migration_input_normalizes_windows_and_linux_line_endings(self):
         with TemporaryDirectory() as folder:

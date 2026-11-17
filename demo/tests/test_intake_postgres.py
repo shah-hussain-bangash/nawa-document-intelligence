@@ -37,6 +37,8 @@ from nawa_demo.session_draft import SessionStore
 from nawa_demo.intake_runtime import build_synthetic_intake
 from nawa_demo.intake_migrate import apply_intake_migrations, verify_intake_migrations
 from nawa_demo.migrate import migrate
+from nawa_demo.intake_migration_inspect import (inspect_history, ORIGINAL_001,
+                                                VALIDATED_IN_001, REQUEUE_IN_001)
 from nawa_demo.phase13_qa_snapshot import snapshot
 from nawa_demo.scoped_state import ScopedState
 
@@ -624,6 +626,35 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertEqual(store.read_verified(document, metadata.sha256), content)
             self.assertEqual(reviews.review_show(principal('reviewer'), quotation), before)
 
+    def test_read_only_migration_inspector_classifies_known_and_unknown_histories(self):
+        name = 'nawa_phase13_qa_' + uuid4().hex[:12]
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        with psycopg.connect(DSN, autocommit=True) as admin:
+            admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(name)))
+        params['dbname'] = name
+        with psycopg.connect(**params) as conn:
+            self.assertEqual(inspect_history(conn)['history_status'], 'no_recorded_history')
+            migrate(conn)
+            apply_intake_migrations(conn)
+            self.assertEqual(inspect_history(conn)['history_status'], 'current_history')
+            conn.commit()
+            with psycopg.connect(**params, autocommit=True) as read_only:
+                with read_only.transaction():
+                    read_only.execute('SET TRANSACTION READ ONLY')
+                    self.assertEqual(inspect_history(read_only)['history_status'], 'current_history')
+            conn.execute("DELETE FROM nawa_intake_schema_migrations WHERE name='002_synthetic_requeue.sql'")
+            for checksum, status in ((ORIGINAL_001,'original_001_only'),
+                                     (VALIDATED_IN_001,'intermediate_validated_in_001'),
+                                     (REQUEUE_IN_001,'intermediate_requeue_in_001'),
+                                     ('unknown','unknown_or_incomplete_history')):
+                conn.execute("UPDATE nawa_intake_schema_migrations SET checksum=%s WHERE name='001_synthetic_intake.sql'", (checksum,))
+                before = conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall()
+                report = inspect_history(conn)
+                after = conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall()
+                self.assertEqual(report['history_status'], status)
+                self.assertEqual(before, after)
+                self.assertIn('does not verify', report['note'])
+
     def test_qa_snapshot_checks_result_and_source_integrity(self):
         with self.connect() as conn:
             conn.execute("INSERT INTO nawa_tenants(id) VALUES ('tenant-a') ON CONFLICT DO NOTHING")
@@ -650,3 +681,4 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
+

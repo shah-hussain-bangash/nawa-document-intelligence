@@ -16,9 +16,10 @@ Status: **prototype in progress; not production accepted**. This checkpoint asse
 
 ## Remaining work before calling Phase 13 complete
 
-1. Review the revalidation and failed-job retry controls. Before upgrading any existing test database, verify its migration history and make a separately verified backup. Intermediate draft histories that do not match the original `001` are intentionally rejected; do not reset existing data.
+1. Review the revalidation and failed-job retry controls. A read-only test-database inspector classifies known migration records, but cannot verify schema integrity or authorize an upgrade. Before upgrading any existing test database, verify its schema and migration history and make a separately verified backup. Intermediate draft histories that do not match the original `001` are intentionally rejected; do not reset existing data.
 2. Complete a real-browser synthetic workflow after an approved certificate/hostname is available; do not bypass the browser warning.
 3. Obtain an independent security review and address its findings, including tenant isolation, storage, parser safety and operational recovery.
 4. Review the migration and dependency on Phase 12, then integrate only after the appropriate review and checks pass.
 
 There is no reliable completion date until the external certificate and review availability are known. Work that does not depend on those inputs can continue in the isolated development copy.
+
