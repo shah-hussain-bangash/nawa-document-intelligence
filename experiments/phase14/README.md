@@ -28,6 +28,8 @@ python semantic_probe.py
 python -m unittest -v test_injection_probe
 python injection_probe.py
 python -m unittest -v test_review_only
+python -m unittest -v test_hybrid_review
+python hybrid_review_probe.py
 ```
 
 The 17 November 2026 local run gave Recall@5, MRR@5, and binary nDCG@5
@@ -216,6 +218,26 @@ trusted data and safe rendering. It does not sanitize malicious content,
 prevent human reviewer manipulation, eliminate post-check race conditions,
 or make the model injection-resistant. Independent security review and a
 real human decision workflow remain required.
+
+## Combined synthetic retrieval experiment
+
+`hybrid_review.py` combines fixture authorization/current-version
+filtering, BM25, local vector ranking and reciprocal-rank fusion. It obtains
+a second fixture snapshot to recheck candidates, and returns citation metadata
+for human review rather than an answer or approval. The snapshot provider must
+include current identity-dependent permissions and lifecycle state; this code
+does not authenticate users. An empty or invalid candidate set, missing
+metadata, model failure or revoked candidate returns unavailable.
+
+The local `hybrid_review_probe.py` run ranked current Cedar v2 first and
+excluded superseded v1 and the two unauthorized fixture passages. Its top
+five also included an unrelated instruction-like passage. The current
+prototype has no relevance cutoff or safe automated answerability check and
+must not send arbitrary retrieved text to an LLM as trusted instructions.
+The full local fixture suite passed 19 tests; GitHub CI runs only unit tests,
+not local model inference. This experiment does not connect to Phase 12/13
+records, guarantee atomic authorization, create a real human review task, or
+establish safe rendering or prompt-injection resistance.
 Production retrieval and Phase 14 acceptance depend on the unresolved Phase
 12/13 identity and lifecycle security boundaries.
 
