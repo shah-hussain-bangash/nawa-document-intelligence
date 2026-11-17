@@ -161,4 +161,25 @@ jobs:
         run: docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml up -d
       - name: Test synthetic Keycloak and intake flow
         run: docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml exec -T nawa python -m nawa_demo.phase13_live_check
+      - name: Verify source and result survive service restarts
+        run: |
+          set -eu
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml exec -T nawa python -m nawa_demo.phase13_qa_snapshot > /tmp/nawa13-before.json
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml stop nawa
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml restart db
+          ready=0
+          for i in $(seq 1 30); do
+            if docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml exec -T db pg_isready -U nawa_test -d nawa_phase13_qa_demo >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml up -d nawa
+          ready=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:19765/api/ready >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml exec -T nawa python -m nawa_demo.phase13_qa_snapshot > /tmp/nawa13-after.json
+          cmp /tmp/nawa13-before.json /tmp/nawa13-after.json
 

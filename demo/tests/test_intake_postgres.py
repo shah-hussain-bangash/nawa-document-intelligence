@@ -35,6 +35,7 @@ from nawa_demo.session_draft import SessionStore
 from nawa_demo.intake_runtime import build_synthetic_intake
 from nawa_demo.intake_migrate import apply_intake_migrations, verify_intake_migrations
 from nawa_demo.migrate import migrate
+from nawa_demo.phase13_qa_snapshot import snapshot
 
 DSN = os.environ.get('NAWA_PHASE13_TEST_DSN')
 
@@ -323,4 +324,18 @@ class PostgresIntakeTests(unittest.TestCase):
                 verify_intake_migrations(conn)
             with self.assertRaisesRegex(RuntimeError, 'history mismatch'):
                 apply_intake_migrations(conn)
+
+    def test_qa_snapshot_checks_result_and_source_integrity(self):
+        with self.connect() as conn:
+            conn.execute("INSERT INTO nawa_tenants(id) VALUES ('tenant-a') ON CONFLICT DO NOTHING")
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes() + b'\n# qa-test\n'
+            doc, _ = SyntheticIntakePipeline(store, self.jobs).submit('tenant-a', 'synthetic.txt', content)
+            self.assertEqual(process_one(self.jobs, store, 'tenant-a'), 'completed')
+            result = snapshot(self.connect, folder)
+            self.assertEqual((result['document_id'], result['total']), (doc, '1050.00'))
+            (Path(folder) / doc).write_bytes(b'changed')
+            with self.assertRaises(ValueError):
+                snapshot(self.connect, folder)
 
