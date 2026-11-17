@@ -4,11 +4,13 @@ from tempfile import TemporaryDirectory
 import json
 import sys
 
-from .core import extract
-from .intake_worker import _extract_pdf
+from .intake_limits import apply_parser_limits
 
 
 def main():
+    apply_parser_limits()
+    from .core import extract
+    from .intake_worker import _extract_pdf
     if len(sys.argv) != 2:
         raise ValueError('Expected one input file')
     path = Path(sys.argv[1])
@@ -22,3 +24,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

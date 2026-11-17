@@ -2,10 +2,12 @@
 from pathlib import Path
 import sys
 
-from .intake_pdf import open_pdf
+from .intake_limits import apply_parser_limits
 
 
 def main():
+    apply_parser_limits()
+    from .intake_pdf import open_pdf
     if len(sys.argv) != 2:
         raise ValueError('Expected one input file')
     reader = open_pdf(Path(sys.argv[1]).read_bytes())
@@ -15,3 +17,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
