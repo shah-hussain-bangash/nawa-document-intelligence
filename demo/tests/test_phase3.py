@@ -4,12 +4,17 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from nawa_demo.pdf_ingest import OCRUnavailable, PDFTextUnavailable, extract_pdf, compare_pdfs
+from nawa_demo.pdf_ingest import OCRUnavailable, PDFTextUnavailable, extract_pdf, compare_pdfs, _normalize_pdf_line
 
 SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "pdf"
 
 
 class Phase3Tests(unittest.TestCase):
+    def test_currency_label_extracted_in_visual_order(self):
+        self.assertEqual(_normalize_pdf_line("AED :العملة"), "العملة: AED")
+        self.assertEqual(_normalize_pdf_line("  aed: ﺍﻟﻌﻤﻠﺔ  "), "العملة: AED")
+        self.assertEqual(_normalize_pdf_line("USD :العملة"), "USD :العملة")
+
     def test_arabic_text_layer(self):
         q = extract_pdf(SAMPLES / "arabic_text_supplier.pdf")
         self.assertEqual(q["supplier"], "شركة المثال للتوريدات")
@@ -42,3 +47,4 @@ class Phase3Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

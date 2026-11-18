@@ -53,7 +53,8 @@ normalized Arabic output must be checked against the original PDF.
 The separate Arabic-label TXT demonstration uses actual TXT line references;
 it does not establish Arabic-only PDF or OCR support.
 One separately generated local Arabic-label PDF revealed a currency-order
-failure. A fixture-specific QA normalization enabled extraction of its
-synthetic total, but has not been integrated into Phase 13 or generalized to
-other PDFs. It does not establish OCR or real-world Arabic PDF quality.
+failure. The Phase 14 draft now applies a narrow AED normalization in the
+separate Phase 3 PDF extractor, and an isolated local test extracted its
+synthetic total. The Phase 13 intake worker uses a different parser and is
+unchanged. This does not establish OCR or real-world Arabic PDF quality.
 

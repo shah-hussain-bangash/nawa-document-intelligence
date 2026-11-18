@@ -67,6 +67,10 @@ def _normalize_pdf_line(line: str) -> str:
     normalized = unicodedata.normalize("NFKC", line).strip()
     if ":" not in normalized:
         return normalized
+    # Some selectable-text PDFs put the Latin currency before an Arabic
+    # label in extracted visual order. Recognize only the supported AED case.
+    if re.fullmatch(r"AED\s*:\s*العملة", normalized, flags=re.IGNORECASE):
+        return "العملة: AED"
     known = {variant.casefold() for vs in LABELS.values() for variant in vs}
     if normalized.split(":", 1)[0].strip().casefold() in known:
         return normalized
@@ -162,3 +166,4 @@ def compare_pdfs(paths: list[Path], *, ocr: bool = False, languages: str = "eng+
         "lowest_valid_total": ranked[0]["supplier"] if ranked else None,
         "note": "Price-only ranking for demonstration; not a procurement award recommendation",
     }
+
