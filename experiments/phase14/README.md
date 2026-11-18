@@ -381,8 +381,9 @@ reviewed authorization and evidence-handling design.
 ## Bundled-PDF review demonstration
 
 `synthetic_review_demo.py` runs a fixed synthetic question against the
-repository's bundled English PDF, after checking its bytes against the two
-known fixture hashes. It uses the existing limited parser and local
+repository's bundled English PDF, or the bundled mixed Arabic–English PDF
+with `--language ar`, after checking against the exact fixture byte hashes.
+It uses an existing limited parser and local
 `embeddinggemma:300m` service, rechecks the source and returns cited,
 explicitly untrusted text for human review. It does not generate an answer,
 approve a quotation, use PostgreSQL or modify the portal.
@@ -390,9 +391,19 @@ approve a quotation, use PostgreSQL or modify the portal.
 The script's default `demo` path assumes it is run from this experiment in a
 repository checkout. A separate local development copy can pass
 `--demo-dir <path-to-Phase13-demo>`. The environment needs the Phase 13
-parser dependency and the local Ollama model; CI exercises the boundary using
-stubbed extraction and embeddings, not live inference. One local real-model
+parser dependencies and the local Ollama model. The Arabic path uses the
+existing Phase 3 PyMuPDF extraction with OCR disabled, in a subprocess with
+the existing OS limits. CI checks that exact PDF extraction and exercises the
+review boundary using stubbed embeddings, not live model inference. One local real-model
 run returned the grand-total line among five cited lines, with a currency
 line ranked ahead of it. This demonstration is not an accuracy, authorization,
 or prompt-injection assessment, and its fixture principal is not authentication.
+
+In a local model-backed run, the mixed Arabic–English fixture returned the
+synthetic grand total of 945.00 for an Arabic question. Its total label is
+English; it is not an Arabic-only quotation. Arabic text is normalized and may
+be reordered by the existing extractor, so the demonstration labels it
+`untrusted_normalized_text` and requires comparison with the original PDF.
+This is not OCR, validation of arbitrary Arabic layouts, or proof of
+semantic grounding. The parser resource limits are not a security sandbox.
 

@@ -48,4 +48,6 @@ and any label disagreements are adjudicated.
 
 The fixed bundled-PDF CLI is a synthetic review demonstration, not an
 authenticated portal, an answer generator, or evidence that Gate G14 passed.
+Its Arabic option uses one mixed Arabic–English selectable-text fixture;
+normalized Arabic output must be checked against the original PDF.
 
