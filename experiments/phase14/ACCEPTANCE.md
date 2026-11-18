@@ -46,3 +46,6 @@ The additional 20-question retrieval set has its own separate blinded packet.
 It is not independently reviewed until an independent reviewer completes it
 and any label disagreements are adjudicated.
 
+The fixed bundled-PDF CLI is a synthetic review demonstration, not an
+authenticated portal, an answer generator, or evidence that Gate G14 passed.
+

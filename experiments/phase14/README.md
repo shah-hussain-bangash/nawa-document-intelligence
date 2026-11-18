@@ -38,6 +38,8 @@ python -m unittest -v test_resolve_review_evidence
 python -m unittest -v test_review_packet
 python -m unittest -v test_new_eval_probe test_new_eval_packet
 python new_eval_probe.py
+python -m unittest -v test_synthetic_review_demo
+python synthetic_review_demo.py
 ```
 
 The 17 November 2026 local run gave Recall@5, MRR@5, and binary nDCG@5
@@ -375,4 +377,22 @@ the experimental function is not an authenticated endpoint. It does not
 provide safe HTML rendering, prevent a change after the final check, prove
 semantic support, or prevent prompt injection. Production use requires a
 reviewed authorization and evidence-handling design.
+
+## Bundled-PDF review demonstration
+
+`synthetic_review_demo.py` runs a fixed synthetic question against the
+repository's bundled English PDF, after checking its bytes against the two
+known fixture hashes. It uses the existing limited parser and local
+`embeddinggemma:300m` service, rechecks the source and returns cited,
+explicitly untrusted text for human review. It does not generate an answer,
+approve a quotation, use PostgreSQL or modify the portal.
+
+The script's default `demo` path assumes it is run from this experiment in a
+repository checkout. A separate local development copy can pass
+`--demo-dir <path-to-Phase13-demo>`. The environment needs the Phase 13
+parser dependency and the local Ollama model; CI exercises the boundary using
+stubbed extraction and embeddings, not live inference. One local real-model
+run returned the grand-total line among five cited lines, with a currency
+line ranked ahead of it. This demonstration is not an accuracy, authorization,
+or prompt-injection assessment, and its fixture principal is not authentication.
 
