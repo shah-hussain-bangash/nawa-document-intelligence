@@ -40,6 +40,8 @@ python -m unittest -v test_new_eval_probe test_new_eval_packet
 python new_eval_probe.py
 python -m unittest -v test_synthetic_review_demo
 python synthetic_review_demo.py
+python -m unittest -v test_arabic_text_review_demo
+python arabic_text_review_demo.py
 ```
 
 The 17 November 2026 local run gave Recall@5, MRR@5, and binary nDCG@5
@@ -406,4 +408,19 @@ be reordered by the existing extractor, so the demonstration labels it
 `untrusted_normalized_text` and requires comparison with the original PDF.
 This is not OCR, validation of arbitrary Arabic layouts, or proof of
 semantic grounding. The parser resource limits are not a security sandbox.
+
+## Arabic-label TXT demonstration
+
+`arabic_text_review_demo.py` is a separate, fixed-fixture demonstration
+using the bundled UTF-8 `arabic_quote.txt`. All six field labels in that
+fixture are Arabic. The script checks the exact fixture hash, parses it in
+the existing limited subprocess, ranks cited lines with BM25 and the local
+embedding model, then reads and checks the source again. It reports actual
+TXT line numbers rather than PDF pages and labels the text untrusted.
+
+One local run returned the synthetic total line (line 6, 945.00 AED) for an
+Arabic question with status `requires_human_review`. It does not generate
+an answer, establish authenticated access, or test Arabic-only PDFs, OCR,
+arbitrary documents or real-world accuracy. CI uses fake embeddings for the
+new review-boundary test; local model inference is not part of CI.
 

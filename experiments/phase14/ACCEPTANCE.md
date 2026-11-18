@@ -50,4 +50,6 @@ The fixed bundled-PDF CLI is a synthetic review demonstration, not an
 authenticated portal, an answer generator, or evidence that Gate G14 passed.
 Its Arabic option uses one mixed Arabic–English selectable-text fixture;
 normalized Arabic output must be checked against the original PDF.
+The separate Arabic-label TXT demonstration uses actual TXT line references;
+it does not establish Arabic-only PDF or OCR support.
 
