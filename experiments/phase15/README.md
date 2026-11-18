@@ -65,6 +65,25 @@ arithmetic; OCR transcription and financial verification are separate tasks.
 experiment. It uses the separate Phase 13 synthetic PDFs and PyMuPDF. All
 results require human review.
 
+The script now accepts explicit `--pdf-dir`, `--tesseract`, `--tessdata`, and
+`--output` paths, verifies the three PDF hashes and two pinned fast-model
+hashes before running OCR, and refuses to overwrite a result. From a checkout
+containing the Phase 13 sample PDFs, with PyMuPDF and the pinned language files
+installed separately, a Windows PowerShell example is:
+
+```powershell
+python experiments/phase15/additional_samples.py `
+  --pdf-dir demo/samples/pdf `
+  --tesseract 'C:\Program Files\Tesseract-OCR\tesseract.exe' `
+  --tessdata '<local-pinned-tessdata-folder>' `
+  --output '<new-result-file.json>'
+```
+
+Replace the two bracketed paths with local paths. The synthetic PDF result
+was repeated locally with the same field counts and error rates. The original
+Arabic-label image baseline still needs locally generated files and cannot be
+reproduced from the checkout alone.
+
 ## Reversed-label evaluation experiment
 
 The Arabic PDF's OCR produced `AED :العملة`, while the original field
@@ -79,7 +98,7 @@ recover the missing numeric fields.
 `rtl_field_experiment.py` is an evaluation helper, not a production parser,
 and has five local tests in `test_rtl_field_experiment.py`. It must not be
 used to approve quotations or presented as a security-reviewed implementation.
-This experiment is included in this draft PR but has not been integrated into the application. Further independent data and robust ambiguity handling are
+This experiment is included in the draft PR but has not been integrated into the application. Further independent data and robust ambiguity handling are
 needed before considering integration.
 
 ## Manually cropped number experiment
@@ -141,7 +160,7 @@ in the PR. Source: https://github.com/tesseract-ocr/tessdata_best/tree/e12c65a91
 ## Remaining Phase 15 work
 
 An isolated local single-image OCR prototype now exists in
-`bounded_ocr_prototype.py`. The experiment scripts assume the original local workstation layout and require local synthetic inputs and models, which are not included. It requires an explicit call and configured
+`bounded_ocr_prototype.py`. It requires an explicit call and configured
 executable/models, checks PNG size and dimensions, limits elapsed process time
 and captured output, restricts language choices, and marks its output for
 human review. It passes a temporary copy of the validated bytes to OCR so a
@@ -149,7 +168,7 @@ later change to the original file does not change the content being read.
 Eight local checks cover this behavior, timeouts, excess output, failure,
 invalid images, dimensions and language selection. Local Tesseract smoke tests
 matched 6 / 6 fields on the existing synthetic English image and 2 / 6 on the
-existing Arabic-label image. This prototype is included in this draft PR but is not integrated with NAWA.
+existing Arabic-label image. This prototype is included in the draft PR but is not integrated with NAWA.
 
 A separate opt-in wrapper checks caller-supplied model SHA-256 hashes before
 and after OCR and records those hashes and the engine's self-reported version.
