@@ -282,7 +282,10 @@ Production retrieval and Phase 14 acceptance depend on the unresolved Phase
 The disposable database integration suite also exercises a successful
 retrieval using actual Phase 13 synthetic PDF evidence. The citation includes
 the source document ID, PDF page and extracted line, and source hash, while a
-test spy checks that another tenant's source is not read. This uses fake
+test spy checks that another tenant's source is not read. Additional tests
+change a source, add a newer pending version, or remove its lifecycle state
+during embedding, and require the result to become unavailable on recheck.
+This uses fake
 embeddings and the Phase 12 test membership implementation; it does not test
 browser authentication, production file isolation, or an LLM answer.
 

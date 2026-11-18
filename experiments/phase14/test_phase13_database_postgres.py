@@ -170,6 +170,39 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
                                      load_snapshot=snapshot,embed_fn=lambda texts:[[1.0] for _ in texts])
         self.assertEqual(result, {'status':'unavailable'})
 
+    def test_source_tampering_during_embedding_blocks_result(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        def embed(texts):
+            (Path(self.temp.name) / document).write_bytes(b'tampered synthetic file')
+            return [[1.0] for _ in texts]
+        result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                    load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal),
+                    embed_fn=embed)
+        self.assertEqual(result, {'status':'unavailable'})
+
+    def test_new_pending_version_during_embedding_blocks_older_result(self):
+        family = uuid4().hex
+        self.add_pdf('english_supplier.pdf',family,1,complete=True)
+        def embed(texts):
+            self.add_pdf('incorrect_vat.pdf',family,2,complete=False)
+            return [[1.0] for _ in texts]
+        result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                    load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal),
+                    embed_fn=embed)
+        self.assertEqual(result, {'status':'unavailable'})
+
+    def test_missing_lifecycle_during_embedding_blocks_result(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        def embed(texts):
+            with self.connect() as conn:
+                conn.execute('DELETE FROM nawa_phase14_qa_lifecycle WHERE tenant_id=%s AND document_id=%s',
+                             (self.tenant,document))
+            return [[1.0] for _ in texts]
+        result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                    load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal),
+                    embed_fn=embed)
+        self.assertEqual(result, {'status':'unavailable'})
+
 
 if __name__ == '__main__':
     unittest.main()
