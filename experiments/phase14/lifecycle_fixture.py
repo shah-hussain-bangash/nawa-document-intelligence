@@ -19,9 +19,13 @@ def eligible(passages, *, tenant, principal, lifecycle, history_document=None):
     if history_document is not None and (not isinstance(history_document, str) or not history_document):
         raise ValueError('Invalid history selection')
     selected = []
+    seen = set()
     for passage in passages:
         if passage.tenant_id != tenant or principal not in passage.allowed_principals:
             continue
+        if passage.passage_id in seen:
+            raise ValueError('Duplicate authorized passage ID')
+        seen.add(passage.passage_id)
         state = lifecycle.get(passage.passage_id)
         if state not in ('current', 'superseded', 'deleted', 'revoked'):
             raise ValueError('Missing or invalid lifecycle metadata')

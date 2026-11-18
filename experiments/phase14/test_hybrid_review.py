@@ -56,6 +56,25 @@ class HybridReviewTests(unittest.TestCase):
                                      load_snapshot=lambda:{}, embed_fn=lambda _:[])
         self.assertEqual(result, {'status':'unavailable'})
 
+    def test_changed_source_and_duplicate_ids_close_batch(self):
+        for changed_record in (replace(self.passages[1], text='changed content'),
+                               replace(self.passages[1], version='v2'),
+                               replace(self.passages[1], source='other.txt')):
+            changed = [changed_record if p.passage_id == 'current' else p for p in self.passages]
+            snapshots = iter([{'passages':self.passages,'lifecycle':self.snapshot},
+                              {'passages':changed,'lifecycle':self.snapshot}])
+            result = retrieve_for_review('current', tenant='a', principal='analyst',
+                                         load_snapshot=lambda:next(snapshots),
+                                         embed_fn=lambda texts:[[1.0] for _ in texts])
+            self.assertEqual(result, {'status':'unavailable'})
+        duplicate = self.passages + [replace(self.passages[1], text='replacement')]
+        snapshots = iter([{'passages':self.passages,'lifecycle':self.snapshot},
+                          {'passages':duplicate,'lifecycle':self.snapshot}])
+        result = retrieve_for_review('current', tenant='a', principal='analyst',
+                                     load_snapshot=lambda:next(snapshots),
+                                     embed_fn=lambda texts:[[1.0] for _ in texts])
+        self.assertEqual(result, {'status':'unavailable'})
+
     def test_unknown_question_also_requires_human_review(self):
         result = retrieve_for_review('unknown', tenant='a', principal='analyst',
                                      load_snapshot=lambda:{'passages':self.passages,'lifecycle':self.snapshot},

@@ -223,7 +223,8 @@ real human decision workflow remain required.
 
 `hybrid_review.py` combines fixture authorization/current-version
 filtering, BM25, local vector ranking and reciprocal-rank fusion. It obtains
-a second fixture snapshot to recheck candidates, and returns citation metadata
+a second fixture snapshot to recheck candidates, rejecting duplicate authorized
+IDs or changes to selected passage content or metadata, and returns citation metadata
 for human review rather than an answer or approval. The snapshot provider must
 include current identity-dependent permissions and lifecycle state; this code
 does not authenticate users. An empty or invalid candidate set, missing
@@ -234,7 +235,7 @@ excluded superseded v1 and the two unauthorized fixture passages. Its top
 five also included an unrelated instruction-like passage. The current
 prototype has no relevance cutoff or safe automated answerability check and
 must not send arbitrary retrieved text to an LLM as trusted instructions.
-The full local fixture suite passed 19 tests; GitHub CI runs only unit tests,
+The full local fixture suite passed 20 tests; GitHub CI runs only unit tests,
 not local model inference. This experiment does not connect to Phase 12/13
 records, guarantee atomic authorization, create a real human review task, or
 establish safe rendering or prompt-injection resistance.
