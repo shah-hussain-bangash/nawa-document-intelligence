@@ -59,6 +59,7 @@ jobs:
               for path in sorted(Path('demo/nawa_demo/migrations').glob('00*.sql')):
                   conn.execute(path.read_text(encoding='utf-8'))
               apply_intake_migrations(conn)
+              conn.execute(Path('experiments/phase14/phase14-qa-lifecycle.sql').read_text(encoding='utf-8'))
           PY
       - name: Verify synthetic membership, version and source checks
         working-directory: experiments/phase14

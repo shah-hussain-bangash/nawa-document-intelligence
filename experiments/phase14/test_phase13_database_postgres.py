@@ -53,6 +53,9 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
         document, created = self.intake.submit(self.principal, sample, content)
         self.assertTrue(created)
         self.jobs.link_version(self.tenant,document,family,expected_previous=version-1)
+        with self.connect() as conn:
+            conn.execute("INSERT INTO nawa_phase14_qa_lifecycle (tenant_id,document_id,state) VALUES (%s,%s,'active')",
+                         (self.tenant,document))
         if complete:
             with TemporaryDirectory(prefix='nawa14-extract-') as temp:
                 result = _extract_pdf(content,temp)
@@ -94,6 +97,36 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
                 with self.connect() as conn:
                     conn.execute("UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s",
                                  (self.issuer,self.subject,self.tenant))
+            return load_snapshot(self.connect,self.store,self.principal)
+        result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                                     load_snapshot=snapshot,embed_fn=lambda texts:[[1.0] for _ in texts])
+        self.assertEqual(result, {'status':'unavailable'})
+
+    def test_withdrawn_and_deleted_latest_never_reveal_older_version(self):
+        family = uuid4().hex
+        self.add_pdf('english_supplier.pdf',family,1,complete=True)
+        latest = self.add_pdf('incorrect_vat.pdf',family,2,complete=False)
+        for state in ('withdrawn', 'deleted'):
+            with self.connect() as conn:
+                conn.execute('UPDATE nawa_phase14_qa_lifecycle SET state=%s WHERE tenant_id=%s AND document_id=%s',
+                             (state,self.tenant,latest))
+            self.assertEqual(load_snapshot(self.connect,self.store,self.principal)['passages'], [])
+        with self.connect() as conn:
+            conn.execute('DELETE FROM nawa_phase14_qa_lifecycle WHERE tenant_id=%s AND document_id=%s',
+                         (self.tenant,latest))
+        with self.assertRaises(ValueError):
+            load_snapshot(self.connect,self.store,self.principal)
+
+    def test_document_withdrawal_between_retrieval_snapshots(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        calls = 0
+        def snapshot():
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                with self.connect() as conn:
+                    conn.execute("UPDATE nawa_phase14_qa_lifecycle SET state='withdrawn' WHERE tenant_id=%s AND document_id=%s",
+                                 (self.tenant,document))
             return load_snapshot(self.connect,self.store,self.principal)
         result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
                                      load_snapshot=snapshot,embed_fn=lambda texts:[[1.0] for _ in texts])

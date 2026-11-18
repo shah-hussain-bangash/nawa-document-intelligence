@@ -262,11 +262,16 @@ The separate experimental `phase13_database_snapshot.py` bridges the Phase 13
 draft database and store in a disposable synthetic test: it rechecks a
 server-resolved principal using the draft membership logic, queries versioned
 records in that tenant and calls the source hash check for the latest
-completed version before creating fixture search passages. The test refuses
-to run unless explicitly enabled and the database is on localhost with a
+completed version before creating fixture search passages. A separate QA-only
+lifecycle table marks synthetic sources active, withdrawn or deleted.
+Missing lifecycle records fail closed, and withdrawal or deletion of the
+newest version does not expose an older one. The test refuses to run unless
+explicitly enabled and the database is on localhost with a
 `nawa_phase13_qa_` name. Its result must be checked in GitHub CI.
 
-This is not connected to a user-facing API or the running portal. Deletion
+This is not connected to a user-facing API or the running portal. The QA-only
+table is not a production migration: its deletion marker does not delete
+source files, erase embeddings or implement a retention policy. Deletion
 and revocation of documents are not implemented in the Phase 13 schema.
 An approved lifecycle policy, independent review and real browser identity
 verification remain open. A snapshot recheck is not atomic with subsequent use.
