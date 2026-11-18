@@ -36,7 +36,7 @@ python hybrid_review_probe.py
 python -m unittest -v test_phase13_snapshot_fixture
 python -m unittest -v test_resolve_review_evidence
 python -m unittest -v test_review_packet
-python -m unittest -v test_new_eval_probe
+python -m unittest -v test_new_eval_probe test_new_eval_packet
 python new_eval_probe.py
 ```
 
@@ -317,7 +317,11 @@ The labels and examples are hand-authored by the same project author and
 are not independently reviewed; this small set cannot establish production
 quality or safe abstention. This is not a timing benchmark: the recorded
 elapsed time is for a single batched run. It is separate from the existing
-blinded reviewer packet and needs independent review. Full results are in
+blinded reviewer packet and needs independent review. A separate blinded
+packet can be generated with `make_new_eval_packet.py --output <new-directory>`;
+its reviewer folder contains 20 questions and 11 authorized passages, and
+its claims file is intentionally empty. The existing comparison tool handles
+this packet without scoring unanswered questions. Full results are in
 `new-eval-result.json`; the unit test uses fake embeddings, while the local
 probe used `embeddinggemma:300m`.
 

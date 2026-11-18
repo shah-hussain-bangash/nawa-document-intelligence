@@ -42,4 +42,7 @@ review or label adjudication has yet occurred. The underlying cases are the
 same hand-authored development set, not a newly collected or held-out set.
 The comparison tool reports disagreements and leaves blank or uncertain
 judgments uncounted; reference-label agreement is not ground truth.
+The additional 20-question retrieval set has its own separate blinded packet.
+It is not independently reviewed until an independent reviewer completes it
+and any label disagreements are adjudicated.
 
