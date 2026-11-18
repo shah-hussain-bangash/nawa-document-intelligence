@@ -1,0 +1,231 @@
+{
+  "status": "human_review_required",
+  "scope": "Manually selected numeric regions from one known synthetic image; not an automatic extraction test.",
+  "image_sha256": "1b4e376e15feab5c2f35a1cfc2d613e853c0b259b3566e2c7a4a8361d938f05f",
+  "results": [
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 1,
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "",
+      "exact_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 1,
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "00",
+      "exact_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 2,
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "ثدرة .4",
+      "exact_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 2,
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "000",
+      "exact_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 1,
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "ه",
+      "exact_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 1,
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "38",
+      "exact_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 2,
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "ع",
+      "exact_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 2,
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "38",
+      "exact_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 1,
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ثثرهةة",
+      "exact_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 1,
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "الررف4 0",
+      "exact_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 2,
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ددرهةة",
+      "exact_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 2,
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "00000",
+      "exact_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 1,
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "٠ 6لرةةع4",
+      "exact_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 1,
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "احلره 094",
+      "exact_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 2,
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "1 دوءدرةتة4",
+      "exact_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 2,
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "الللره 094",
+      "exact_match": false
+    }
+  ]
+}

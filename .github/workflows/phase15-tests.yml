@@ -19,7 +19,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Test OCR metric calculations
+      - name: Install image test dependency
+        run: python -m pip install Pillow==11.3.0
+      - name: Test OCR metrics and local prototype
         working-directory: experiments/phase15
-        run: python -m unittest -v test_ocr_benchmark
+        run: python -m unittest -v test_ocr_benchmark test_rtl_field_experiment test_bounded_ocr_prototype
 

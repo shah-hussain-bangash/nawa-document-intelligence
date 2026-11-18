@@ -1,0 +1,132 @@
+{
+  "scope": "Same three synthetic images; no independent ground truth or production validation.",
+  "status": "human_review_required",
+  "fast_commit": "87416418657359cb625c412a48b6e1d6d41c29bd",
+  "best_provenance": {
+    "repository": "https://api.github.com/repos/tesseract-ocr/tessdata_best",
+    "commit": "e12c65a915945e4c28e237a9b52bc4a8f39a0cec",
+    "files": {
+      "ara.traineddata": {
+        "git_blob": "4b687c7d54c86cf6219aebe781b47284fd5d41f0",
+        "sha256": "ab9d157d8e38ca00e7e39c7d5363a5239e053f5b0dbdb3167dde9d8124335896",
+        "size": 12603724
+      },
+      "eng.traineddata": {
+        "git_blob": "176dc3220de7db34d3b3aecbfa42043a6038348b",
+        "sha256": "8280aed0782fe27257a68ea10fe7ef324ca0f8d85bd2fd145d1c2b560bcb66ba",
+        "size": 15400601
+      },
+      "LICENSE": {
+        "git_blob": "d9a10c0d8e868ebf8da0b3dc95bb0be634c34bfe",
+        "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+        "size": 10173
+      }
+    }
+  },
+  "dpi": 200,
+  "psm": 6,
+  "results": [
+    {
+      "case": "english",
+      "model": "fast",
+      "elapsed_seconds_single_run": 0.238,
+      "fields_correct": 6,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": true,
+        "vat_rate": true,
+        "vat_amount": true,
+        "total": true
+      },
+      "cer": 0.0,
+      "wer": 0.0,
+      "ocr_text_synthetic": "Supplier: Example English Supplies\r\nCurrency: AED\r\n\r\nSubtotal: 1000.00\r\n\r\nVAT Rate: 5\r\n\r\nVAT Amount: 50.00\r\n\r\nGrand Total: 1050.00\r\n"
+    },
+    {
+      "case": "english",
+      "model": "best",
+      "elapsed_seconds_single_run": 0.305,
+      "fields_correct": 6,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": true,
+        "vat_rate": true,
+        "vat_amount": true,
+        "total": true
+      },
+      "cer": 0.0,
+      "wer": 0.0,
+      "ocr_text_synthetic": "Supplier: Example English Supplies\r\nCurrency: AED\r\n\r\nSubtotal: 1000.00\r\n\r\nVAT Rate: 5\r\n\r\nVAT Amount: 50.00\r\n\r\nGrand Total: 1050.00\r\n"
+    },
+    {
+      "case": "arabic_labels",
+      "model": "fast",
+      "elapsed_seconds_single_run": 0.219,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.4642857142857143,
+      "wer": 0.5384615384615384,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: فدرمة4\r\nالإجمالي شامل الضريبة: ٠.٠,ه44‏\r\n"
+    },
+    {
+      "case": "arabic_labels",
+      "model": "best",
+      "elapsed_seconds_single_run": 0.428,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.3392857142857143,
+      "wer": 0.4230769230769231,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: ا\r\n\r\nنسبة الضريبة: ©\r\n\r\nقيمة الضريبة: 59,060\r\n\r\nالإجمالي ‎Jali‏ الضريبة: 145,060\r\n"
+    },
+    {
+      "case": "arabic_pdf_page",
+      "model": "fast",
+      "elapsed_seconds_single_run": 0.203,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": true
+      },
+      "cer": 0.4838709677419355,
+      "wer": 0.5263157894736842,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\n‎AED‏ :العملة\r\n‎Grand Total: 945.00‏\r\n"
+    },
+    {
+      "case": "arabic_pdf_page",
+      "model": "best",
+      "elapsed_seconds_single_run": 0.359,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": true
+      },
+      "cer": 0.4032258064516129,
+      "wer": 0.47368421052631576,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\n‎AED‏ :العملة\r\nالمجموع الفرعي: ‎٠0٠0‏\r\n‎Grand Total: 945.00‏\r\n"
+    }
+  ]
+}
