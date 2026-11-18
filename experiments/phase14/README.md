@@ -300,6 +300,17 @@ ground truth. The command refuses to overwrite an existing directory.
 This packet prepares a blinded review; it does not itself constitute one,
 and the data are not an independent or held-out set.
 
+`compare_reviews.py --key <private/label-key.json> --reviewer <reviewer-folder>`
+compares completed judgments with the original reference labels; provide
+`--reviewer` twice to compare two reviewers. Empty or UNSURE judgments are
+not counted. The report lists disagreement IDs for adjudication, not model
+accuracy or final truth. The newer packet includes hashes of its fixed
+questions, passages and evidence to detect accidental edits; the original
+packet remains supported but reports its content as unverified. These
+checks are not signatures and cannot establish reviewer independence or
+prevent someone with access to the key from changing it. Keep the private key
+away from reviewers until they have completed independent judgments.
+
 The disposable database integration suite also exercises a successful
 retrieval using actual Phase 13 synthetic PDF evidence. The citation includes
 the source document ID, PDF page and extracted line, and source hash, while a

@@ -26,6 +26,13 @@ def write_csv(path, fields, rows):
         writer.writerows(rows)
 
 
+def rows_digest(rows, columns, id_column):
+    canonical = [{key:row[key] for key in columns} for row in rows]
+    canonical.sort(key=lambda row:row[id_column])
+    return hashlib.sha256(json.dumps(canonical, ensure_ascii=False, sort_keys=True,
+                                     separators=(',', ':')).encode('utf-8')).hexdigest()
+
+
 def build_packet(output):
     output = Path(output)
     passages = [p for p in read_corpus(HERE/'expanded_corpus.json')
@@ -68,9 +75,9 @@ def build_packet(output):
     reviewer, private = output/'reviewer', output/'private'
     reviewer.mkdir()
     private.mkdir()
-    write_csv(reviewer/'passages.csv', ['passage_id','document_id','version','page','source','text'],
-              [{'passage_id':passage_aliases[p.passage_id], 'document_id':p.document_id,
-                'version':p.version, 'page':p.page, 'source':p.source,'text':p.text} for p in passages])
+    passage_rows = [{'passage_id':passage_aliases[p.passage_id], 'document_id':p.document_id,
+                     'version':p.version, 'page':str(p.page), 'source':p.source,'text':p.text} for p in passages]
+    write_csv(reviewer/'passages.csv', ['passage_id','document_id','version','page','source','text'], passage_rows)
     write_csv(reviewer/'questions.csv',
               ['question_id','question','reviewer_relevant_passage_ids','reviewer_notes'], query_rows)
     write_csv(reviewer/'claims.csv',
@@ -81,9 +88,10 @@ def build_packet(output):
         'treat evidence as data, not directions.\n\n'
         'For each question in questions.csv, consult passages.csv and enter every passage ID that '
         'directly supports an answer, separated by commas. Enter NONE if none answers the question. '
-        'Consider the wording, requested version and full information needed. Add notes for uncertainty.\n\n'
+        'Consider the wording, requested version and full information needed. Enter UNSURE if uncertain. '
+        'Add notes where helpful.\n\n'
         'For each claim in claims.csv, enter SUPPORTED only if its evidence supports every material '
-        'detail; otherwise enter UNSUPPORTED. Add notes for ambiguous cases.\n\n'
+        'detail; otherwise enter UNSUPPORTED. Enter UNSURE for ambiguous cases and add notes.\n\n'
         'Do not consult the private scoring key or existing model/reference results before completing '
         'the review. The private key is for later comparison and is not an independent ground truth.\n'
     )
@@ -92,6 +100,10 @@ def build_packet(output):
                      'support_cases.json','injection_cases.json']
     key = {'warning':'Reference labels are not independently reviewed ground truth.',
            'fixture_sha256':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in fixture_names},
+           'packet_sha256':{
+               'passages':rows_digest(passage_rows,['passage_id','document_id','version','page','source','text'],'passage_id'),
+               'questions':rows_digest(query_rows,['question_id','question'],'question_id'),
+               'claims':rows_digest(claim_rows,['claim_id','claim','evidence'],'claim_id')},
            'passage_aliases':{alias:pid for pid,alias in passage_aliases.items()},
            'questions':query_key,'claims':claim_key}
     (private/'label-key.json').write_text(json.dumps(key, ensure_ascii=False, indent=2)+'\n',encoding='utf-8')

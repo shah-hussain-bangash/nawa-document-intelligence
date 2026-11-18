@@ -40,4 +40,6 @@ key and contains 36 synthetic retrieval questions, 10 authorized passages
 and 28 claim/evidence examples. This merely prepares the review; no independent
 review or label adjudication has yet occurred. The underlying cases are the
 same hand-authored development set, not a newly collected or held-out set.
+The comparison tool reports disagreements and leaves blank or uncertain
+judgments uncounted; reference-label agreement is not ground truth.
 
