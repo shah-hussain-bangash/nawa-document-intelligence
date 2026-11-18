@@ -90,7 +90,8 @@ def run_demo(demo_dir, *, language='en', embedding_fn=embed, extraction_fn=None)
         result['question']=question
         if language=='ar':
             for item in result['evidence']:
-                item['untrusted_normalized_text']=item.pop('untrusted_source_text')
+                if 'untrusted_source_text' in item:
+                    item['untrusted_normalized_text']=item.pop('untrusted_source_text')
             result['normalization_note']=('Arabic text may be normalized or reordered for extraction; '
                                           'compare against the original PDF. The total label in this fixture is English.')
     return result

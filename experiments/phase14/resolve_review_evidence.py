@@ -16,7 +16,7 @@ def resolve_for_review(review, *, tenant, principal, load_snapshot):
         if not isinstance(citations, list) or not 1 <= len(citations) <= 100:
             raise ValueError('Invalid citations')
         required = {'passage_id','document_id','version','page','source',
-                    'source_document_id','source_sha256','page_line','evidence_text_sha256'}
+                    'source_document_id','source_sha256','page_line','text_representation','evidence_text_sha256'}
         if any(not isinstance(c, dict) or set(c) != required for c in citations):
             raise ValueError('Invalid citation metadata')
         snapshot = load_snapshot()
@@ -33,10 +33,15 @@ def resolve_for_review(review, *, tenant, principal, load_snapshot):
                         'version':passage.version, 'page':passage.page, 'source':passage.source,
                         'source_document_id':info['document_id'], 'source_sha256':info['source_sha256'],
                         'page_line':info['page_line'],
+                        'text_representation':info['text_representation'],
                         'evidence_text_sha256':hashlib.sha256(passage.text.encode('utf-8')).hexdigest()}
             if citation != expected:
                 raise ValueError('Citation changed')
-            resolved.append({'citation':expected, 'untrusted_source_text':passage.text})
+            representation=info['text_representation']
+            if representation not in ('as_extracted','normalized'):
+                raise ValueError('Invalid text representation')
+            key='untrusted_normalized_text' if representation=='normalized' else 'untrusted_source_text'
+            resolved.append({'citation':expected, key:passage.text})
         return {'status':'requires_human_review','evidence':resolved}
     except (ValueError, TypeError, KeyError, OSError, TimeoutError):
         return {'status':'unavailable'}

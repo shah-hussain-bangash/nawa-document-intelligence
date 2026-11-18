@@ -54,11 +54,16 @@ def fixture_snapshot(rows, *, tenant, principal, membership_active):
                     or citation['page_line'] < 1):
                 raise ValueError('Invalid PDF fixture citation')
             passage_id = row['document_id'] + ':' + field
+            raw = citation.get('raw_extracted_text')
+            if raw is not None and not isinstance(raw, str):
+                raise ValueError('Invalid raw PDF fixture text')
             passages.append(Passage(passage_id, family, str(row['version']), tenant,
                                     citation['page'], citation['source_text'], (principal,),
                                     filename, 'text_layer'))
             provenance[passage_id] = {'source_sha256':digest, 'page_line':citation['page_line'],
-                                      'document_id':row['document_id']}
+                                      'document_id':row['document_id'],
+                                      'text_representation':'normalized' if raw is not None
+                                      and raw != citation['source_text'] else 'as_extracted'}
     return {'passages':passages, 'lifecycle':{p.passage_id:'current' for p in passages},
             'provenance':provenance}
 

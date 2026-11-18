@@ -55,6 +55,8 @@ it does not establish Arabic-only PDF or OCR support.
 One separately generated local Arabic-label PDF revealed a currency-order
 failure. The Phase 14 draft now applies a narrow AED normalization in the
 separate Phase 3 PDF extractor, and an isolated local test extracted its
-synthetic total. The Phase 13 intake worker uses a different parser and is
-unchanged. This does not establish OCR or real-world Arabic PDF quality.
+synthetic total. Separately, the draft intake worker supports the exact
+bundled mixed Arabic–English fixture through a hash-specific route to that
+extractor. The generated Arabic-label PDF is not in that route. This does not
+establish OCR or real-world Arabic PDF quality.
 

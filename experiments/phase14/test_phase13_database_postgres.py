@@ -16,7 +16,7 @@ from nawa_demo.authorization import Principal
 from nawa_demo.intake_postgres import PostgresIntakeJobs
 from nawa_demo.intake_scoped import ScopedIntake
 from nawa_demo.intake_store import LocalIntakeStore
-from nawa_demo.intake_worker import _extract_pdf
+from nawa_demo.intake_worker import _extract_pdf, process_one
 from phase13_database_snapshot import load_snapshot
 from hybrid_review import retrieve_for_review
 from resolve_review_evidence import resolve_for_review
@@ -80,6 +80,26 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             load_snapshot(self.connect,self.store,self.principal)
         self.assertTrue(newer)
+
+    def test_mixed_arabic_pdf_is_processed_and_labeled_by_representation(self):
+        family=uuid4().hex
+        document=self.add_pdf('arabic_text_supplier.pdf',family,1,complete=False)
+        self.assertEqual(process_one(self.jobs,self.store,self.tenant),'completed')
+        snapshot=load_snapshot(self.connect,self.store,self.principal)
+        self.assertTrue(snapshot['passages'])
+        self.assertTrue(all(p.passage_id.startswith(document+':') for p in snapshot['passages']))
+        representations={p.passage_id:snapshot['provenance'][p.passage_id]['text_representation']
+                         for p in snapshot['passages']}
+        self.assertEqual(representations[document+':supplier'],'normalized')
+        review=retrieve_for_review('supplier',tenant=self.tenant,principal=self.principal.subject,
+                                   load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal),
+                                   embed_fn=lambda texts:[[1.0] for _ in texts],limit=10)
+        resolved=resolve_for_review(review,tenant=self.tenant,principal=self.principal.subject,
+                                    load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal))
+        self.assertEqual(resolved['status'],'requires_human_review')
+        supplier=next(e for e in resolved['evidence'] if e['citation']['passage_id']==document+':supplier')
+        self.assertIn('untrusted_normalized_text',supplier)
+        self.assertNotIn('untrusted_source_text',supplier)
 
     def test_tampered_source_and_cross_tenant_membership_are_denied(self):
         document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)

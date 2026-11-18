@@ -8,6 +8,7 @@ from nawa_demo.intake_jobs import IntakeJobs
 from nawa_demo.intake_pipeline import SyntheticIntakePipeline
 from nawa_demo.intake_store import LocalIntakeStore
 from nawa_demo.intake_worker import process_one
+from nawa_demo.intake_parser import is_synthetic_arabic_pdf
 
 
 def synthetic_fixture(name):
@@ -17,6 +18,25 @@ def synthetic_fixture(name):
 
 
 class IntakeWorkerTests(unittest.TestCase):
+    def test_arabic_pdf_route_is_exact_fixture_only(self):
+        sample=synthetic_fixture('arabic_text_supplier.pdf')
+        self.assertTrue(is_synthetic_arabic_pdf(sample))
+        self.assertFalse(is_synthetic_arabic_pdf(sample+b' '))
+
+    def test_mixed_arabic_pdf_has_cited_normalized_evidence(self):
+        with TemporaryDirectory() as folder:
+            root=Path(folder)
+            store=LocalIntakeStore(root/'files')
+            jobs=IntakeJobs(root/'jobs.db')
+            document,_=SyntheticIntakePipeline(store,jobs).submit(
+                'a','arabic.pdf',synthetic_fixture('arabic_text_supplier.pdf'))
+            self.assertEqual(process_one(jobs,store,'a'),'completed')
+            result=jobs.result('a',document)
+            self.assertEqual(result['total'],'945.00')
+            self.assertEqual(result['evidence']['total']['page'],1)
+            self.assertEqual(result['evidence']['total']['method'],'text_layer')
+            self.assertIn('raw_extracted_text',result['evidence']['supplier'])
+
     def test_parser_timeout_returns_retry_without_result(self):
         with TemporaryDirectory() as folder:
             root = Path(folder)
@@ -76,3 +96,4 @@ class IntakeWorkerTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

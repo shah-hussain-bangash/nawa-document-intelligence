@@ -356,7 +356,9 @@ locally against a fresh temporary Windows PostgreSQL cluster, the local
 evidence and resolved the cited line. Additional model-backed tests revoked
 membership or withdrew the document after embedding completed but before the
 second snapshot; both returned unavailable. All 14 database tests passed in
-that local run. The cluster's data directory was checked before database creation.
+that local run. A subsequent isolated run passed 15 database tests, including
+the exact mixed Arabic–English PDF through the intake worker. The cluster's
+data directory was checked before database creation.
 The optional model-backed test is explicitly enabled for disposable local
 tests and is skipped in GitHub CI, which does not install or call the local
 model. This single-document check is not a retrieval-quality benchmark and
@@ -417,8 +419,10 @@ currency line as `AED :العملة`. The isolated
 `arabic_pdf_fixture_normalize.py` experiment handles that exact line only;
 the Phase 14 draft now also applies that narrow case to the separate Phase 3
 `pdf_ingest` extractor. In an isolated local copy, it extracted total 945.00
-from page 1. This does not change the Phase 13 intake worker's different
-parser or the running portal.
+from page 1. The draft intake worker uses this extractor only for the exact
+bundled mixed Arabic–English fixture, identified by two known byte hashes;
+the newly generated Arabic-label PDF is not included in that exception.
+The running portal is unchanged.
 
 The local fixture was generated with a Windows system font and is not included
 in this repository. The local-only QA script and worker accept only that
@@ -428,6 +432,13 @@ security evaluation; normalized text must be compared with the original PDF.
 CI tests the narrow normalization rule and existing Phase 3 fixture, not the
 local PDF or live model. The PDF parser subprocess limits are not a security
 sandbox.
+
+For the exact bundled mixed Arabic–English fixture, the synthetic intake
+parser routes to the Phase 3 text-layer extractor inside its existing
+limited subprocess; other PDFs continue through the original parser. This
+fixture has an English grand-total label. The retrieval experiment marks
+changed or reordered extraction as `normalized`, not verbatim source text.
+This hash-specific test route is not general Arabic PDF support or OCR.
 
 ## Arabic-label TXT demonstration
 

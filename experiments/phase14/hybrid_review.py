@@ -57,11 +57,13 @@ def retrieve_for_review(query, *, tenant, principal, load_snapshot, embed_fn, li
                         'version':p.version, 'page':p.page, 'source':p.source}
             if provenance is not None:
                 data = provenance[p.passage_id]
-                if (not isinstance(data, dict) or not {'document_id','source_sha256','page_line'} <= data.keys()):
+                if (not isinstance(data, dict) or not {'document_id','source_sha256','page_line','text_representation'} <= data.keys()
+                        or data['text_representation'] not in ('as_extracted','normalized')):
                     raise ValueError('Incomplete provenance')
                 citation.update({'source_document_id':data['document_id'],
                                  'source_sha256':data['source_sha256'],
                                  'page_line':data['page_line'],
+                                 'text_representation':data['text_representation'],
                                  'evidence_text_sha256':hashlib.sha256(p.text.encode('utf-8')).hexdigest()})
             evidence.append(citation)
         return {'status':'requires_human_review',

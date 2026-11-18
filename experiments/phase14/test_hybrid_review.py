@@ -94,7 +94,8 @@ class HybridReviewTests(unittest.TestCase):
     def test_incomplete_or_changed_provenance_is_unavailable(self):
         def snap(provenance):
             return {'passages':self.passages,'lifecycle':self.snapshot,'provenance':provenance}
-        complete = {'current':{'document_id':'source','source_sha256':'a'*64,'page_line':1}}
+        complete = {'current':{'document_id':'source','source_sha256':'a'*64,'page_line':1,
+                               'text_representation':'as_extracted'}}
         for before,after in (({}, {}), (complete, {})):
             snapshots = iter([snap(before),snap(after)])
             result = retrieve_for_review('current', tenant='a', principal='analyst',
