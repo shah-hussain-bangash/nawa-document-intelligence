@@ -264,7 +264,11 @@ The separate experimental `phase13_database_snapshot.py` bridges the Phase 13
 draft database and store in a disposable synthetic test: it rechecks a
 server-resolved principal using the draft membership logic, queries versioned
 records in that tenant and calls the source hash check for the latest
-completed version before creating fixture search passages. A separate QA-only
+completed version before creating fixture search passages. For synthetic
+PDFs, it also re-extracts the field evidence with the existing bounded parser
+and rejects a mismatch with the stored extraction. This is an exact
+reproducibility check, not semantic entailment or a complete PDF sandbox.
+A separate QA-only
 lifecycle table marks synthetic sources active, withdrawn or deleted.
 Missing lifecycle records fail closed, and withdrawal or deletion of the
 newest version does not expose an older one. The test refuses to run unless

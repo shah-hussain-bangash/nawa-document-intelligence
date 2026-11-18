@@ -223,6 +223,17 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
                     embed_fn=embed)
         self.assertEqual(result, {'status':'unavailable'})
 
+    def test_modified_extracted_line_is_not_accepted_as_source_evidence(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        self.assertTrue(load_snapshot(self.connect,self.store,self.principal)['passages'])
+        with self.connect() as conn:
+            conn.execute("""UPDATE nawa_intake_jobs SET result=jsonb_set(
+                         result,'{evidence,total,source_text}',to_jsonb(%s::text))
+                         WHERE tenant_id=%s AND document_id=%s""",
+                         ('Synthetic false line',self.tenant,document))
+        with self.assertRaises(ValueError):
+            load_snapshot(self.connect,self.store,self.principal)
+
 
 if __name__ == '__main__':
     unittest.main()
