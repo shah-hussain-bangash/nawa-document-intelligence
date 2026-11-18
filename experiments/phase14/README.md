@@ -349,12 +349,16 @@ browser authentication, production file isolation, or an LLM answer.
 On 18 November 2026, the optional model-backed integration was also run
 locally against a fresh temporary Windows PostgreSQL cluster, the local
 `embeddinggemma:300m` service and a synthetic PDF. It retrieved review-only
-evidence and resolved the cited line; all 12 database tests passed in that
-local run. The cluster's data directory was checked before database creation.
+evidence and resolved the cited line. Additional model-backed tests revoked
+membership or withdrew the document after embedding completed but before the
+second snapshot; both returned unavailable. All 14 database tests passed in
+that local run. The cluster's data directory was checked before database creation.
 The optional model-backed test is explicitly enabled for disposable local
 tests and is skipped in GitHub CI, which does not install or call the local
 model. This single-document check is not a retrieval-quality benchmark and
-does not test live browser authentication or the running portal.
+does not test live browser authentication or the running portal. These checks
+cannot retract text already supplied to a model before revocation, and they
+do not eliminate a change after the final recheck.
 
 ## Synthetic citation resolution
 

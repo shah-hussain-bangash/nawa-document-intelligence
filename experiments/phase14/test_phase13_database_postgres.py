@@ -251,6 +251,36 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
         self.assertEqual(resolved['status'],'requires_human_review')
         self.assertTrue(all(item['untrusted_source_text'] for item in resolved['evidence']))
 
+    @unittest.skipUnless(os.environ.get('NAWA_PHASE14_TEST_OLLAMA') == '1',
+                         'local synthetic embedding model not enabled')
+    def test_local_model_membership_revocation_during_embedding(self):
+        self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        def embed_then_revoke(texts):
+            vectors = embed(texts)
+            with self.connect() as conn:
+                conn.execute("UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                             (self.issuer,self.subject,self.tenant))
+            return vectors
+        result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                    load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal),
+                    embed_fn=embed_then_revoke)
+        self.assertEqual(result, {'status':'unavailable'})
+
+    @unittest.skipUnless(os.environ.get('NAWA_PHASE14_TEST_OLLAMA') == '1',
+                         'local synthetic embedding model not enabled')
+    def test_local_model_document_withdrawal_during_embedding(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        def embed_then_withdraw(texts):
+            vectors = embed(texts)
+            with self.connect() as conn:
+                conn.execute("UPDATE nawa_phase14_qa_lifecycle SET state='withdrawn' WHERE tenant_id=%s AND document_id=%s",
+                             (self.tenant,document))
+            return vectors
+        result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                    load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal),
+                    embed_fn=embed_then_withdraw)
+        self.assertEqual(result, {'status':'unavailable'})
+
 
 if __name__ == '__main__':
     unittest.main()
