@@ -237,7 +237,8 @@ excluded superseded v1 and the two unauthorized fixture passages. Its top
 five also included an unrelated instruction-like passage. The current
 prototype has no relevance cutoff or safe automated answerability check and
 must not send arbitrary retrieved text to an LLM as trusted instructions.
-The full local fixture suite passed 26 tests; GitHub CI runs only unit tests,
+The full local fixture suite passed 27 tests; GitHub CI runs unit tests and
+a separate disposable PostgreSQL job,
 not local model inference. This experiment does not connect to Phase 12/13
 records, guarantee atomic authorization, create a real human review task, or
 establish safe rendering or prompt-injection resistance.
@@ -277,4 +278,11 @@ An approved lifecycle policy, independent review and real browser identity
 verification remain open. A snapshot recheck is not atomic with subsequent use.
 Production retrieval and Phase 14 acceptance depend on the unresolved Phase
 12/13 identity and lifecycle security boundaries.
+
+The disposable database integration suite also exercises a successful
+retrieval using actual Phase 13 synthetic PDF evidence. The citation includes
+the source document ID, PDF page and extracted line, and source hash, while a
+test spy checks that another tenant's source is not read. This uses fake
+embeddings and the Phase 12 test membership implementation; it does not test
+browser authentication, production file isolation, or an LLM answer.
 

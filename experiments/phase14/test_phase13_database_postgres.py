@@ -1,6 +1,7 @@
 """Disposable PostgreSQL and temporary-source integration only."""
 import json
 import os
+import hashlib
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -101,6 +102,43 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
         result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
                                      load_snapshot=snapshot,embed_fn=lambda texts:[[1.0] for _ in texts])
         self.assertEqual(result, {'status':'unavailable'})
+
+    def test_citations_and_source_reads_are_tenant_scoped(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (self.issuer,self.subject,self.other,'analyst'))
+        other_principal = Principal(self.principal.subject,self.other,'analyst')
+        other_intake = ScopedIntake(self.connect,self.store)
+        other_content = (DEMO/'samples'/'pdf'/'incorrect_vat.pdf').read_bytes()
+        other_document, created = other_intake.submit(other_principal,'incorrect_vat.pdf',other_content)
+        self.assertTrue(created)
+        self.jobs.link_version(self.other,other_document,uuid4().hex,expected_previous=0)
+        with self.connect() as conn:
+            conn.execute("INSERT INTO nawa_phase14_qa_lifecycle (tenant_id,document_id,state) VALUES (%s,%s,'active')",
+                         (self.other,other_document))
+        with TemporaryDirectory(prefix='nawa14-extract-') as temp:
+            other_result = _extract_pdf(other_content,temp)
+        job,token = self.jobs.claim(self.other)
+        self.jobs.finish(self.other,job,token,success=True,result=other_result)
+
+        reads = []
+        class ObservedStore:
+            def read_verified(inner, identifier, digest):
+                reads.append(identifier)
+                return self.store.read_verified(identifier,digest)
+        result = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                    load_snapshot=lambda:load_snapshot(self.connect,ObservedStore(),self.principal),
+                    embed_fn=lambda texts:[[1.0] for _ in texts])
+        self.assertEqual(result['status'], 'requires_human_review')
+        self.assertTrue(result['evidence'])
+        self.assertEqual(set(reads), {document})
+        expected_hash = hashlib.sha256((DEMO/'samples'/'pdf'/'english_supplier.pdf').read_bytes()).hexdigest()
+        for citation in result['evidence']:
+            self.assertEqual(citation['source_document_id'], document)
+            self.assertEqual(citation['source_sha256'], expected_hash)
+            self.assertGreaterEqual(citation['page'], 1)
+            self.assertGreaterEqual(citation['page_line'], 1)
 
     def test_withdrawn_and_deleted_latest_never_reveal_older_version(self):
         family = uuid4().hex

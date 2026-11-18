@@ -41,6 +41,7 @@ def retrieve_for_review(query, *, tenant, principal, load_snapshot, embed_fn, li
         original = {p.passage_id:p for p in candidates}
         if any(original[p.passage_id] != p for p in current):
             raise ValueError('Candidate changed while retrieval was running')
+        provenance = None
         if 'provenance' in before or 'provenance' in after:
             old_provenance, new_provenance = before.get('provenance'), after.get('provenance')
             if not isinstance(old_provenance, dict) or not isinstance(new_provenance, dict):
@@ -48,10 +49,21 @@ def retrieve_for_review(query, *, tenant, principal, load_snapshot, embed_fn, li
             if any(p.passage_id not in old_provenance or p.passage_id not in new_provenance
                    or old_provenance[p.passage_id] != new_provenance[p.passage_id] for p in current):
                 raise ValueError('Candidate provenance changed while retrieval was running')
+            provenance = new_provenance
+        evidence = []
+        for p in current:
+            citation = {'passage_id':p.passage_id, 'document_id':p.document_id,
+                        'version':p.version, 'page':p.page, 'source':p.source}
+            if provenance is not None:
+                data = provenance[p.passage_id]
+                if (not isinstance(data, dict) or not {'document_id','source_sha256','page_line'} <= data.keys()):
+                    raise ValueError('Incomplete provenance')
+                citation.update({'source_document_id':data['document_id'],
+                                 'source_sha256':data['source_sha256'],
+                                 'page_line':data['page_line']})
+            evidence.append(citation)
         return {'status':'requires_human_review',
-                'evidence':[{'passage_id':p.passage_id, 'document_id':p.document_id,
-                             'version':p.version, 'page':p.page, 'source':p.source}
-                            for p in current]}
+                'evidence':evidence}
     except (ValueError, TypeError, KeyError, OSError, TimeoutError):
         return {'status':'unavailable'}
 
