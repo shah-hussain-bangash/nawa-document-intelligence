@@ -59,7 +59,9 @@ synthetic total. Separately, the draft intake worker supports the exact
 bundled mixed Arabic–English fixture through a hash-specific route to that
 extractor. A separate, default-off synthetic-only fallback was locally
 exercised on the generated Arabic-label PDF with OCR disabled and extracted
-total 945.00. CI covers a modified mixed-language fixture and verifies that
-image-only PDFs do not trigger OCR. This does not establish real-world Arabic
-PDF quality or production parser safety.
+total 945.00. A local end-to-end test also used temporary PostgreSQL and the
+local embedding model, then reopened normalized evidence for human review.
+CI covers a modified mixed-language fixture and verifies that image-only
+PDFs do not trigger OCR; the local PDF/model test is skipped in CI. This does
+not establish real-world Arabic PDF quality or production parser safety.
 

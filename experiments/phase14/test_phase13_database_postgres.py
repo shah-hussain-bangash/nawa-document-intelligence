@@ -116,6 +116,35 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
             self.assertTrue(snapshot['passages'])
             self.assertEqual(snapshot['provenance'][document+':supplier']['text_representation'],'normalized')
 
+    @unittest.skipUnless(os.environ.get('NAWA_PHASE14_TEST_ARABIC_PDF') == '1'
+                         and os.environ.get('NAWA_PHASE14_TEST_OLLAMA') == '1',
+                         'local synthetic Arabic PDF and embedding model not enabled')
+    def test_local_arabic_label_pdf_end_to_end_for_human_review(self):
+        fixture=Path(os.environ['NAWA_PHASE14_ARABIC_FIXTURE'])
+        content=fixture.read_bytes()
+        self.assertEqual(hashlib.sha256(content).hexdigest(),
+                         'd1176daade474cb5189860448ae9d463660857371598654734a30342ef2833b5')
+        document,created=self.intake.submit(self.principal,'synthetic-arabic-labels.pdf',content)
+        self.assertTrue(created)
+        self.jobs.link_version(self.tenant,document,uuid4().hex,expected_previous=0)
+        with self.connect() as conn:
+            conn.execute("INSERT INTO nawa_phase14_qa_lifecycle (tenant_id,document_id,state) VALUES (%s,%s,'active')",
+                         (self.tenant,document))
+        with patch.dict(os.environ,{'NAWA_INTAKE':'synthetic','NAWA_EXPERIMENTAL_ARABIC_PDF':'1'}):
+            self.assertEqual(process_one(self.jobs,self.store,self.tenant),'completed')
+            def snapshot():
+                return load_snapshot(self.connect,self.store,self.principal)
+            review=retrieve_for_review('كم يبلغ الإجمالي شامل الضريبة؟',
+                       tenant=self.tenant,principal=self.principal.subject,
+                       load_snapshot=snapshot,embed_fn=embed,limit=10)
+            self.assertEqual(review['status'],'requires_human_review')
+            resolved=resolve_for_review(review,tenant=self.tenant,principal=self.principal.subject,
+                                        load_snapshot=snapshot)
+            self.assertEqual(resolved['status'],'requires_human_review')
+            total=next(e for e in resolved['evidence'] if e['citation']['passage_id']==document+':total')
+            self.assertEqual(total['citation']['page'],1)
+            self.assertEqual(total['untrusted_normalized_text'],'الإجمالي شامل الضريبة: ٩٤٥٫٠٠')
+
     def test_tampered_source_and_cross_tenant_membership_are_denied(self):
         document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
         (Path(self.temp.name) / document).write_bytes(b'tampered synthetic file')

@@ -356,8 +356,11 @@ locally against a fresh temporary Windows PostgreSQL cluster, the local
 evidence and resolved the cited line. Additional model-backed tests revoked
 membership or withdrew the document after embedding completed but before the
 second snapshot; both returned unavailable. All 14 database tests passed in
-that local run. A subsequent isolated run passed 15 database tests, including
-the exact mixed Arabic–English PDF through the intake worker. The cluster's
+that local run. A subsequent isolated run passed 17 database tests, including
+the exact mixed Arabic–English PDF and the locally generated Arabic-label PDF
+through synthetic intake. The latter used the default-off fallback, temporary
+PostgreSQL, the local embedding model and review-time citation rechecking.
+Its extracted line is labeled normalized and needs human review. The cluster's
 data directory was checked before database creation.
 The optional model-backed test is explicitly enabled for disposable local
 tests and is skipped in GitHub CI, which does not install or call the local
@@ -454,6 +457,8 @@ and verifies that the opt-in is required and an image-only PDF does not
 trigger OCR. It does not contain the locally generated Arabic-label PDF.
 This is experimental synthetic QA, not general Arabic PDF accuracy or a
 production security control. Limits are not a complete parser sandbox.
+The generated Arabic-label PDF and its model-backed test are local only;
+GitHub CI skips that test because the fixture and local model are absent.
 
 ## Arabic-label TXT demonstration
 
