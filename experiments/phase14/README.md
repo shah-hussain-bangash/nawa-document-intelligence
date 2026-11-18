@@ -409,6 +409,25 @@ be reordered by the existing extractor, so the demonstration labels it
 This is not OCR, validation of arbitrary Arabic layouts, or proof of
 semantic grounding. The parser resource limits are not a security sandbox.
 
+## Local Arabic-label PDF QA
+
+A separate locally generated synthetic PDF used Arabic field labels and an
+Arabic total. The Phase 3 parser initially failed because the PDF emitted the
+currency line as `AED :العملة`. The isolated
+`arabic_pdf_fixture_normalize.py` experiment handles that exact line only;
+with this QA-only correction the existing parser extracted total 945.00 from
+page 1 and returned it for human review. This does not change the Phase 13
+parser or the running portal.
+
+The local fixture was generated with a Windows system font and is not included
+in this repository. The local-only QA script and worker accept only that
+fixture's exact hash and are not included in the repository. It is a single
+selectable-text example, not an OCR, general
+Arabic PDF, or production security evaluation; normalized text must be
+compared with the original PDF. CI tests the narrow normalization rule,
+not the local PDF or live model. The PDF parser subprocess limits are not a
+security sandbox.
+
 ## Arabic-label TXT demonstration
 
 `arabic_text_review_demo.py` is a separate, fixed-fixture demonstration

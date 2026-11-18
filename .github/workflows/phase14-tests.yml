@@ -21,7 +21,7 @@ jobs:
           python-version: '3.11'
       - name: Test synthetic evaluation and review boundaries
         working-directory: experiments/phase14
-        run: python -m unittest -v test_benchmark test_compare_retrieval test_lifecycle_fixture test_fixture_integrity test_support_probe test_semantic_probe test_injection_probe test_review_only test_hybrid_review test_phase13_snapshot_fixture test_resolve_review_evidence test_review_packet test_compare_reviews test_new_eval_probe test_new_eval_packet test_synthetic_review_demo test_arabic_text_review_demo
+        run: python -m unittest -v test_benchmark test_compare_retrieval test_lifecycle_fixture test_fixture_integrity test_support_probe test_semantic_probe test_injection_probe test_review_only test_hybrid_review test_phase13_snapshot_fixture test_resolve_review_evidence test_review_packet test_compare_reviews test_new_eval_probe test_new_eval_packet test_synthetic_review_demo test_arabic_text_review_demo test_arabic_pdf_fixture_normalize test_arabic_pdf_fixture_qa
 
   disposable-postgres-integration:
     runs-on: ubuntu-24.04

@@ -52,4 +52,8 @@ Its Arabic option uses one mixed Arabic–English selectable-text fixture;
 normalized Arabic output must be checked against the original PDF.
 The separate Arabic-label TXT demonstration uses actual TXT line references;
 it does not establish Arabic-only PDF or OCR support.
+One separately generated local Arabic-label PDF revealed a currency-order
+failure. A fixture-specific QA normalization enabled extraction of its
+synthetic total, but has not been integrated into Phase 13 or generalized to
+other PDFs. It does not establish OCR or real-world Arabic PDF quality.
 
