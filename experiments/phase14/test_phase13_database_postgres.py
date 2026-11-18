@@ -20,6 +20,7 @@ from nawa_demo.intake_worker import _extract_pdf
 from phase13_database_snapshot import load_snapshot
 from hybrid_review import retrieve_for_review
 from resolve_review_evidence import resolve_for_review
+from compare_retrieval import embed
 
 DSN = os.environ.get('NAWA_PHASE14_TEST_DSN')
 ENABLED = os.environ.get('NAWA_PHASE14_DISPOSABLE') == '1'
@@ -233,6 +234,22 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
                          ('Synthetic false line',self.tenant,document))
         with self.assertRaises(ValueError):
             load_snapshot(self.connect,self.store,self.principal)
+
+    @unittest.skipUnless(os.environ.get('NAWA_PHASE14_TEST_OLLAMA') == '1',
+                         'local synthetic embedding model not enabled')
+    def test_local_model_with_disposable_database_and_pdf_evidence(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        def snapshot():
+            return load_snapshot(self.connect,self.store,self.principal)
+        review = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                                     load_snapshot=snapshot,embed_fn=embed)
+        self.assertEqual(review['status'],'requires_human_review')
+        self.assertTrue(review['evidence'])
+        self.assertTrue(all(item['source_document_id'] == document for item in review['evidence']))
+        resolved = resolve_for_review(review,tenant=self.tenant,principal=self.principal.subject,
+                                      load_snapshot=snapshot)
+        self.assertEqual(resolved['status'],'requires_human_review')
+        self.assertTrue(all(item['untrusted_source_text'] for item in resolved['evidence']))
 
 
 if __name__ == '__main__':
