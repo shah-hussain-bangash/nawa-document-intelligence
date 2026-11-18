@@ -1,0 +1,54 @@
+{
+  "scope": "Two local synthetic samples; not a representative or independently reviewed benchmark.",
+  "engine": "tesseract v5.4.0.20240606",
+  "model_commit": "87416418657359cb625c412a48b6e1d6d41c29bd",
+  "model_sha256": {
+    "ara.traineddata": "e3206d3dc87fd50c24a0fb9f01838615911d25168f4e64415244b67d2bb3e729",
+    "eng.traineddata": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+  },
+  "render_dpi": 200,
+  "page_segmentation_mode": 6,
+  "normalization": "NFKC, strip Unicode format marks, collapse whitespace; no reordering or digit conversion in CER/WER.",
+  "status": "human_review_required",
+  "cases": [
+    {
+      "id": "english",
+      "language": "eng",
+      "image_sha256": "b88a4be58fa8868003788d20d217117be8e3a6d995e8e6d57e37c1411880a649",
+      "cer": 0.0,
+      "wer": 0.0,
+      "fields_correct": 6,
+      "fields_total": 6,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": true,
+        "vat_rate": true,
+        "vat_amount": true,
+        "total": true
+      },
+      "elapsed_seconds_single_run": 0.212,
+      "ocr_text_synthetic": "Supplier: Example English Supplies\r\nCurrency: AED\r\n\r\nSubtotal: 1000.00\r\n\r\nVAT Rate: 5\r\n\r\nVAT Amount: 50.00\r\n\r\nGrand Total: 1050.00\r\n"
+    },
+    {
+      "id": "arabic_labels",
+      "language": "ara+eng",
+      "image_sha256": "1b4e376e15feab5c2f35a1cfc2d613e853c0b259b3566e2c7a4a8361d938f05f",
+      "cer": 0.4642857142857143,
+      "wer": 0.5384615384615384,
+      "fields_correct": 2,
+      "fields_total": 6,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "elapsed_seconds_single_run": 0.218,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: فدرمة4\r\nالإجمالي شامل الضريبة: ٠.٠,ه44‏\r\n"
+    }
+  ]
+}
+
