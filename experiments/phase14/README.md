@@ -30,6 +30,7 @@ python injection_probe.py
 python -m unittest -v test_review_only
 python -m unittest -v test_hybrid_review
 python hybrid_review_probe.py
+python -m unittest -v test_phase13_snapshot_fixture
 ```
 
 The 17 November 2026 local run gave Recall@5, MRR@5, and binary nDCG@5
@@ -236,10 +237,30 @@ excluded superseded v1 and the two unauthorized fixture passages. Its top
 five also included an unrelated instruction-like passage. The current
 prototype has no relevance cutoff or safe automated answerability check and
 must not send arbitrary retrieved text to an LLM as trusted instructions.
-The full local fixture suite passed 22 tests; GitHub CI runs only unit tests,
+The full local fixture suite passed 26 tests; GitHub CI runs only unit tests,
 not local model inference. This experiment does not connect to Phase 12/13
 records, guarantee atomic authorization, create a real human review task, or
 establish safe rendering or prompt-injection resistance.
+
+## Phase 13-shaped evidence fixture
+
+`phase13_snapshot_fixture.py` maps synthetic records shaped like Phase 13
+version and extracted PDF evidence data to search fixtures with page, line and
+source-hash metadata. It selects the highest numbered version per fixture
+family and does not fall back to an older version when the newest job is
+incomplete. Tests reject ambiguous versions, unverified fixture flags, missing
+PDF citation locations, changed source hashes and changed line references.
+The combined retrieval prototype compares supplied provenance across its two
+fixture snapshots.
+
+This is a format and policy experiment, not a database connector. Membership,
+source verification and lifecycle values are synthetic caller assertions and
+are not actually verified by this adapter. It only accepts fixture
+selectable-text PDF evidence and intentionally excludes unversioned records;
+it does not handle TXT, OCR, deletion or production lifecycle semantics.
+Connecting it to Phase 13 requires authenticated membership checks, source
+integrity verification, an approved version/deletion policy and independent
+review. A snapshot recheck is not atomic with subsequent use.
 Production retrieval and Phase 14 acceptance depend on the unresolved Phase
 12/13 identity and lifecycle security boundaries.
 

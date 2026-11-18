@@ -41,6 +41,13 @@ def retrieve_for_review(query, *, tenant, principal, load_snapshot, embed_fn, li
         original = {p.passage_id:p for p in candidates}
         if any(original[p.passage_id] != p for p in current):
             raise ValueError('Candidate changed while retrieval was running')
+        if 'provenance' in before or 'provenance' in after:
+            old_provenance, new_provenance = before.get('provenance'), after.get('provenance')
+            if not isinstance(old_provenance, dict) or not isinstance(new_provenance, dict):
+                raise ValueError('Provenance snapshot unavailable')
+            if any(p.passage_id not in old_provenance or p.passage_id not in new_provenance
+                   or old_provenance[p.passage_id] != new_provenance[p.passage_id] for p in current):
+                raise ValueError('Candidate provenance changed while retrieval was running')
         return {'status':'requires_human_review',
                 'evidence':[{'passage_id':p.passage_id, 'document_id':p.document_id,
                              'version':p.version, 'page':p.page, 'source':p.source}

@@ -21,5 +21,5 @@ jobs:
           python-version: '3.11'
       - name: Test synthetic evaluation and review boundaries
         working-directory: experiments/phase14
-        run: python -m unittest -v test_benchmark test_compare_retrieval test_lifecycle_fixture test_fixture_integrity test_support_probe test_semantic_probe test_injection_probe test_review_only test_hybrid_review
+        run: python -m unittest -v test_benchmark test_compare_retrieval test_lifecycle_fixture test_fixture_integrity test_support_probe test_semantic_probe test_injection_probe test_review_only test_hybrid_review test_phase13_snapshot_fixture
 
