@@ -1,0 +1,36 @@
+# Phase 14 acceptance checkpoint
+
+Status: **synthetic experiment in progress; Gate G14 is not passed**. This
+checkpoint maps the Phase 14 criteria in the supplied office implementation
+playbook to the evidence available in this draft. It does not certify the
+system or claim that later project phases are complete.
+
+| Roadmap criterion | Current evidence | Status |
+| --- | --- | --- |
+| Compare BM25, vector and hybrid retrieval with Recall@k, MRR, nDCG and latency | One local run on 10 hand-authored bilingual questions. Hybrid and vector ranked the labeled passage first in all 10; BM25 did so in 8. The set is small and not independent, and timing is a single local run. | Preliminary; a representative, independently reviewed held-out set and repeatable timing remain needed. |
+| Evidence citations with provenance | Disposable PostgreSQL tests exercise synthetic Phase 13 PDF page/line references, source hashes, re-extraction and review-time rechecking. | Partial; only selectable-text fixture PDFs and selected extracted fields are covered. No production citation interface or semantic guarantee. |
+| Tenant/principal permissions before retrieval and context | Fixture filtering precedes embedding. A disposable PostgreSQL test rechecks draft membership, tests another tenant's source is not read, and tests revocation between snapshots. | Partial; no authenticated search endpoint, production isolation or independent security review. There is no atomic guarantee after the last check. |
+| Version, deletion and revocation regression | Synthetic tests cover current-version conflicts, a newer pending version and QA-only withdrawal/deletion markers. | Partial; the marker is a disposable test table. It does not delete files, remove vectors or implement approved retention/lifecycle rules. |
+| Unknown questions and conflicting versions | Local probes show that unknown questions can have high similarity scores and that ranking can select the wrong document version. Review-only flow does not issue answers or approvals. | Open; no validated abstention mechanism or live lifecycle integration. |
+| Prompt-injection-like source text | In one local eight-case probe, the Qwen checker got all clean controls right but got all instruction-bearing examples wrong. Separating system and user messages did not fix this probe. | Open security finding. Do not use this model checker as an automatic approval gate. |
+| Semantic support beyond exact quote matching | A small synthetic claim/evidence experiment compared string heuristics and an experimental local model; labels were not independently reviewed. | Open; no validated semantic-support or safe-abstention gate. |
+| CI and integration | At commit `efb101874247632dfd83ebefa8071070dc10d474`, Windows and Linux fixture checks, 11 disposable PostgreSQL tests and existing NAWA regression workflows passed. Local-model probes are not CI checks. | Synthetic tests passed; Phase 12 and 13 drafts and their security reviews remain unmerged/open. Check the latest [draft pull request](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/4). |
+
+## Remaining work
+
+1. Develop and independently review a larger bilingual evaluation set with
+   held-out paraphrases, unanswerable questions, contradictory claims,
+   version/deletion cases and malicious-source scenarios. Agree on measurable
+   thresholds before using it as an acceptance gate.
+2. Design and assess a safe evidence and abstention workflow. Preserve human
+   decisions; do not claim that similarity, exact matching or a model verdict
+   proves a generated claim.
+3. Complete the Phase 12/13 prerequisites and security review. Define
+   authenticated retrieval, approved document lifecycle/deletion and vector
+   invalidation, audit and operational recovery before integration.
+4. Re-run the comparison on the reviewed set, evaluate quality, latency and
+   resource cost, and record the exact passing revision and unresolved risks.
+
+No delivery date can be determined from the current evidence. This draft is
+not connected to the running portal, and no production data was used.
+

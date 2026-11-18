@@ -1,5 +1,8 @@
 # Phase 14: initial synthetic BM25 baseline
 
+See [ACCEPTANCE.md](ACCEPTANCE.md) for the roadmap checkpoint, open security
+finding and remaining Phase 14 acceptance work.
+
 This is an isolated, offline measurement of the existing Phase 4 lexical
 retrieval code and its three original synthetic labeled questions, copied from
 the Phase 13 draft. It does not change either running NAWA application.
