@@ -1,0 +1,13 @@
+[
+  {"id":"en-direct-delivery","category":"direct","query":"Cedar delivery fifteen working days","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["en-delivery-v2"]},
+  {"id":"en-old-version","category":"explicit_version","query":"Cedar ten working days","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["en-delivery-v1"]},
+  {"id":"en-paraphrase-warranty","category":"paraphrase","query":"How long is the equipment covered for faults?","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["en-warranty"]},
+  {"id":"en-paraphrase-payment","category":"paraphrase","query":"When must the bill be paid?","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["en-payment"]},
+  {"id":"en-direct-policy","category":"direct","query":"reviewer evidence approval supplier","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["en-policy"]},
+  {"id":"ar-direct-delivery","category":"direct","query":"مدة تسليم أجهزة الحاسوب أمر الشراء","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["ar-delivery"]},
+  {"id":"ar-direct-warranty","category":"direct","query":"ضمان عيوب التصنيع سنتين","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["ar-warranty"]},
+  {"id":"ar-paraphrase-payment","category":"paraphrase","query":"متى يجب سداد المبلغ بعد الفاتورة؟","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["ar-payment"]},
+  {"id":"ar-morphology-policy","category":"morphology","query":"كيف يراجع الموظف عرض المورد قبل الموافقة؟","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["ar-policy"]},
+  {"id":"ar-paraphrase-warranty","category":"paraphrase","query":"كم سنة تغطية إصلاح الأعطال؟","tenant_id":"demo-a","principal_id":"analyst-a","relevant_passage_ids":["ar-warranty"]}
+]
+

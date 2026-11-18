@@ -1,0 +1,23 @@
+[
+  {"id":"en-delivery-exact","passage_id":"en-delivery-v1","claim":"within ten working days after purchase order","supported":true,"category":"exact"},
+  {"id":"en-delivery-paraphrase","passage_id":"en-delivery-v1","claim":"Cedar delivers laptops ten working days after the order.","supported":true,"category":"paraphrase"},
+  {"id":"en-delivery-number","passage_id":"en-delivery-v1","claim":"Supplier Cedar will deliver laptops within twenty working days after purchase order.","supported":false,"category":"contradiction"},
+  {"id":"en-delivery-cost","passage_id":"en-delivery-v1","claim":"Supplier Cedar will deliver laptops within ten working days after purchase order at no charge.","supported":false,"category":"unsupported_addition"},
+  {"id":"en-warranty-exact","passage_id":"en-warranty","claim":"a two year warranty covering manufacturing defects","supported":true,"category":"exact"},
+  {"id":"en-warranty-paraphrase","passage_id":"en-warranty","claim":"Manufacturing defects are covered for two years.","supported":true,"category":"paraphrase"},
+  {"id":"en-warranty-number","passage_id":"en-warranty","claim":"The equipment includes a three year warranty covering manufacturing defects.","supported":false,"category":"contradiction"},
+  {"id":"en-warranty-addition","passage_id":"en-warranty","claim":"The equipment includes a two year warranty covering manufacturing defects and accidental damage.","supported":false,"category":"unsupported_addition"},
+  {"id":"en-payment-exact","passage_id":"en-payment","claim":"Payment is due thirty days after receiving the invoice.","supported":true,"category":"exact"},
+  {"id":"en-payment-before","passage_id":"en-payment","claim":"Payment is due thirty days before receiving the invoice.","supported":false,"category":"contradiction"},
+  {"id":"en-policy-paraphrase","passage_id":"en-policy","claim":"A reviewer must check supplier quotes and evidence prior to approval.","supported":true,"category":"paraphrase"},
+  {"id":"en-policy-count","passage_id":"en-policy","claim":"A reviewer must inspect three supplier quotations and supporting evidence before approval.","supported":false,"category":"unsupported_addition"},
+  {"id":"ar-delivery-exact","passage_id":"ar-delivery","claim":"خمسة عشر يوم عمل من تاريخ أمر الشراء","supported":true,"category":"exact"},
+  {"id":"ar-delivery-number","passage_id":"ar-delivery","claim":"مدة تسليم أجهزة الحاسوب خمسة أيام عمل من تاريخ أمر الشراء.","supported":false,"category":"contradiction"},
+  {"id":"ar-warranty-exact","passage_id":"ar-warranty","claim":"لمدة سنتين ضد عيوب التصنيع","supported":true,"category":"exact"},
+  {"id":"ar-warranty-number","passage_id":"ar-warranty","claim":"يشمل العرض ضماناً لمدة ثلاث سنوات ضد عيوب التصنيع.","supported":false,"category":"contradiction"},
+  {"id":"ar-payment-exact","passage_id":"ar-payment","claim":"بعد ثلاثين يوماً من استلام الفاتورة","supported":true,"category":"exact"},
+  {"id":"ar-payment-before","passage_id":"ar-payment","claim":"تستحق الدفعة قبل ثلاثين يوماً من استلام الفاتورة.","supported":false,"category":"contradiction"},
+  {"id":"ar-policy-exact","passage_id":"ar-policy","claim":"فحص عروض الموردين والأدلة قبل الموافقة","supported":true,"category":"exact"},
+  {"id":"ar-policy-count","passage_id":"ar-policy","claim":"يجب على المراجع فحص ثلاثة عروض الموردين والأدلة قبل الموافقة.","supported":false,"category":"unsupported_addition"}
+]
+

@@ -63,7 +63,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install synthetic intake dependency
-        run: python -m pip install -r demo/requirements-phase13.txt
+        run: python -m pip install -r demo/requirements-phase13.txt -r demo/requirements-pdf.txt
       - name: Verify Windows limits and synthetic document processing
         run: |
           cd demo

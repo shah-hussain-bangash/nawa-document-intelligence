@@ -8,6 +8,10 @@ from .core import extract
 from .intake_pdf import open_pdf
 
 
+class IncompleteArabicPDF(ValueError):
+    """Synthetic pypdf extraction saw Arabic but could not resolve required fields."""
+
+
 def _extract_pdf(content, temp):
     reader = open_pdf(content)
     if reader.is_encrypted or not 1 <= len(reader.pages) <= 50:
@@ -26,7 +30,14 @@ def _extract_pdf(content, temp):
         raise ValueError('No selectable text')
     path = Path(temp) / 'source.txt'
     path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    result = extract(path)
+    try:
+        result = extract(path)
+    except ValueError as exc:
+        contains_arabic=any('\u0600' <= char <= '\u06ff' or '\ufb50' <= char <= '\ufdff'
+                            or '\ufe70' <= char <= '\ufeff' for line in lines for char in line)
+        if str(exc).startswith('Missing required fields: ') and contains_arabic:
+            raise IncompleteArabicPDF('Synthetic Arabic field extraction incomplete') from exc
+        raise
     result['input_type'] = 'text_layer_pdf'
     result['page_count'] = len(reader.pages)
     result['evidence_precision'] = 'page_and_extracted_line_only'
@@ -63,3 +74,4 @@ def process_one(jobs, store, tenant, *, worker='synthetic-worker', max_attempts=
         # Do not expose document contents or parser exception details.
         return jobs.finish(tenant, job_id, token, success=False, max_attempts=max_attempts)
     return jobs.finish(tenant, job_id, token, success=True, result=result, max_attempts=max_attempts)
+

@@ -1,0 +1,14 @@
+{
+  "model": "embeddinggemma:300m",
+  "scope": "Synthetic fixture snapshot; no live identity or database.",
+  "query": "latest Cedar laptop delivery",
+  "status": "requires_human_review",
+  "evidence_ids": [
+    "en-delivery-v2",
+    "en-payment",
+    "en-warranty",
+    "injection",
+    "ar-delivery"
+  ]
+}
+
