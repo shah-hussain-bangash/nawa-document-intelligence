@@ -57,6 +57,9 @@ failure. The Phase 14 draft now applies a narrow AED normalization in the
 separate Phase 3 PDF extractor, and an isolated local test extracted its
 synthetic total. Separately, the draft intake worker supports the exact
 bundled mixed Arabic–English fixture through a hash-specific route to that
-extractor. The generated Arabic-label PDF is not in that route. This does not
-establish OCR or real-world Arabic PDF quality.
+extractor. A separate, default-off synthetic-only fallback was locally
+exercised on the generated Arabic-label PDF with OCR disabled and extracted
+total 945.00. CI covers a modified mixed-language fixture and verifies that
+image-only PDFs do not trigger OCR. This does not establish real-world Arabic
+PDF quality or production parser safety.
 

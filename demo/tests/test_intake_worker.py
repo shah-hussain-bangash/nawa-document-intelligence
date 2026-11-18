@@ -1,5 +1,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import os
 import unittest
 import subprocess
 from unittest.mock import patch
@@ -36,6 +37,37 @@ class IntakeWorkerTests(unittest.TestCase):
             self.assertEqual(result['evidence']['total']['page'],1)
             self.assertEqual(result['evidence']['total']['method'],'text_layer')
             self.assertIn('raw_extracted_text',result['evidence']['supplier'])
+
+    def test_arabic_pdf_fallback_is_synthetic_opt_in(self):
+        sample=synthetic_fixture('arabic_text_supplier.pdf')+b'\n'
+        self.assertFalse(is_synthetic_arabic_pdf(sample))
+        for mode,flag,enabled in (('synthetic','0',False),('other','1',False),('synthetic','1',True)):
+            with self.subTest(mode=mode,flag=flag), TemporaryDirectory() as folder:
+                root=Path(folder)
+                store=LocalIntakeStore(root/'files')
+                jobs=IntakeJobs(root/'jobs.db')
+                document,_=SyntheticIntakePipeline(store,jobs).submit('a','arabic.pdf',sample)
+                env={'NAWA_INTAKE':mode,'NAWA_EXPERIMENTAL_ARABIC_PDF':flag}
+                with patch.dict(os.environ,env):
+                    state=process_one(jobs,store,'a',max_attempts=1)
+                self.assertEqual(state,'completed' if enabled else 'failed')
+                if enabled:
+                    result=jobs.result('a',document)
+                    self.assertEqual(result['total'],'945.00')
+                    self.assertIn('raw_extracted_text',result['evidence']['supplier'])
+                else:
+                    self.assertIsNone(jobs.result('a',document))
+
+    def test_arabic_pdf_fallback_does_not_enable_ocr(self):
+        with TemporaryDirectory() as folder:
+            root=Path(folder)
+            store=LocalIntakeStore(root/'files')
+            jobs=IntakeJobs(root/'jobs.db')
+            document,_=SyntheticIntakePipeline(store,jobs).submit(
+                'a','scan.pdf',synthetic_fixture('image_only.pdf'))
+            with patch.dict(os.environ,{'NAWA_INTAKE':'synthetic','NAWA_EXPERIMENTAL_ARABIC_PDF':'1'}):
+                self.assertEqual(process_one(jobs,store,'a',max_attempts=1),'failed')
+            self.assertIsNone(jobs.result('a',document))
 
     def test_parser_timeout_returns_retry_without_result(self):
         with TemporaryDirectory() as folder:

@@ -3,6 +3,7 @@ import json
 import os
 import hashlib
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -100,6 +101,20 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
         supplier=next(e for e in resolved['evidence'] if e['citation']['passage_id']==document+':supplier')
         self.assertIn('untrusted_normalized_text',supplier)
         self.assertNotIn('untrusted_source_text',supplier)
+
+    def test_opt_in_modified_arabic_pdf_through_disposable_database(self):
+        content=(DEMO/'samples'/'pdf'/'arabic_text_supplier.pdf').read_bytes()+b'\n'
+        document,created=self.intake.submit(self.principal,'synthetic-arabic.pdf',content)
+        self.assertTrue(created)
+        self.jobs.link_version(self.tenant,document,uuid4().hex,expected_previous=0)
+        with self.connect() as conn:
+            conn.execute("INSERT INTO nawa_phase14_qa_lifecycle (tenant_id,document_id,state) VALUES (%s,%s,'active')",
+                         (self.tenant,document))
+        with patch.dict(os.environ,{'NAWA_INTAKE':'synthetic','NAWA_EXPERIMENTAL_ARABIC_PDF':'1'}):
+            self.assertEqual(process_one(self.jobs,self.store,self.tenant),'completed')
+            snapshot=load_snapshot(self.connect,self.store,self.principal)
+            self.assertTrue(snapshot['passages'])
+            self.assertEqual(snapshot['provenance'][document+':supplier']['text_representation'],'normalized')
 
     def test_tampered_source_and_cross_tenant_membership_are_denied(self):
         document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)

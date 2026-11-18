@@ -440,6 +440,21 @@ fixture has an English grand-total label. The retrieval experiment marks
 changed or reordered extraction as `normalized`, not verbatim source text.
 This hash-specific test route is not general Arabic PDF support or OCR.
 
+The draft also contains a separate fallback that is **off by default**. It
+can run only when both `NAWA_INTAKE=synthetic` and
+`NAWA_EXPERIMENTAL_ARABIC_PDF=1` are set, and only after the existing
+extractor encounters Arabic text but cannot resolve required fields. It
+uses the Phase 3 selectable-text extractor with OCR disabled, a 50-page
+limit, a 1 MiB extracted-text limit and the existing subprocess limits. A
+local synthetic Arabic-label PDF passed through this opt-in path with total
+945.00; the same PDF failed without a result when the option was off.
+
+CI exercises a byte-modified version of the bundled mixed-language fixture
+and verifies that the opt-in is required and an image-only PDF does not
+trigger OCR. It does not contain the locally generated Arabic-label PDF.
+This is experimental synthetic QA, not general Arabic PDF accuracy or a
+production security control. Limits are not a complete parser sandbox.
+
 ## Arabic-label TXT demonstration
 
 `arabic_text_review_demo.py` is a separate, fixed-fixture demonstration

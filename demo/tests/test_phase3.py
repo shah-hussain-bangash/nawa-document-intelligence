@@ -15,6 +15,14 @@ class Phase3Tests(unittest.TestCase):
         self.assertEqual(_normalize_pdf_line("  aed: ﺍﻟﻌﻤﻠﺔ  "), "العملة: AED")
         self.assertEqual(_normalize_pdf_line("USD :العملة"), "USD :العملة")
 
+    def test_explicit_page_and_text_limits(self):
+        with self.assertRaisesRegex(ValueError,'page limit'):
+            extract_pdf(SAMPLES/'second_page_supplier.pdf',max_pages=1)
+        with self.assertRaisesRegex(ValueError,'text limit'):
+            extract_pdf(SAMPLES/'english_supplier.pdf',max_text_chars=10)
+        with self.assertRaises(ValueError):
+            extract_pdf(SAMPLES/'english_supplier.pdf',max_pages=True)
+
     def test_arabic_text_layer(self):
         q = extract_pdf(SAMPLES / "arabic_text_supplier.pdf")
         self.assertEqual(q["supplier"], "شركة المثال للتوريدات")
