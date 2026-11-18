@@ -35,6 +35,7 @@ python -m unittest -v test_hybrid_review
 python hybrid_review_probe.py
 python -m unittest -v test_phase13_snapshot_fixture
 python -m unittest -v test_resolve_review_evidence
+python -m unittest -v test_review_packet
 ```
 
 The 17 November 2026 local run gave Recall@5, MRR@5, and binary nDCG@5
@@ -286,6 +287,18 @@ An approved lifecycle policy, independent review and real browser identity
 verification remain open. A snapshot recheck is not atomic with subsequent use.
 Production retrieval and Phase 14 acceptance depend on the unresolved Phase
 12/13 identity and lifecycle security boundaries.
+
+## Independent-review packet
+
+`make_review_packet.py --output <new-directory>` creates separate
+`reviewer` and `private` folders for the existing synthetic cases. The
+reviewer folder contains 36 retrieval questions, 10 authorized synthetic
+passages and 28 claim/evidence pairs, with blank judgment fields. The private
+folder holds a reference key and fixture hashes for later comparison. Share
+only the reviewer folder; existing reference labels are not independent
+ground truth. The command refuses to overwrite an existing directory.
+This packet prepares a blinded review; it does not itself constitute one,
+and the data are not an independent or held-out set.
 
 The disposable database integration suite also exercises a successful
 retrieval using actual Phase 13 synthetic PDF evidence. The citation includes
