@@ -3,6 +3,7 @@
 Identity, access lists and lifecycle snapshots are test fixtures. The caller
 must supply trusted data; these helpers do not authenticate users.
 """
+import hashlib
 from compare_retrieval import cosine, rrf
 from lifecycle_fixture import eligible, recheck_results
 from retrieval import BM25Index
@@ -60,7 +61,8 @@ def retrieve_for_review(query, *, tenant, principal, load_snapshot, embed_fn, li
                     raise ValueError('Incomplete provenance')
                 citation.update({'source_document_id':data['document_id'],
                                  'source_sha256':data['source_sha256'],
-                                 'page_line':data['page_line']})
+                                 'page_line':data['page_line'],
+                                 'evidence_text_sha256':hashlib.sha256(p.text.encode('utf-8')).hexdigest()})
             evidence.append(citation)
         return {'status':'requires_human_review',
                 'evidence':evidence}

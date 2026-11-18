@@ -19,6 +19,7 @@ from nawa_demo.intake_store import LocalIntakeStore
 from nawa_demo.intake_worker import _extract_pdf
 from phase13_database_snapshot import load_snapshot
 from hybrid_review import retrieve_for_review
+from resolve_review_evidence import resolve_for_review
 
 DSN = os.environ.get('NAWA_PHASE14_TEST_DSN')
 ENABLED = os.environ.get('NAWA_PHASE14_DISPOSABLE') == '1'
@@ -179,6 +180,25 @@ class Phase13DatabaseSnapshotTests(unittest.TestCase):
                     load_snapshot=lambda:load_snapshot(self.connect,self.store,self.principal),
                     embed_fn=embed)
         self.assertEqual(result, {'status':'unavailable'})
+
+    def test_resolving_citations_rechecks_source_and_membership(self):
+        document = self.add_pdf('english_supplier.pdf',uuid4().hex,1,complete=True)
+        def snapshot():
+            return load_snapshot(self.connect,self.store,self.principal)
+        review = retrieve_for_review('total',tenant=self.tenant,principal=self.principal.subject,
+                                     load_snapshot=snapshot,embed_fn=lambda texts:[[1.0] for _ in texts])
+        resolved = resolve_for_review(review,tenant=self.tenant,principal=self.principal.subject,
+                                      load_snapshot=snapshot)
+        self.assertEqual(resolved['status'], 'requires_human_review')
+        self.assertTrue(all(item['untrusted_source_text'] for item in resolved['evidence']))
+        (Path(self.temp.name) / document).write_bytes(b'tampered synthetic file')
+        self.assertEqual(resolve_for_review(review,tenant=self.tenant,principal=self.principal.subject,
+                                            load_snapshot=snapshot), {'status':'unavailable'})
+        with self.connect() as conn:
+            conn.execute("UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                         (self.issuer,self.subject,self.tenant))
+        self.assertEqual(resolve_for_review(review,tenant=self.tenant,principal=self.principal.subject,
+                                            load_snapshot=snapshot), {'status':'unavailable'})
 
     def test_new_pending_version_during_embedding_blocks_older_result(self):
         family = uuid4().hex

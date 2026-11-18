@@ -31,6 +31,7 @@ python -m unittest -v test_review_only
 python -m unittest -v test_hybrid_review
 python hybrid_review_probe.py
 python -m unittest -v test_phase13_snapshot_fixture
+python -m unittest -v test_resolve_review_evidence
 ```
 
 The 17 November 2026 local run gave Recall@5, MRR@5, and binary nDCG@5
@@ -237,7 +238,7 @@ excluded superseded v1 and the two unauthorized fixture passages. Its top
 five also included an unrelated instruction-like passage. The current
 prototype has no relevance cutoff or safe automated answerability check and
 must not send arbitrary retrieved text to an LLM as trusted instructions.
-The full local fixture suite passed 27 tests; GitHub CI runs unit tests and
+The full local fixture suite passed 29 tests; GitHub CI runs unit tests and
 a separate disposable PostgreSQL job,
 not local model inference. This experiment does not connect to Phase 12/13
 records, guarantee atomic authorization, create a real human review task, or
@@ -288,4 +289,20 @@ during embedding, and require the result to become unavailable on recheck.
 This uses fake
 embeddings and the Phase 12 test membership implementation; it does not test
 browser authentication, production file isolation, or an LLM answer.
+
+## Synthetic citation resolution
+
+`resolve_review_evidence.py` reloads an authorized synthetic snapshot before
+returning a cited text line for human review. It checks the citation's source
+ID, page, line, source hash and extracted-text hash against that snapshot.
+Changed, revoked or missing evidence returns unavailable. In the disposable
+PostgreSQL test the snapshot also rechecks synthetic membership and verifies
+source bytes. The text is explicitly labeled untrusted and no approval is
+issued.
+
+The citation object is not signed or bound to a persisted review task, and
+the experimental function is not an authenticated endpoint. It does not
+provide safe HTML rendering, prevent a change after the final check, prove
+semantic support, or prevent prompt injection. Production use requires a
+reviewed authorization and evidence-handling design.
 
