@@ -1,0 +1,23 @@
+[
+  {"id":"n01","language":"en","kind":"answerable","query":"How long is delivery in the revised Delta quotation?","relevant":["delivery-v2"]},
+  {"id":"n02","language":"en","kind":"answerable","query":"How many days did the original Delta chairs offer allow for delivery?","relevant":["delivery-v1"]},
+  {"id":"n03","language":"en","kind":"answerable","query":"How frequently are the printers serviced preventively?","relevant":["maintenance-en"]},
+  {"id":"n04","language":"en","kind":"answerable","query":"What is the price of one Atlas monitor?","relevant":["pricing-en"]},
+  {"id":"n05","language":"en","kind":"answerable","query":"For how long does the supplier's offer stay valid?","relevant":["validity-en"]},
+  {"id":"n06","language":"en","kind":"answerable","query":"Who can approve the purchase request?","relevant":["policy-en"]},
+  {"id":"n07","language":"ar","kind":"answerable","query":"كم تستغرق مدة توصيل الأثاث المكتبي بعد أمر الشراء؟","relevant":["delivery-ar"]},
+  {"id":"n08","language":"ar","kind":"answerable","query":"ما تكرار زيارة الصيانة الوقائية للطابعات؟","relevant":["maintenance-ar"]},
+  {"id":"n09","language":"ar","kind":"answerable","query":"ما سعر الشاشة الواحدة بالدرهم؟","relevant":["pricing-ar"]},
+  {"id":"n10","language":"ar","kind":"answerable","query":"كم تبلغ قيمة الشاشات قبل الضريبة؟","relevant":["pricing-ar"]},
+  {"id":"n11","language":"ar","kind":"answerable","query":"ما مدة صلاحية عرض المورد من تاريخ الإصدار؟","relevant":["validity-ar"]},
+  {"id":"n12","language":"ar","kind":"answerable","query":"متى ينتهي عرض السعر بعد إصداره؟","relevant":["validity-ar"]},
+  {"id":"n13","language":"en","kind":"unanswerable","query":"What is Delta's shipping insurance premium?","relevant":[]},
+  {"id":"n14","language":"en","kind":"unanswerable","query":"Who is the named person assigned to approve the request?","relevant":[]},
+  {"id":"n15","language":"en","kind":"unanswerable","query":"What is the warranty duration for Atlas monitors?","relevant":[]},
+  {"id":"n16","language":"en","kind":"unanswerable","query":"Which bank account must receive the supplier payment?","relevant":[]},
+  {"id":"n17","language":"ar","kind":"unanswerable","query":"كم تكلفة التأمين على تسليم الأثاث المكتبي؟","relevant":[]},
+  {"id":"n18","language":"ar","kind":"unanswerable","query":"ما اسم الموظف المكلف بالموافقة على طلب الشراء؟","relevant":[]},
+  {"id":"n19","language":"ar","kind":"unanswerable","query":"كم مدة ضمان الشاشات من المورد؟","relevant":[]},
+  {"id":"n20","language":"ar","kind":"unanswerable","query":"ما رقم الحساب البنكي لدفع قيمة الفاتورة؟","relevant":[]}
+]
+

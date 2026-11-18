@@ -36,6 +36,8 @@ python hybrid_review_probe.py
 python -m unittest -v test_phase13_snapshot_fixture
 python -m unittest -v test_resolve_review_evidence
 python -m unittest -v test_review_packet
+python -m unittest -v test_new_eval_probe
+python new_eval_probe.py
 ```
 
 The 17 November 2026 local run gave Recall@5, MRR@5, and binary nDCG@5
@@ -299,6 +301,25 @@ only the reviewer folder; existing reference labels are not independent
 ground truth. The command refuses to overwrite an existing directory.
 This packet prepares a blinded review; it does not itself constitute one,
 and the data are not an independent or held-out set.
+
+## Additional synthetic retrieval set
+
+`new_eval_probe.py` compares the same three retrieval methods on 20 newly
+authored questions that were not used in the first comparison: 12 labeled
+answerable and eight labeled unanswerable, in English and Arabic. In one
+local batch run, all three methods achieved Recall@5 1.0 on the 12 answerable
+cases. BM25 MRR@5 was 0.958 and nDCG@5 was 0.969; vector and hybrid were
+1.0 for both. The vector and hybrid methods returned candidates for all
+eight unanswerable questions; BM25 returned candidates for seven. Retrieving
+a candidate is not the same as generating an answer.
+
+The labels and examples are hand-authored by the same project author and
+are not independently reviewed; this small set cannot establish production
+quality or safe abstention. This is not a timing benchmark: the recorded
+elapsed time is for a single batched run. It is separate from the existing
+blinded reviewer packet and needs independent review. Full results are in
+`new-eval-result.json`; the unit test uses fake embeddings, while the local
+probe used `embeddinggemma:300m`.
 
 `compare_reviews.py --key <private/label-key.json> --reviewer <reviewer-folder>`
 compares completed judgments with the original reference labels; provide
