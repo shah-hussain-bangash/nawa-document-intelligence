@@ -20,6 +20,7 @@ def eligible(passages, *, tenant, principal, lifecycle, history_document=None):
         raise ValueError('Invalid history selection')
     selected = []
     seen = set()
+    current_versions = {}
     for passage in passages:
         if passage.tenant_id != tenant or principal not in passage.allowed_principals:
             continue
@@ -29,6 +30,10 @@ def eligible(passages, *, tenant, principal, lifecycle, history_document=None):
         state = lifecycle.get(passage.passage_id)
         if state not in ('current', 'superseded', 'deleted', 'revoked'):
             raise ValueError('Missing or invalid lifecycle metadata')
+        if state == 'current':
+            previous = current_versions.setdefault(passage.document_id, passage.version)
+            if previous != passage.version:
+                raise ValueError('Conflicting current document versions')
         if state == 'current' or (state == 'superseded' and passage.document_id == history_document):
             selected.append(passage)
     return selected

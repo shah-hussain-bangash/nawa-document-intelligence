@@ -52,6 +52,16 @@ class LifecycleFixtureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             eligible(self.items, tenant='', principal='analyst', lifecycle=self.states)
 
+    def test_conflicting_current_versions_are_rejected_but_multiple_pages_are_allowed(self):
+        changed = [replace(p, version='v2') if p.passage_id == 'new' else p for p in self.items]
+        with self.assertRaises(ValueError):
+            eligible(changed, tenant='a', principal='analyst',
+                     lifecycle={**self.states, 'old':'current'})
+        page_two = replace(changed[1], passage_id='page-two', page=2)
+        allowed = eligible(changed + [page_two], tenant='a', principal='analyst',
+                           lifecycle={**self.states, 'page-two':'current'})
+        self.assertEqual([p.passage_id for p in allowed], ['new', 'page-two'])
+
 
 if __name__ == '__main__':
     unittest.main()

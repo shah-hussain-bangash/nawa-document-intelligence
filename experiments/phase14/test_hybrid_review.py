@@ -75,6 +75,15 @@ class HybridReviewTests(unittest.TestCase):
                                      embed_fn=lambda texts:[[1.0] for _ in texts])
         self.assertEqual(result, {'status':'unavailable'})
 
+    def test_new_conflicting_current_version_closes_batch(self):
+        records = [replace(p, version='v2') if p.passage_id == 'current' else p for p in self.passages]
+        snapshots = iter([{'passages':records,'lifecycle':self.snapshot},
+                          {'passages':records,'lifecycle':{**self.snapshot, 'old':'current'}}])
+        result = retrieve_for_review('current', tenant='a', principal='analyst',
+                                     load_snapshot=lambda:next(snapshots),
+                                     embed_fn=lambda texts:[[1.0] for _ in texts])
+        self.assertEqual(result, {'status':'unavailable'})
+
     def test_unknown_question_also_requires_human_review(self):
         result = retrieve_for_review('unknown', tenant='a', principal='analyst',
                                      load_snapshot=lambda:{'passages':self.passages,'lifecycle':self.snapshot},
