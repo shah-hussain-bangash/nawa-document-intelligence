@@ -258,9 +258,18 @@ source verification and lifecycle values are synthetic caller assertions and
 are not actually verified by this adapter. It only accepts fixture
 selectable-text PDF evidence and intentionally excludes unversioned records;
 it does not handle TXT, OCR, deletion or production lifecycle semantics.
-Connecting it to Phase 13 requires authenticated membership checks, source
-integrity verification, an approved version/deletion policy and independent
-review. A snapshot recheck is not atomic with subsequent use.
+The separate experimental `phase13_database_snapshot.py` bridges the Phase 13
+draft database and store in a disposable synthetic test: it rechecks a
+server-resolved principal using the draft membership logic, queries versioned
+records in that tenant and calls the source hash check for the latest
+completed version before creating fixture search passages. The test refuses
+to run unless explicitly enabled and the database is on localhost with a
+`nawa_phase13_qa_` name. Its result must be checked in GitHub CI.
+
+This is not connected to a user-facing API or the running portal. Deletion
+and revocation of documents are not implemented in the Phase 13 schema.
+An approved lifecycle policy, independent review and real browser identity
+verification remain open. A snapshot recheck is not atomic with subsequent use.
 Production retrieval and Phase 14 acceptance depend on the unresolved Phase
 12/13 identity and lifecycle security boundaries.
 

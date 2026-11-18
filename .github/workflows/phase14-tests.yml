@@ -23,3 +23,44 @@ jobs:
         working-directory: experiments/phase14
         run: python -m unittest -v test_benchmark test_compare_retrieval test_lifecycle_fixture test_fixture_integrity test_support_probe test_semantic_probe test_injection_probe test_review_only test_hybrid_review test_phase13_snapshot_fixture
 
+  disposable-postgres-integration:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nawa_test
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: nawa_phase13_qa_phase14_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nawa_test -d nawa_phase13_qa_phase14_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      NAWA_PHASE14_TEST_DSN: 'host=127.0.0.1 port=5432 dbname=nawa_phase13_qa_phase14_ci user=nawa_test password=synthetic-ci-only'
+      NAWA_PHASE14_DISPOSABLE: '1'
+      PYTHONPATH: ${{ github.workspace }}/demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install synthetic test dependencies
+        run: python -m pip install -r demo/requirements-phase13.txt 'psycopg[binary]>=3.2,<4'
+      - name: Initialize disposable schema
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import psycopg
+          from nawa_demo.intake_migrate import apply_intake_migrations
+          with psycopg.connect(os.environ['NAWA_PHASE14_TEST_DSN']) as conn:
+              for path in sorted(Path('demo/nawa_demo/migrations').glob('00*.sql')):
+                  conn.execute(path.read_text(encoding='utf-8'))
+              apply_intake_migrations(conn)
+          PY
+      - name: Verify synthetic membership, version and source checks
+        working-directory: experiments/phase14
+        run: python -m unittest -v test_phase13_database_postgres
+
