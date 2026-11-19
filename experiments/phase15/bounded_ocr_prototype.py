@@ -13,6 +13,7 @@ MAX_INPUT_BYTES = 4 * 1024 * 1024
 MAX_PIXELS = 12_000_000
 MAX_OUTPUT_BYTES = 256 * 1024
 MAX_MODEL_BYTES = 64 * 1024 * 1024
+MAX_ENGINE_BYTES = 128 * 1024 * 1024
 TIMEOUT_SECONDS = 20
 ALLOWED_LANGUAGES = {'eng', 'ara', 'ara+eng', 'eng+ara'}
 
@@ -131,4 +132,32 @@ def recognize_with_model_provenance(path, executable, model_dir, languages, expe
     check_models()
     result.update({'engine_version_unverified':engine_version, 'model_sha256':hashes,
                    'page_segmentation_mode':6})
+    return result
+
+def recognize_with_pinned_engine(path, executable, model_dir, languages, expected_models,
+                                 expected_engine_sha256, *, runner=bounded_process):
+    """Compare engine bytes with a caller-provided digest before and after OCR.
+
+    The digest must come from a trusted source. This is not signature
+    verification and does not prevent an engine being swapped and restored.
+    """
+    if (not isinstance(expected_engine_sha256, str) or len(expected_engine_sha256) != 64
+            or any(c not in '0123456789abcdef' for c in expected_engine_sha256)):
+        raise ValueError('Expected engine digest must be lowercase SHA-256')
+    def check_engine():
+        digest = hashlib.sha256()
+        size = 0
+        with Path(executable).open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                size += len(chunk)
+                if size > MAX_ENGINE_BYTES:
+                    raise OCRLimitError('Engine executable exceeds size limit')
+                digest.update(chunk)
+        if digest.hexdigest() != expected_engine_sha256:
+            raise OCRLimitError('Engine executable hash does not match expected value')
+    check_engine()
+    result = recognize_with_model_provenance(path, executable, model_dir, languages,
+                                              expected_models, runner=runner)
+    check_engine()
+    result['engine_sha256'] = expected_engine_sha256
     return result

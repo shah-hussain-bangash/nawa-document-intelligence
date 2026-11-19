@@ -7,7 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 from PIL import Image
 from bounded_ocr_prototype import (bounded_process, recognize_synthetic_png,
-                                   recognize_with_model_provenance, OCRLimitError)
+                                   recognize_with_model_provenance, recognize_with_pinned_engine,
+                                   OCRLimitError)
 
 class BoundedProcessTests(unittest.TestCase):
     def test_captures_small_output(self):
@@ -108,6 +109,37 @@ class BoundedProcessTests(unittest.TestCase):
             self.assertEqual(len(calls), 2)
             self.assertEqual(result['model_sha256'], {'eng.traineddata':digest})
             self.assertEqual(result['status'], 'human_review_required')
+
+    def test_wrong_engine_digest_prevents_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            engine = Path(directory) / 'engine.exe'
+            engine.write_bytes(b'synthetic engine')
+            with patch('bounded_ocr_prototype.recognize_with_model_provenance') as ocr:
+                with self.assertRaises(OCRLimitError):
+                    recognize_with_pinned_engine('unused', engine, directory, 'eng', {}, '0' * 64)
+                ocr.assert_not_called()
+
+    def test_engine_changed_during_ocr_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            engine = Path(directory) / 'engine.exe'
+            engine.write_bytes(b'synthetic engine')
+            digest = hashlib.sha256(b'synthetic engine').hexdigest()
+            def ocr(*args, **kwargs):
+                engine.write_bytes(b'changed')
+                return {'status':'human_review_required'}
+            with patch('bounded_ocr_prototype.recognize_with_model_provenance', side_effect=ocr):
+                with self.assertRaises(OCRLimitError):
+                    recognize_with_pinned_engine('unused', engine, directory, 'eng', {}, digest)
+
+    def test_pinned_engine_digest_is_recorded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            engine = Path(directory) / 'engine.exe'
+            engine.write_bytes(b'synthetic engine')
+            digest = hashlib.sha256(b'synthetic engine').hexdigest()
+            with patch('bounded_ocr_prototype.recognize_with_model_provenance',
+                       return_value={'status':'human_review_required'}):
+                result = recognize_with_pinned_engine('unused', engine, directory, 'eng', {}, digest)
+            self.assertEqual(result['engine_sha256'], digest)
 
 if __name__ == '__main__':
     unittest.main()

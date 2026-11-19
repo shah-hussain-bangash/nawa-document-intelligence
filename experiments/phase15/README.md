@@ -190,11 +190,19 @@ existing Arabic-label image. This prototype is included in the draft PR but is n
 
 A separate opt-in wrapper checks caller-supplied model SHA-256 hashes before
 and after OCR and records those hashes and the engine's self-reported version.
-Twelve local tests now pass, including changed and incorrect model files; an
+Fifteen local tests now pass, including changed and incorrect model files; an
 English synthetic Tesseract smoke test passed using the pinned fast model.
 These checks do not prove the engine binary's identity or prevent a model from
 being swapped and restored between checks. Docker access was unavailable in
 the current session, so container isolation has not been tested here.
+
+An additional opt-in wrapper compares the executable's SHA-256 with a
+caller-provided value before and after OCR and records the hash. Tests reject
+an incorrect hash and a changed executable. This is not signature
+verification, does not prevent swapping and restoring during execution, and
+depends on obtaining the expected digest from a trustworthy source. The local
+smoke test derives its comparison hash from the same local file, so it checks
+consistency during that test, not the executable's authenticity.
 
 The output reader also has a deadline if a descendant retains its pipe after
 the parent exits. A synthetic subprocess test confirms the caller returns an
