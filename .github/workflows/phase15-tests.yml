@@ -23,7 +23,7 @@ jobs:
         run: python -m pip install Pillow==11.3.0 PyMuPDF==1.28.2
       - name: Test OCR metrics and local prototype
         working-directory: experiments/phase15
-        run: python -m unittest -v test_ocr_benchmark test_rtl_field_experiment test_bounded_ocr_prototype test_additional_samples test_windows_gated_launcher test_windows_gated_bounded test_windows_ocr_end_to_end test_windows_image_validation test_numeric_crop_metrics test_synthetic_review_packet test_validate_synthetic_review test_ocr_intake_handoff test_pdf_git_attributes
+        run: python -m unittest -v test_ocr_benchmark test_rtl_field_experiment test_bounded_ocr_prototype test_additional_samples test_windows_gated_launcher test_windows_gated_bounded test_windows_ocr_end_to_end test_windows_image_validation test_numeric_crop_metrics test_synthetic_review_packet test_validate_synthetic_review test_ocr_intake_handoff test_synthetic_worker_receipt test_pdf_git_attributes
 
   synthetic-ocr-engine-smoke:
     runs-on: ubuntu-24.04

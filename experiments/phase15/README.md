@@ -231,6 +231,16 @@ an HTTP request. The isolated Phase 13 QA Compose configuration selects
 This checks recorded markers, not authenticated worker identity, and cannot
 protect against a database writer changing both stored values.
 
+`synthetic_worker_receipt.py` explores an HMAC receipt bound to a synthetic
+tenant, document ID, job ID, source hash, result hash, origin and key ID. Tests
+reject changes to those values, a wrong key and cross-job or cross-tenant
+substitution. It is a standalone Python-only experiment: it is not wired to
+intake or promotion, does not authenticate a real worker, and does not prevent
+replay within the same job. HMAC verifiers with the shared key can also create
+receipts. Trusted key provisioning, rotation, compromise recovery, atomic
+recording, replay protection, interoperable serialization and security review
+must be designed before any production claim.
+
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored
 test copy is rejected without changing its existing human review. This does
