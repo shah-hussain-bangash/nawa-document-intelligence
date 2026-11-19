@@ -169,6 +169,16 @@ were checked against the official Git blob and remain local; the experiment
 and synthetic results are in `arabic_script_experiment.py` and
 `arabic-script-result.json`.
 
+An additional local experiment (`arabic_threshold_experiment.py`) applies
+grayscale, contrast adjustment, 3x enlargement, a fixed threshold and a white
+border to the same four hand-selected number regions. On this single
+synthetic image, two best-model language choices and two segmentation modes
+produced zero exact normalized numeric matches in 16 attempts. The recorded
+`threshold-crop-result.json` is exploratory; it does not establish general
+OCR accuracy or support using these values. Human review is still required.
+CI checks the image preparation and refusal to overwrite a result, not this
+local Tesseract run.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
