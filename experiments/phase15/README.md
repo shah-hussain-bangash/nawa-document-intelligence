@@ -291,7 +291,9 @@ real deployment permissions or credential management. The test also enables
 row-level security on both synthetic tables, binds each of two test tenants to
 its database login name, and checks that both tenants' rows are hidden from
 one another even when directly queried. It also checks that neither login can
-switch into the other's role. This one-login-per-test-tenant model is an experiment,
+switch into the other's role, that a client-supplied tenant setting does not
+change the login identity, and that requesting `row_security=off` results in
+an error rather than disclosure. This one-login-per-test-tenant model is an experiment,
 not the NAWA application's tenant authorization design; administrators and
 roles with RLS bypass privileges require separate controls. A database-name prefix is not
 a security boundary. This code is not connected to NAWA, and it does not

@@ -168,11 +168,15 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
                 self.assertEqual(conn.execute('SELECT current_user').fetchone()[0], reader_role)
                 self.assertEqual(conn.execute('SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user').fetchone(),
                                  (False, False))
+                # A client-controlled custom setting is not the tenant identity.
+                conn.execute("SELECT set_config('nawa.tenant_id', %s, true)", (other_role,))
+                self.assertEqual(conn.execute('SELECT current_user').fetchone()[0], reader_role)
                 self.assertEqual(conn.execute(sql.SQL('SELECT count(*) FROM {}.receipts')
                     .format(sql.Identifier(self.schema))).fetchone()[0], 1)
                 self.assertIsNone(conn.execute(sql.SQL('SELECT job_id FROM {}.receipts WHERE job_id=%s')
                     .format(sql.Identifier(self.schema)), ('d'*32,)).fetchone())
             with restored_reader() as conn:
+                conn.execute("SELECT set_config('nawa.tenant_id', %s, true)", (other_role,))
                 self.assertEqual(conn.execute('SELECT count(*) FROM public.synthetic_app_jobs').fetchone()[0], 1)
                 self.assertIsNone(conn.execute('SELECT job_id FROM public.synthetic_app_jobs WHERE job_id=%s',
                                                ('d'*32,)).fetchone())
@@ -190,11 +194,13 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
                                 job_id='d'*32,tenant=other_role)
             self.assertEqual(own_other['status'], 'both_pending')
             with other_ledger() as conn:
+                conn.execute("SELECT set_config('nawa.tenant_id', %s, true)", (reader_role,))
                 self.assertEqual(conn.execute(sql.SQL('SELECT count(*) FROM {}.receipts')
                     .format(sql.Identifier(self.schema))).fetchone()[0], 1)
                 self.assertIsNone(conn.execute(sql.SQL('SELECT job_id FROM {}.receipts WHERE job_id=%s')
                     .format(sql.Identifier(self.schema)), (self.context['job_id'],)).fetchone())
             with other_app() as conn:
+                conn.execute("SELECT set_config('nawa.tenant_id', %s, true)", (reader_role,))
                 self.assertEqual(conn.execute('SELECT count(*) FROM public.synthetic_app_jobs').fetchone()[0], 1)
                 self.assertIsNone(conn.execute('SELECT job_id FROM public.synthetic_app_jobs WHERE job_id=%s',
                                                (self.context['job_id'],)).fetchone())
@@ -202,6 +208,12 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
                 with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                     with connect_as() as conn:
                         conn.execute(sql.SQL('SET ROLE {}').format(sql.Identifier(target)))
+            # PostgreSQL must error rather than return rows when an unprivileged
+            # role asks for row_security=off on a table governed by RLS.
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                with ledger_reader() as conn:
+                    conn.execute('SET LOCAL row_security = off')
+                    conn.execute(sql.SQL('SELECT count(*) FROM {}.receipts').format(sql.Identifier(self.schema))).fetchone()
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 with ledger_reader() as conn:
                     conn.execute(sql.SQL('UPDATE {}.receipts SET state=state WHERE false').format(sql.Identifier(self.schema)))
