@@ -235,11 +235,20 @@ protect against a database writer changing both stored values.
 tenant, document ID, job ID, source hash, result hash, origin and key ID. Tests
 reject changes to those values, a wrong key and cross-job or cross-tenant
 substitution. It is a standalone Python-only experiment: it is not wired to
-intake or promotion, does not authenticate a real worker, and does not prevent
-replay within the same job. HMAC verifiers with the shared key can also create
+intake or promotion and does not authenticate a real worker. The receipt
+verifier alone does not prevent replay within the same job. HMAC verifiers with the shared key can also create
 receipts. Trusted key provisioning, rotation, compromise recovery, atomic
 recording, replay protection, interoperable serialization and security review
 must be designed before any production claim.
+
+`synthetic_receipt_ledger.py` separately demonstrates one-time receipt
+consumption in a disposable SQLite database. It verifies a receipt and marks
+the synthetic job consumed in one transaction; tests cover replay, concurrent
+attempts, wrong keys and altered results. The test database stores neither the
+synthetic key nor raw result. This ledger is not wired to PostgreSQL, intake,
+or promotion; it does not address key provisioning, database tampering,
+worker authentication, backup rollback, distributed operation, or production
+replay protection.
 
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored
