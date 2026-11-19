@@ -24,6 +24,20 @@ class WindowsGatedBoundedTests(unittest.TestCase):
         with self.assertRaises(GatedRunError):
             run_gated_bounded([sys.executable, '-c', 'raise SystemExit(3)'])
 
+    def test_active_process_limit_prevents_synthetic_child_launch(self):
+        # The gated starter occupies the single permitted process slot.
+        with self.assertRaises(GatedRunError):
+            run_gated_bounded([sys.executable, '-c', "print('must not run')"], max_processes=1)
+
+    def test_job_memory_limit_rejects_oversized_allocation(self):
+        small = "x=bytearray(1024*1024); print('small-ok')"
+        self.assertEqual(run_gated_bounded([sys.executable, '-c', small],
+            memory_limit_bytes=96*1024*1024).strip(), b'small-ok')
+        code = ('import sys\ntry:\n x=bytearray(256*1024*1024)\n'
+                'except MemoryError:\n sys.exit(7)\n')
+        with self.assertRaises(GatedRunError):
+            run_gated_bounded([sys.executable, '-c', code], memory_limit_bytes=96*1024*1024)
+
     def test_cleanup_stops_synthetic_descendant_after_parent_exits(self):
         with tempfile.TemporaryDirectory() as directory:
             ready = Path(directory) / 'ready'

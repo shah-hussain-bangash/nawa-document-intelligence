@@ -8,12 +8,13 @@ from windows_gated_launcher_experiment import start_gated
 class GatedRunError(RuntimeError):
     pass
 
-def run_gated_bounded(command, *, timeout=20, max_output=256 * 1024):
+def run_gated_bounded(command, *, timeout=20, max_output=256 * 1024,
+                      max_processes=4, memory_limit_bytes=512 * 1024 * 1024):
     """Run trusted test commands in a cleanup job with time and output limits."""
     if timeout <= 0 or max_output <= 0:
         raise ValueError('Limits must be positive')
     deadline = time.monotonic() + timeout
-    job = WindowsCleanupJob()
+    job = WindowsCleanupJob(max_processes=max_processes, memory_limit_bytes=memory_limit_bytes)
     parent = None
     reader = None
     chunks = []
