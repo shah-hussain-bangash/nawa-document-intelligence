@@ -8,6 +8,8 @@ def require_text_only_result(result):
     """
     if not isinstance(result, dict):
         raise ValueError('Synthetic result unavailable for promotion')
+    if 'extraction_origin' in result and result['extraction_origin'] != 'synthetic_text_worker_v1':
+        raise ValueError('Unknown or OCR extraction requires separate review')
     if 'input_type' in result and result['input_type'] != 'text_layer_pdf':
         raise ValueError('Unknown or OCR extraction requires separate review')
     forbidden = {'status', 'state', 'promotable', 'requires_human_review'}

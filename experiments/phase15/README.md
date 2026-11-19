@@ -199,6 +199,14 @@ result could bypass marker checks. Actual rendering provenance, authenticated
 producer identity, authorization, review persistence, and an independently
 reviewed promotion policy remain open.
 
+New results from the synthetic text worker now receive the server-assigned
+`synthetic_text_worker_v1` origin after the worker checks that the parser output
+has no OCR or review markers. OCR-marked parser output fails rather than being
+relabelled. The promotion guard rejects any other explicit origin but still
+accepts legacy unmarked text records for compatibility. The marker is not
+cryptographic proof or authenticated worker identity, and a compromised or
+incorrect producer could mislabel content. No OCR worker is integrated.
+
 The synthetic PostgreSQL integration suite includes a case that inserts an
 explicit OCR marker into a disposable test record, checks that promotion
 creates no quotation or promotion row, then restores the original synthetic

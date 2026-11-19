@@ -17,6 +17,7 @@ class PromotionGuardTests(unittest.TestCase):
         pdf = dict(self.quote, input_type='text_layer_pdf', evidence={
             k:dict(v, method='text_layer') for k, v in self.quote['evidence'].items()})
         self.assertIsNone(require_text_only_result(pdf))
+        self.assertIsNone(require_text_only_result(dict(self.quote, extraction_origin='synthetic_text_worker_v1')))
 
     def test_review_and_ocr_markers_are_rejected(self):
         cases = [dict(self.quote, status='human_review_required'),
@@ -25,6 +26,8 @@ class PromotionGuardTests(unittest.TestCase):
                  dict(self.quote, input_type='ocr_pdf'),
                  dict(self.quote, input_type='mixed_text_and_ocr_pdf'),
                  dict(self.quote, input_type=None),
+                 dict(self.quote, extraction_origin='synthetic_ocr_worker_v1'),
+                 dict(self.quote, extraction_origin=None),
                  dict(self.quote, ocr_pages=[]),
                  dict(self.quote, evidence={'total':{'method':'ocr'}}),
                  dict(self.quote, evidence={'total':{'ocr_confidence':0.9}}),

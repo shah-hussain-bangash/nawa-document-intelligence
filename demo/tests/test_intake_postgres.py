@@ -442,6 +442,7 @@ class PostgresIntakeTests(unittest.TestCase):
             document, _ = service.submit(principal, 'english.txt', content)
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
             original = self.jobs.result(self.tenant, document)
+            self.assertEqual(original['extraction_origin'], 'synthetic_text_worker_v1')
             marked = dict(original, input_type='ocr_pdf')
             with self.connect() as conn:
                 conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
