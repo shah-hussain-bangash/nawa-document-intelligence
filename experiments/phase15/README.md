@@ -217,6 +217,16 @@ general comparative accuracy. `paddle-arabic-page-result.json` records the
 synthetic outputs and observed model hashes; no authenticity claim is made.
 CI tests the evaluation helper, not the locally installed Paddle models.
 
+An additional evaluation-only helper, `arabic_label_candidate_experiment.py`,
+recognizes exact known Arabic labels at the beginning of a line even when the
+colon is missing. It rejects duplicate labels, malformed numbers and
+ambiguous numeric punctuation. Applied to the saved Paddle page output, it
+matches the synthetic supplier name, or 1 / 6 fields; the five other fields
+remain unmatched. This changes the parser evaluation, not the OCR output,
+and the helper cannot promote or approve a quotation. The result and hash of
+its saved input are in `arabic-label-candidate-result.json`. One hand-selected
+sample cannot establish general accuracy or production safety.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
