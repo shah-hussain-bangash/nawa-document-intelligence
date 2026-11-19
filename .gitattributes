@@ -1,3 +1,4 @@
 # Preserve synthetic PDF fixture bytes across operating systems.
 demo/samples/pdf/*.pdf -text
-
+# Preserve byte-pinned synthetic OCR fixtures, including the manifest.
+experiments/phase15/arabic-new-synthetic-pages/* -text

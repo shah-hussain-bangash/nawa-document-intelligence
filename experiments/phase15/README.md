@@ -241,6 +241,21 @@ model hashes; `render_synthetic_arabic_pdf.py` can produce the pinned input
 from the corresponding known-hash PDF. It refuses a different rendering or
 an existing output file. Results remain human-review-only.
 
+Two more synthetic pages with different supplier names and amounts were
+generated locally using Windows GDI+ and Arial. They share one clean digital
+layout, have fixture-authored references, and are not independently reviewed
+or representative of scanned documents. On these exact pages, Tesseract
+matched 2 / 6 fields on each using the strict label checker; Paddle matched
+0 / 6 with that checker and 1 / 6 with the separate Arabic exact-label
+candidate checker. These scores include parser behavior and are not a general
+ranking of the engines. The source images, `manifest.json`, recorded local
+outputs and hashes are in `arabic-new-synthetic-pages/` and
+`synthetic-arabic-batch-result.json`; the observed batch used local CPU models.
+`generate_synthetic_arabic_pages.ps1` documents generation using PowerShell 7;
+fonts and rendering versions can change the output bytes, and the evaluator
+accepts only the committed pinned images and manifest. CI verifies the saved
+synthetic data and recalculates field matches, not a live Paddle inference.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
