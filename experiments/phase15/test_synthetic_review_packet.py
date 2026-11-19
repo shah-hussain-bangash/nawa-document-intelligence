@@ -1,6 +1,9 @@
 import hashlib
 import json
+import re
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from PIL import Image
@@ -25,6 +28,38 @@ class SyntheticReviewPacketTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256((output / crop['crop_file']).read_bytes()).hexdigest(), crop['crop_sha256'])
         self.assertEqual(json.loads((output / 'review-packet.json').read_text(encoding='utf-8')), packet)
         self.assertIn('No value or approval has been inferred', (output / 'review.html').read_text(encoding='utf-8'))
+        self.assertIn('Download review JSON', (output / 'review.html').read_text(encoding='utf-8'))
+
+    def test_region_label_is_escaped_in_review_page(self):
+        output = self.root / 'review'
+        create_packet(self.image, self.sha, [('<script>alert(1)</script>', (0, 0, 10, 10))], output)
+        page = (output / 'review.html').read_text(encoding='utf-8')
+        self.assertNotIn('<script>alert(1)</script>', page)
+        self.assertIn('&lt;script&gt;', page)
+
+    @unittest.skipUnless(shutil.which('node'), 'Node is required for the local browser-script test')
+    def test_download_script_exports_reviewer_text_without_approval(self):
+        output = self.root / 'review'
+        create_packet(self.image, self.sha, [('Amount', (0, 0, 10, 10))], output)
+        page = (output / 'review.html').read_text(encoding='utf-8')
+        script = re.search(r'<script>(.*?)</script>', page).group(1)
+        script_file = self.root / 'script.js'
+        script_file.write_text(script, encoding='utf-8')
+        harness = r'''const fs=require('fs'),vm=require('vm'); let handler,blob;
+const region={dataset:{label:'Amount',box:'[0,0,10,10]',crop:'region-1.png',cropSha:'abc'},querySelector:()=>({value:'900.00'})};
+const document={getElementById:()=>({addEventListener:(name,fn)=>handler=fn}),querySelectorAll:()=>[region],
+ body:{appendChild:()=>{}},createElement:()=>({click:()=>{},remove:()=>{}})};
+class Blob {constructor(parts){blob=parts.join('')}}
+const URL={createObjectURL:()=> 'blob:test',revokeObjectURL:()=>{}};
+vm.runInNewContext(fs.readFileSync(process.argv[1],'utf8'),{document,Blob,URL,setTimeout:()=>{}});
+handler(); process.stdout.write(blob);'''
+        result = subprocess.run(['node', '-e', harness, str(script_file)], check=True,
+                                capture_output=True, text=True, timeout=10)
+        data = json.loads(result.stdout)
+        self.assertEqual(data['status'], 'human_review_required')
+        self.assertEqual(data['source_image_sha256'], self.sha)
+        self.assertEqual(data['regions'][0]['reviewer_transcription'], '900.00')
+        self.assertEqual(data['regions'][0]['box_pixels'], [0, 0, 10, 10])
 
     def test_changed_source_is_rejected(self):
         with self.assertRaises(ValueError):

@@ -39,17 +39,34 @@ def create_packet(image_path, expected_sha256, regions, output_dir):
               'note':'Inspect the complete original image and each crop. No number or approval has been inferred.',
               'regions':entries}
     (output_dir / 'review-packet.json').write_text(json.dumps(packet, ensure_ascii=False, indent=2), encoding='utf-8')
-    cards = ''.join('<section><h2>' + html.escape(item['label']) + '</h2><img src="' +
+    cards = ''.join('<section class="region" data-label="' + html.escape(item['label'], quote=True) +
+        '" data-crop="' + item['crop_file'] + '" data-crop-sha="' + item['crop_sha256'] +
+        '" data-box="' + html.escape(json.dumps(item['box_pixels']), quote=True) +
+        '"><h2>' + html.escape(item['label']) + '</h2><img src="' +
         item['crop_file'] + '" alt="Synthetic source crop for ' + html.escape(item['label'], quote=True) +
         '"><p>Human review required. Source page 1; crop pixels ' +
-        html.escape(str(item['box_pixels'])) + '.</p></section>' for item in entries)
+        html.escape(str(item['box_pixels'])) + '.</p><label>Reviewer transcription '
+        '<input maxlength="80" autocomplete="off" placeholder="Enter what you see"></label></section>' for item in entries)
     page = ('<!doctype html><html lang="en"><meta charset="utf-8"><title>Synthetic OCR review</title>'
             '<style>body{font:16px system-ui;max-width:850px;margin:40px auto;padding:0 20px;color:#102336}'
             'section{border:1px solid #ccc;border-radius:8px;margin:16px 0;padding:16px}'
             'img{width:400px;max-width:100%;image-rendering:auto}code{overflow-wrap:anywhere}</style>'
             '<h1>Synthetic OCR: human review required</h1><p>Compare these manually selected regions with '
             'the <a href="source.png">original synthetic image</a>. No value or approval has been inferred.</p>'
-            '<p>Original image SHA-256: <code>' + source_hash + '</code></p>' + cards + '</html>')
+            '<p>Original image SHA-256: <code>' + source_hash + '</code></p>' + cards +
+            '<p>Entries stay on this page until you download them. They do not approve the quotation.</p>'
+            '<button id="download" type="button">Download review JSON</button>'
+            '<script>document.getElementById("download").addEventListener("click",()=>{'
+            'const regions=Array.from(document.querySelectorAll(".region"),el=>({'
+            'label:el.dataset.label,source_page:1,box_pixels:JSON.parse(el.dataset.box),'
+            'crop_file:el.dataset.crop,crop_sha256:el.dataset.cropSha,'
+            'reviewer_transcription:el.querySelector("input").value}));'
+            'const result={scope:"synthetic image; reviewer transcription only",'
+            'status:"human_review_required",source_image_sha256:"' + source_hash + '",regions};'
+            'const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:"application/json"}));'
+            'const a=document.createElement("a");a.href=url;a.download="nawa-synthetic-review.json";'
+            'document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);'
+            '});</script></html>')
     (output_dir / 'review.html').write_text(page, encoding='utf-8')
     return packet
 

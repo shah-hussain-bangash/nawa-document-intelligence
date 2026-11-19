@@ -159,8 +159,12 @@ and synthetic results are in `arabic_script_experiment.py` and
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
-pixel coordinates, and an HTML review page. It proposes no values or approval.
-The regions are specific to this one fixture; this is not a general reviewer
+pixel coordinates, and an HTML review page. A reviewer can enter transcriptions
+and download a JSON file in the browser; the file remains marked
+`human_review_required` and does not record an approval. Entries are not saved
+automatically. A Node-based test checks the download script using a simulated
+DOM; a real-browser review has not been completed. It proposes no values or
+approval. The regions are specific to this one fixture; this is not a general reviewer
 interface, production evidence chain, or processor for real documents.
 
 ## Official fast versus best language models
