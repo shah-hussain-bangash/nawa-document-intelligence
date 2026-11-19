@@ -134,6 +134,17 @@ the coordinates, OCR output and exact text comparisons. The experiment
 requires Pillow and the pinned local OCR models; it creates temporary crops
 and refuses to overwrite its result file.
 
+A later comparison used the same four manually selected number crops with both
+the pinned fast and best Arabic models, three image scales and two page
+segmentation modes: 48 runs in total. None matched the expected number after
+strict Arabic-to-ASCII digit and decimal-point normalization. The comparison
+does not guess letters, reorder digits, or interpret a comma as a decimal
+point. These crops and settings were selected using the same known synthetic
+image, so this result does not measure real-world accuracy. The observed
+failure occurs even with the number region manually selected; text-order
+handling alone does not fix this example. The local script and results are
+`best_numeric_crop_experiment.py` and `best-numeric-crop-result.json`.
+
 ## Official fast versus best language models
 
 The official `tessdata_best` Arabic and English models at commit
