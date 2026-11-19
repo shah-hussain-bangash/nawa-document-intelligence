@@ -76,6 +76,9 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
     def test_stale_app_restore_cannot_reuse_receipt_if_ledger_survives(self):
         from synthetic_reconciliation import classify_snapshots
         from synthetic_reconciliation_inspector import inspect
+        from nawa_demo.authorization import Principal
+        from nawa_demo.session_draft import SessionStore
+        from nawa_demo.synthetic_inspector_broker import SyntheticInspectorBroker
         # Both databases are created only on the disposable Phase 15 CI server.
         params = psycopg.conninfo.conninfo_to_dict(DSN)
         self.assertTrue(params['dbname'].startswith('nawa_phase15_qa_'))
@@ -193,6 +196,22 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
             own_other = inspect(other_ledger, other_app, schema=self.schema,
                                 job_id='d'*32,tenant=other_role)
             self.assertEqual(own_other['status'], 'both_pending')
+            # Synthetic in-memory sessions route through server-owned mappings;
+            # no real identity provider or client-selected DB role is involved.
+            members = {('subject-a',reader_role):Principal('subject-a',reader_role,'viewer'),
+                       ('subject-b',other_role):Principal('subject-b',other_role,'viewer')}
+            sessions = SessionStore(lambda subject,tenant:members.get((subject,tenant)))
+            token_a = sessions.issue('subject-a',reader_role)['session']
+            token_b = sessions.issue('subject-b',other_role)['session']
+            routes = {reader_role:{'ledger_connect':ledger_reader,'app_connect':restored_reader,'schema':self.schema},
+                      other_role:{'ledger_connect':other_ledger,'app_connect':other_app,'schema':self.schema}}
+            broker = SyntheticInspectorBroker(sessions,routes,inspect)
+            self.assertEqual(broker.inspect(token_a,self.context['job_id'])['status'], 'manual_reconciliation_required')
+            self.assertEqual(broker.inspect(token_a,'d'*32)['status'], 'missing_observation')
+            self.assertEqual(broker.inspect(token_b,'d'*32)['status'], 'both_pending')
+            self.assertEqual(broker.inspect(token_b,self.context['job_id'])['status'], 'missing_observation')
+            members[('subject-a',reader_role)] = None
+            with self.assertRaises(PermissionError): broker.inspect(token_a,self.context['job_id'])
             with other_ledger() as conn:
                 conn.execute("SELECT set_config('nawa.tenant_id', %s, true)", (reader_role,))
                 self.assertEqual(conn.execute(sql.SQL('SELECT count(*) FROM {}.receipts')

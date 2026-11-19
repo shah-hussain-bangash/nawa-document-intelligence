@@ -300,6 +300,14 @@ a security boundary. This code is not connected to NAWA, and it does not
 provide an atomic cross-database snapshot or a production reconciliation
 process.
 
+An experimental session broker selects the database connection from a
+server-owned tenant mapping after checking a synthetic in-memory session and
+its current membership. It accepts no client-selected tenant and has no HTTP
+endpoint. The disposable PostgreSQL test uses manually issued test sessions
+and two test database roles. This does not establish integration with a real
+identity provider. Membership can be revoked after the check while a request
+is in flight, and production credential management remains open.
+
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored
 test copy is rejected without changing its existing human review. This does

@@ -26,6 +26,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       NAWA_PHASE15_TEST_DSN: 'host=127.0.0.1 port=5432 dbname=nawa_phase15_qa_ci user=nawa_test password=synthetic-ci-only'
+      PYTHONPATH: ${{ github.workspace }}/demo
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -87,4 +88,3 @@ jobs:
             --tessdata "$RUNNER_TEMP/nawa-tessdata" \
             --output "$RUNNER_TEMP/nawa-synthetic-ocr-result.json"
           python -c 'import json,os,pathlib; d=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"nawa-synthetic-ocr-result.json").read_text(encoding="utf-8")); assert d["status"] == "human_review_required" and len(d["cases"]) == 3 and all(c["fields_correct"] >= 5 for c in d["cases"][:2]) and d["cases"][2]["ocr_text_synthetic"].strip()'
-
