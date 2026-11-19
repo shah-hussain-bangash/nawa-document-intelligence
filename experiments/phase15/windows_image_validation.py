@@ -14,6 +14,10 @@ with Image.open(sys.argv[1], formats=['PNG']) as image:
     if image.width * image.height > int(sys.argv[2]):
         raise ValueError('image too large')
     image.verify()
+with Image.open(sys.argv[1], formats=['PNG']) as image:
+    if image.width * image.height > int(sys.argv[2]):
+        raise ValueError('image too large')
+    image.load()
 print('validated')
 '''
 

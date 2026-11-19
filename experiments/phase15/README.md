@@ -260,7 +260,9 @@ path is wired to NAWA. `windows_synthetic_ocr_smoke.py` tested the combined
 prototype locally on both pinned fixtures: English 6 / 6 and Arabic 2 / 6,
 with human review required. The combined Tesseract path is not tested in CI.
 An explicitly selected `windows_image_validation.py` validator now runs PNG
-decoding in a separate job-limited process. Three tests cover valid, corrupt,
+decoding in a separate job-limited process. It checks PNG structure and then
+loads image pixels; structural verification alone does not detect every
+corrupt compressed image. Four tests cover valid, corrupt, damaged pixel data,
 and oversized synthetic images. The original default validator still decodes
 in the calling process. The new validator relies on the local Python and
 Pillow installation, uses temporary files, and provides resource cleanup, not
