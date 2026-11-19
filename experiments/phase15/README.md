@@ -179,6 +179,21 @@ of their transcription. The anchor is only trustworthy if the code and its
 fixture constants have been obtained and protected through trusted means.
 The real-browser download test remains pending.
 
+## Experimental intake handoff
+
+The Phase 13 synthetic intake worker extracts selectable text and does not
+invoke this OCR experiment. Its existing promotion path expects a completed
+intake result; it does not enforce the Phase 15 OCR review contract. A future
+integration must add and verify that gate before handing OCR candidates to it.
+
+`ocr_intake_handoff.py` defines a separate experimental handoff that produces
+only `requires_human_review` and `promotable: false`, and records hashes without
+creating a quotation or copying OCR text into the handoff. The caller supplies
+the source PDF hash and page, which this function does not independently bind
+to the image. The contract is not connected to intake, and its flags do not
+protect any existing promotion path. Actual rendering provenance, authorization,
+review persistence, and enforcement at the promotion boundary remain open.
+
 ## Official fast versus best language models
 
 The official `tessdata_best` Arabic and English models at commit
