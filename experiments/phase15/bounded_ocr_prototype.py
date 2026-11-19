@@ -69,7 +69,18 @@ def bounded_process(command, timeout=TIMEOUT_SECONDS, max_output=MAX_OUTPUT_BYTE
         raise OCRLimitError('OCR process failed')
     return b''.join(chunks)
 
-def recognize_synthetic_png(path, executable, model_dir, languages, *, runner=bounded_process):
+def validate_png_locally(data):
+    """Default local validator; this executes the image decoder in this process."""
+    try:
+        with Image.open(io.BytesIO(data), formats=['PNG']) as image:
+            if image.width * image.height > MAX_PIXELS:
+                raise OCRLimitError('Image dimensions exceed limit')
+            image.verify()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+        raise OCRLimitError('Invalid image') from exc
+
+def recognize_synthetic_png(path, executable, model_dir, languages, *, runner=bounded_process,
+                            validator=validate_png_locally):
     """OCR one PNG with explicit configuration; output always requires review."""
     if languages not in ALLOWED_LANGUAGES:
         raise ValueError('Unsupported languages')
@@ -78,13 +89,7 @@ def recognize_synthetic_png(path, executable, model_dir, languages, *, runner=bo
         data = stream.read(MAX_INPUT_BYTES + 1)
     if len(data) > MAX_INPUT_BYTES:
         raise OCRLimitError('Input exceeds limit')
-    try:
-        with Image.open(io.BytesIO(data), formats=['PNG']) as image:
-            if image.width * image.height > MAX_PIXELS:
-                raise OCRLimitError('Image dimensions exceed limit')
-            image.verify()
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-        raise OCRLimitError('Invalid image') from exc
+    validator(data)
     # Use the same bounded bytes that were validated and hashed, instead of
     # passing the original path (which might change after it was checked).
     # This does not sandbox Tesseract or defend against a hostile local user.
@@ -100,7 +105,8 @@ def recognize_synthetic_png(path, executable, model_dir, languages, *, runner=bo
     return {'status':'human_review_required', 'source_sha256':hashlib.sha256(data).hexdigest(),
             'language':languages, 'extracted_text_untrusted':text}
 
-def recognize_with_model_provenance(path, executable, model_dir, languages, expected_models, *, runner=bounded_process):
+def recognize_with_model_provenance(path, executable, model_dir, languages, expected_models, *,
+                                    runner=bounded_process, validator=validate_png_locally):
     """Run the local prototype only when supplied model hashes match."""
     if languages not in ALLOWED_LANGUAGES:
         raise ValueError('Unsupported languages')
@@ -128,14 +134,16 @@ def recognize_with_model_provenance(path, executable, model_dir, languages, expe
                                 max_output=8192).decode('utf-8').splitlines()[0]
     except (UnicodeDecodeError, IndexError) as exc:
         raise OCRLimitError('Cannot identify OCR engine version') from exc
-    result = recognize_synthetic_png(path, executable, model_dir, languages, runner=runner)
+    result = recognize_synthetic_png(path, executable, model_dir, languages, runner=runner,
+                                     validator=validator)
     check_models()
     result.update({'engine_version_unverified':engine_version, 'model_sha256':hashes,
                    'page_segmentation_mode':6})
     return result
 
 def recognize_with_pinned_engine(path, executable, model_dir, languages, expected_models,
-                                 expected_engine_sha256, *, runner=bounded_process):
+                                 expected_engine_sha256, *, runner=bounded_process,
+                                 validator=validate_png_locally):
     """Compare engine bytes with a caller-provided digest before and after OCR.
 
     The digest must come from a trusted source. This is not signature
@@ -157,7 +165,7 @@ def recognize_with_pinned_engine(path, executable, model_dir, languages, expecte
             raise OCRLimitError('Engine executable hash does not match expected value')
     check_engine()
     result = recognize_with_model_provenance(path, executable, model_dir, languages,
-                                              expected_models, runner=runner)
+                                              expected_models, runner=runner, validator=validator)
     check_engine()
     result['engine_sha256'] = expected_engine_sha256
     return result

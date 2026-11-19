@@ -3,6 +3,7 @@ import ocr_benchmark as baseline
 import hashlib
 from bounded_ocr_prototype import recognize_with_pinned_engine
 from windows_gated_bounded import run_gated_bounded
+from windows_image_validation import validate_png_in_job
 
 def main():
     # For this local smoke test only, derive the comparison hash from the local
@@ -14,7 +15,8 @@ def main():
         hashes = {lang + '.traineddata': baseline.MODEL_HASHES[lang + '.traineddata']
                   for lang in sample['language'].split('+')}
         result = recognize_with_pinned_engine(image, baseline.TESSERACT,
-            baseline.TESSDATA, sample['language'], hashes, engine_hash, runner=run_gated_bounded)
+            baseline.TESSDATA, sample['language'], hashes, engine_hash, runner=run_gated_bounded,
+            validator=validate_png_in_job)
         count = sum(baseline.field_results(result['extracted_text_untrusted'], sample['fields']).values())
         if count != expected_count or result['status'] != 'human_review_required':
             raise AssertionError('Synthetic result changed or review status missing')

@@ -8,6 +8,7 @@ import unittest
 from PIL import Image
 from bounded_ocr_prototype import OCRLimitError, recognize_with_pinned_engine
 from windows_gated_bounded import GatedRunError, run_gated_bounded
+from windows_image_validation import validate_png_in_job
 
 @unittest.skipUnless(os.name == 'nt', 'Windows-only synthetic process test')
 class WindowsOcrEndToEndTests(unittest.TestCase):
@@ -36,7 +37,8 @@ class WindowsOcrEndToEndTests(unittest.TestCase):
                     'print("synthetic evidence")')
             return run_gated_bounded([sys.executable, '-c', code, command[1], self.image_hash], **limits)
         result = recognize_with_pinned_engine(self.image, self.engine, self.root,
-            'eng', {'eng.traineddata':self.model_hash}, self.engine_hash, runner=runner)
+            'eng', {'eng.traineddata':self.model_hash}, self.engine_hash, runner=runner,
+            validator=validate_png_in_job)
         self.assertEqual(len(calls), 2)
         self.assertNotEqual(Path(calls[1][1]), self.image)
         self.assertEqual(result['source_sha256'], self.image_hash)
@@ -51,7 +53,8 @@ class WindowsOcrEndToEndTests(unittest.TestCase):
             return run_gated_bounded([sys.executable, '-c', code], **limits)
         with self.assertRaises(GatedRunError):
             recognize_with_pinned_engine(self.image, self.engine, self.root,
-                'eng', {'eng.traineddata':self.model_hash}, self.engine_hash, runner=runner)
+                'eng', {'eng.traineddata':self.model_hash}, self.engine_hash, runner=runner,
+                validator=validate_png_in_job)
 
     def test_engine_digest_mismatch_prevents_gated_launch(self):
         calls = []

@@ -253,12 +253,20 @@ and termination of a synthetic descendant after its parent exits. A local
 synthetic English Tesseract smoke test matched 6 / 6 fields. It remains an
 experiment: the CPU setting has been queried but its effective performance
 has not been benchmarked. It does not protect against job breakaway,
-validate the executable, isolate image decoding, or handle
+establish executable authenticity or handle
 untrusted documents. The local OCR prototype can now explicitly receive this
 runner; the default remains the original local subprocess runner, and neither
 path is wired to NAWA. `windows_synthetic_ocr_smoke.py` tested the combined
 prototype locally on both pinned fixtures: English 6 / 6 and Arabic 2 / 6,
 with human review required. The combined Tesseract path is not tested in CI.
+An explicitly selected `windows_image_validation.py` validator now runs PNG
+decoding in a separate job-limited process. Three tests cover valid, corrupt,
+and oversized synthetic images. The original default validator still decodes
+in the calling process. The new validator relies on the local Python and
+Pillow installation, uses temporary files, and provides resource cleanup, not
+a security sandbox or a guarantee against malicious images. It is not
+connected to the NAWA application.
+
 Three Windows end-to-end tests use a controlled synthetic engine to exercise
 the validated image copy, executable and model-hash checks, gated Windows runner,
 job cleanup, review-required status, and engine failure behavior. They test process
