@@ -1,6 +1,9 @@
 """Integration tests; require a dedicated Phase 15 QA database."""
 from concurrent.futures import ThreadPoolExecutor
 import os
+from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 from uuid import uuid4
 from unittest.mock import MagicMock
@@ -68,6 +71,56 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'QA database'):
             initialize(lambda: context, 'nawa_p15_' + uuid4().hex)
         self.assertEqual(conn.execute.call_count, 1)
+
+    def test_stale_app_restore_cannot_reuse_receipt_if_ledger_survives(self):
+        # Both databases are created only on the disposable Phase 15 CI server.
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        self.assertTrue(params['dbname'].startswith('nawa_phase15_qa_'))
+        app_name = 'nawa_phase15_qa_app_' + uuid4().hex[:12]
+        restore_name = 'nawa_phase15_qa_restore_' + uuid4().hex[:12]
+        with psycopg.connect(DSN, autocommit=True) as admin:
+            for name in (app_name, restore_name):
+                admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
+        app_params = dict(params, dbname=app_name)
+        restored_params = dict(params, dbname=restore_name)
+        pg_env = os.environ.copy()
+        pg_env['PGPASSWORD'] = params.get('password', '')
+        app_cli = dict(app_params)
+        restored_cli = dict(restored_params)
+        app_cli.pop('password', None)
+        restored_cli.pop('password', None)
+        with psycopg.connect(**app_params) as conn:
+            conn.execute('CREATE TABLE synthetic_app_jobs (job_id text PRIMARY KEY, state text NOT NULL)')
+            conn.execute('INSERT INTO synthetic_app_jobs VALUES (%s,%s)', (self.context['job_id'],'pending'))
+        with tempfile.TemporaryDirectory(prefix='nawa_p15_backup_') as directory:
+            dump = Path(directory) / 'synthetic-app.dump'
+            subprocess.run(['pg_dump','--format=custom','--file',str(dump),
+                            '--dbname',psycopg.conninfo.make_conninfo(**app_cli)],
+                           check=True,capture_output=True,timeout=60,env=pg_env)
+            self.assertTrue(self.consume())
+            with psycopg.connect(**app_params) as conn:
+                conn.execute("UPDATE synthetic_app_jobs SET state='completed' WHERE job_id=%s", (self.context['job_id'],))
+            subprocess.run(['pg_restore','--no-owner','--dbname',psycopg.conninfo.make_conninfo(**restored_cli),str(dump)],
+                           check=True,capture_output=True,timeout=60,env=pg_env)
+            with psycopg.connect(**restored_params) as conn:
+                self.assertEqual(conn.execute('SELECT state FROM synthetic_app_jobs WHERE job_id=%s',
+                                              (self.context['job_id'],)).fetchone()[0], 'pending')
+            self.assertFalse(self.consume())  # The separately preserved ledger remembers consumption.
+
+    def test_ledger_commit_before_app_commit_requires_reconciliation(self):
+        # A ledger-first design can prevent duplicate acceptance but can also
+        # strand a legitimate job if the application write never commits.
+        with self.connect() as conn:
+            conn.execute(sql.SQL('CREATE TABLE {}.app_jobs (job_id text PRIMARY KEY, state text NOT NULL)')
+                         .format(sql.Identifier(self.schema)))
+            conn.execute(sql.SQL('INSERT INTO {}.app_jobs VALUES (%s,%s)').format(sql.Identifier(self.schema)),
+                         (self.context['job_id'],'pending'))
+        self.assertTrue(self.consume())
+        with self.connect() as conn:
+            state = conn.execute(sql.SQL('SELECT state FROM {}.app_jobs WHERE job_id=%s').format(sql.Identifier(self.schema)),
+                                 (self.context['job_id'],)).fetchone()[0]
+        self.assertEqual(state, 'pending')
+        self.assertFalse(self.consume())
 
 if __name__ == '__main__':
     unittest.main()

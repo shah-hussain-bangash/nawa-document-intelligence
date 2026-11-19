@@ -258,9 +258,15 @@ a QA database-name prefix and uses a newly generated synthetic schema. That
 name check alone does not prove a database is disposable and is not an access
 control. GitHub CI provisions a dedicated disposable database for these
 tests; do not point the experiment at saved NAWA data. It is not wired into
-the intake worker or promotion. Key management, authenticated producers,
-rollback/replay after restoring a backup, and protection from database writers
-remain unresolved.
+the intake worker or promotion. A synthetic test backs up a separate
+application database before receipt consumption, restores that stale backup,
+and checks that a preserved receipt ledger rejects the duplicate. A second
+test shows the trade-off: if ledger consumption commits but application work
+does not, retries are blocked and reconciliation is required. These tests rely
+on preserving the ledger separately; restoring or tampering with the ledger
+can defeat the demonstration. Key management, authenticated producers,
+cross-database failure handling and protection from database writers remain
+unresolved.
 
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored
