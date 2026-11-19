@@ -167,6 +167,15 @@ DOM; a real-browser review has not been completed. It proposes no values or
 approval. The regions are specific to this one fixture; this is not a general reviewer
 interface, production evidence chain, or processor for real documents.
 
+`validate_synthetic_review.py` checks a downloaded synthetic export against
+the local packet: image and crop hashes, region metadata, and crop pixels
+against the referenced coordinates. It rejects changed crops, inconsistent
+metadata, unsafe crop paths and approval status. A successful result still
+requires human review. This checks consistency only: the packet and export
+are unsigned, and it cannot prove the reviewer's identity, the correctness of
+their transcription, or authenticity if all source files are replaced together.
+The real-browser download test remains pending.
+
 ## Official fast versus best language models
 
 The official `tessdata_best` Arabic and English models at commit
