@@ -287,7 +287,12 @@ PostgreSQL login with a generated test-only password, grants SELECT on the two
 test tables, checks that a wrong password fails, and checks that UPDATE and
 ungranted event-table reads are denied. This exercises authentication and
 database privileges in the disposable test cluster; it does not establish
-real deployment permissions or credential management. A database-name prefix is not
+real deployment permissions or credential management. The test also enables
+row-level security on both synthetic tables, binds the test tenant to its
+database login name, and checks that another tenant's rows are invisible even
+when directly queried. This one-login-per-test-tenant model is an experiment,
+not the NAWA application's tenant authorization design; administrators and
+roles with RLS bypass privileges require separate controls. A database-name prefix is not
 a security boundary. This code is not connected to NAWA, and it does not
 provide an atomic cross-database snapshot or a production reconciliation
 process.
