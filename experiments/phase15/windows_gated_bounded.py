@@ -9,12 +9,13 @@ class GatedRunError(RuntimeError):
     pass
 
 def run_gated_bounded(command, *, timeout=20, max_output=256 * 1024,
-                      max_processes=4, memory_limit_bytes=512 * 1024 * 1024):
+                      max_processes=4, memory_limit_bytes=512 * 1024 * 1024, cpu_percent=50):
     """Run trusted test commands in a cleanup job with time and output limits."""
     if timeout <= 0 or max_output <= 0:
         raise ValueError('Limits must be positive')
     deadline = time.monotonic() + timeout
-    job = WindowsCleanupJob(max_processes=max_processes, memory_limit_bytes=memory_limit_bytes)
+    job = WindowsCleanupJob(max_processes=max_processes, memory_limit_bytes=memory_limit_bytes,
+                            cpu_percent=cpu_percent)
     parent = None
     reader = None
     chunks = []

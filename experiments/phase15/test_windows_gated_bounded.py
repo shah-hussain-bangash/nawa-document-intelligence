@@ -1,13 +1,34 @@
 import os
+import ctypes
+from ctypes import wintypes
 from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
 from windows_gated_bounded import GatedRunError, run_gated_bounded
+from windows_cleanup_job import WindowsCleanupJob, _CpuRateControl
 
 @unittest.skipUnless(os.name == 'nt', 'Windows-only local experiment')
 class WindowsGatedBoundedTests(unittest.TestCase):
+    def test_windows_reports_configured_cpu_hard_cap(self):
+        job = WindowsCleanupJob(cpu_percent=30)
+        try:
+            job.kernel.QueryInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int,
+                ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+            job.kernel.QueryInformationJobObject.restype = wintypes.BOOL
+            value = _CpuRateControl()
+            self.assertTrue(job.kernel.QueryInformationJobObject(job.handle, 15,
+                ctypes.byref(value), ctypes.sizeof(value), None))
+            self.assertEqual(value.flags & 0x5, 0x5)
+            self.assertEqual(value.rate, 3000)
+        finally:
+            job.close()
+
+    def test_invalid_cpu_limit_rejected(self):
+        with self.assertRaises(ValueError):
+            WindowsCleanupJob(cpu_percent=0)
+
     def test_captures_successful_output(self):
         output = run_gated_bounded([sys.executable, '-c', "print('synthetic')"])
         self.assertEqual(output.strip(), b'synthetic')

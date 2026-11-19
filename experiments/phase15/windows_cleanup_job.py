@@ -22,14 +22,19 @@ class _ExtendedLimits(ctypes.Structure):
                 ('process_memory', ctypes.c_size_t), ('job_memory', ctypes.c_size_t),
                 ('peak_process', ctypes.c_size_t), ('peak_job', ctypes.c_size_t)]
 
+class _CpuRateControl(ctypes.Structure):
+    _fields_ = [('flags', wintypes.DWORD), ('rate', wintypes.DWORD)]
+
 class WindowsCleanupJob:
-    def __init__(self, *, max_processes=4, memory_limit_bytes=512 * 1024 * 1024):
+    def __init__(self, *, max_processes=4, memory_limit_bytes=512 * 1024 * 1024, cpu_percent=50):
         if os.name != 'nt':
             raise OSError('Windows job cleanup requires Windows')
         if not isinstance(max_processes, int) or isinstance(max_processes, bool) or not 1 <= max_processes <= 32:
             raise ValueError('Invalid job process limit')
         if not isinstance(memory_limit_bytes, int) or isinstance(memory_limit_bytes, bool) or not 32 * 1024 * 1024 <= memory_limit_bytes <= 4 * 1024 * 1024 * 1024:
             raise ValueError('Invalid job memory limit')
+        if not isinstance(cpu_percent, int) or isinstance(cpu_percent, bool) or not 1 <= cpu_percent <= 100:
+            raise ValueError('Invalid job CPU percentage')
         self.kernel = ctypes.WinDLL('kernel32', use_last_error=True)
         self.kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
         self.kernel.CreateJobObjectW.restype = wintypes.HANDLE
@@ -52,6 +57,11 @@ class WindowsCleanupJob:
             error = ctypes.get_last_error()
             self.close()
             raise OSError(error, 'Cannot configure Windows job cleanup')
+        cpu = _CpuRateControl(flags=0x1 | 0x4, rate=cpu_percent * 100)
+        if not self.kernel.SetInformationJobObject(self.handle, 15, ctypes.byref(cpu), ctypes.sizeof(cpu)):
+            error = ctypes.get_last_error()
+            self.close()
+            raise OSError(error, 'Cannot configure Windows job CPU limit')
 
     def attach(self, process):
         if not self.handle:

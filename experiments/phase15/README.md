@@ -237,11 +237,14 @@ an OCR service, an integration with NAWA, or evidence of process sandboxing.
 `windows_gated_bounded.py` combines the gated starter, job cleanup, elapsed
 time limit, and captured-output limit for explicitly supplied trusted test
 commands. The Windows job now also limits active processes and total committed
-job memory, with defaults of four processes and 512 MiB. Seven local Windows
-checks passed, covering output, timeouts, process and memory limits, errors,
+job memory, with defaults of four processes and 512 MiB. It now also requests
+a Windows CPU hard cap of 50%; CPU limits in nested jobs are relative to the
+parent job. Nine local Windows checks passed, covering output, timeouts, process
+and memory limits, CPU configuration, errors,
 and termination of a synthetic descendant after its parent exits. A local
 synthetic English Tesseract smoke test matched 6 / 6 fields. It remains an
-experiment: it does not enforce a CPU limit, protect against job breakaway,
+experiment: the CPU setting has been queried but its effective performance
+has not been benchmarked. It does not protect against job breakaway,
 validate the executable, isolate image decoding, or handle
 untrusted documents. The local OCR prototype can now explicitly receive this
 runner; the default remains the original local subprocess runner, and neither
@@ -250,8 +253,8 @@ prototype locally on both pinned fixtures: English 6 / 6 and Arabic 2 / 6,
 with human review required. The combined Tesseract path is not tested in CI.
 
 This prototype is **not a security boundary**: it has not been independently
-reviewed and does not sandbox image decoding or Tesseract, enforce CPU limits,
-or defend its temporary copy from a hostile local process. The original default
+reviewed and does not sandbox image decoding or Tesseract or defend its
+temporary copy from a hostile local process. The original default
 runner does not provide Windows job memory or process-tree controls; the gated
 runner's controls require further security review. It lacks verified engine
 identity, full page-level provenance and a production
