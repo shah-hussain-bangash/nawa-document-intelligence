@@ -9,6 +9,7 @@ from blind_synthetic_review import FIELDS
 from synthetic_arabic_batch_experiment import IMAGE_SHA256, MANIFEST_SHA256
 
 MAX_INPUT = 65536
+MAX_IMAGE = 16 * 1024 * 1024
 NUMERIC = frozenset({'subtotal', 'vat_rate', 'vat_amount', 'total'})
 
 
@@ -27,6 +28,16 @@ def read_json(path):
     if len(data) > MAX_INPUT:
         raise ValueError('Synthetic review file exceeds size limit')
     return json.loads(data.decode('utf-8-sig'), object_pairs_hook=_unique_object)
+
+
+def verify_page_files(packet_dir):
+    """Check the two pinned image bytes in a packet; no reviewer authentication."""
+    packet_dir = Path(packet_dir)
+    for name, expected in IMAGE_SHA256.items():
+        with (packet_dir / name).open('rb') as stream:
+            data = stream.read(MAX_IMAGE + 1)
+        if len(data) > MAX_IMAGE or hashlib.sha256(data).hexdigest() != expected:
+            raise ValueError('Synthetic review page hash mismatch')
 
 
 def compare_review(review, manifest):
@@ -83,11 +94,13 @@ def main():
     parser = argparse.ArgumentParser(description='Compare a synthetic transcription with pinned fixture values')
     parser.add_argument('--review', type=Path, required=True)
     parser.add_argument('--fixture-manifest', type=Path, required=True)
+    parser.add_argument('--packet-dir', type=Path, help='Directory with the two review images; defaults to the review file directory')
     args = parser.parse_args()
     manifest_bytes = args.fixture_manifest.read_bytes()
     if len(manifest_bytes) > MAX_INPUT or hashlib.sha256(manifest_bytes).hexdigest() != MANIFEST_SHA256:
         raise ValueError('Synthetic fixture manifest hash mismatch')
     manifest = json.loads(manifest_bytes.decode('utf-8'), object_pairs_hook=_unique_object)
+    verify_page_files(args.packet_dir if args.packet_dir is not None else args.review.parent)
     print(json.dumps(compare_review(read_json(args.review), manifest), ensure_ascii=False, indent=2))
 
 

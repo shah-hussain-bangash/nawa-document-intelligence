@@ -54,6 +54,19 @@ class CompareBlindTranscriptionsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare.read_json(path)
 
+    def test_checks_page_bytes_and_rejects_changed_image(self):
+        packet_dir = Path(self.temp.name) / 'review'
+        compare.verify_page_files(packet_dir)
+        (packet_dir / 'synthetic-a.png').write_bytes(b'not-the-reviewed-page')
+        with self.assertRaises(ValueError):
+            compare.verify_page_files(packet_dir)
+
+    def test_rejects_missing_page(self):
+        packet_dir = Path(self.temp.name) / 'review'
+        (packet_dir / 'synthetic-b.png').unlink()
+        with self.assertRaises(FileNotFoundError):
+            compare.verify_page_files(packet_dir)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -276,10 +276,12 @@ Independent review and a representative evaluation set remain outstanding.
 `compare_blind_transcriptions.py` compares a completed packet's supplied
 transcriptions against the pinned synthetic fixture manifest. It separately
 reports matching and differing values, blanks, reviewer-marked unclear values,
-and numbers that cannot be compared safely. It verifies the manifest hash and
-the page identities stated in the packet, but it does not authenticate the
-reviewer, establish independence, verify that a reviewer actually viewed the
-image, or approve a quotation. Matching uses the benchmark's normalization;
+and numbers that cannot be compared safely. Its command-line interface checks
+the manifest hash, the actual two packet image hashes, and the page identities
+stated in the packet. It does not authenticate the reviewer, establish
+independence, verify that a reviewer actually viewed either image, or approve
+a quotation. The in-memory comparison function alone does not perform file
+checks. Matching uses the benchmark's normalization;
 it is not a character-for-character transcription check. The untouched blank
 packet reports every field as not transcribed, and no human review has yet
 been claimed.
