@@ -256,6 +256,15 @@ fonts and rendering versions can change the output bytes, and the evaluator
 accepts only the committed pinned images and manifest. CI verifies the saved
 synthetic data and recalculates field matches, not a live Paddle inference.
 
+`arabic_numeric_diagnostics.py` adds experimental review hints for exact
+Arabic labels at the beginning of a line. It distinguishes a missing exact
+label, duplicate label, missing value, Arabic comma ambiguity, malformed
+numeric text, and a numeric-looking candidate. A candidate is **unverified**:
+it can be incomplete or wrong even if its format is valid. The helper does
+not correct punctuation, recognize misspelled or value-before-label text, or
+approve a quotation. `arabic-numeric-diagnostics-result.json` shows its hints
+for the saved two-page synthetic output; it is not connected to the portal.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
