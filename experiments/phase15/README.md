@@ -201,6 +201,22 @@ authentication. The test does not cover automatic region detection, other
 fonts, physical scans, independently reviewed ground truth, or deployment.
 It provides no production accuracy claim and all results require human review.
 
+A separate local full-page test (`paddle_arabic_page_experiment.py`) used the
+PP-OCRv5 mobile detector with that Arabic recognizer, without manually chosen
+crops. It detected eight lines on the same Arabic-label synthetic image. With
+the same reference and normalization, its character error rate was 11.9%
+and word error rate 42.3%; the earlier Tesseract run was 46.4% and 53.8%.
+The experimental label-based field evaluators matched 0 / 6 fields for the
+Paddle output versus 2 / 6 for the original Tesseract evaluation. Paddle
+recognized words and some digits, but its output did not preserve the colons
+required by these evaluators and contained numeric errors. The field score is
+therefore a result of both recognition and the chosen parser, not a count of
+all words recognized. One synthetic image, one run per engine, different
+pipeline settings, and references authored with the fixture do not establish
+general comparative accuracy. `paddle-arabic-page-result.json` records the
+synthetic outputs and observed model hashes; no authenticity claim is made.
+CI tests the evaluation helper, not the locally installed Paddle models.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
