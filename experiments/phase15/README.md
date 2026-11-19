@@ -172,7 +172,7 @@ existing Arabic-label image. This prototype is included in the draft PR but is n
 
 A separate opt-in wrapper checks caller-supplied model SHA-256 hashes before
 and after OCR and records those hashes and the engine's self-reported version.
-Eleven local tests now pass, including changed and incorrect model files; an
+Twelve local tests now pass, including changed and incorrect model files; an
 English synthetic Tesseract smoke test passed using the pinned fast model.
 These checks do not prove the engine binary's identity or prevent a model from
 being swapped and restored between checks. Docker access was unavailable in
@@ -223,7 +223,11 @@ and termination of a synthetic descendant after its parent exits. A local
 synthetic English Tesseract smoke test matched 6 / 6 fields. It remains an
 experiment: it does not enforce CPU or memory limits, protect against job
 breakaway, validate the executable, isolate image decoding, or handle
-untrusted documents. It is not yet wired to the existing prototype or NAWA.
+untrusted documents. The local OCR prototype can now explicitly receive this
+runner; the default remains the original local subprocess runner, and neither
+path is wired to NAWA. `windows_synthetic_ocr_smoke.py` tested the combined
+prototype locally on both pinned fixtures: English 6 / 6 and Arabic 2 / 6,
+with human review required. The combined Tesseract path is not tested in CI.
 
 This prototype is **not a security boundary**: it has not been independently
 reviewed and does not sandbox image decoding or Tesseract, enforce CPU/memory

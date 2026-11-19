@@ -61,8 +61,7 @@ class BoundedProcessTests(unittest.TestCase):
                 self.assertNotEqual(Path(command[1]), path)
                 self.assertEqual(Path(command[1]).read_bytes(), original)
                 return b'synthetic output'
-            with patch('bounded_ocr_prototype.bounded_process', side_effect=fake_ocr):
-                result = recognize_synthetic_png(path, 'example', '.', 'eng')
+            result = recognize_synthetic_png(path, 'example', '.', 'eng', runner=fake_ocr)
             self.assertEqual(result['status'], 'human_review_required')
             self.assertEqual(result['extracted_text_untrusted'], 'synthetic output')
 
@@ -72,7 +71,7 @@ class BoundedProcessTests(unittest.TestCase):
             with patch('bounded_ocr_prototype.bounded_process') as runner:
                 with self.assertRaises(OCRLimitError):
                     recognize_with_model_provenance('unused', 'unused', directory, 'eng',
-                                                    {'eng.traineddata':'0' * 64})
+                                                    {'eng.traineddata':'0' * 64}, runner=runner)
                 runner.assert_not_called()
 
     def test_model_change_during_ocr_is_rejected(self):
@@ -80,14 +79,35 @@ class BoundedProcessTests(unittest.TestCase):
             model = Path(directory) / 'eng.traineddata'
             model.write_bytes(b'model')
             digest = hashlib.sha256(b'model').hexdigest()
-            def ocr(*args):
+            def ocr(*args, **kwargs):
                 model.write_bytes(b'changed')
                 return {'status':'human_review_required'}
-            with patch('bounded_ocr_prototype.bounded_process', return_value=b'tesseract vtest\n'):
-                with patch('bounded_ocr_prototype.recognize_synthetic_png', side_effect=ocr):
-                    with self.assertRaises(OCRLimitError):
-                        recognize_with_model_provenance('unused', 'unused', directory, 'eng',
-                                                       {'eng.traineddata':digest})
+            with patch('bounded_ocr_prototype.recognize_synthetic_png', side_effect=ocr):
+                with self.assertRaises(OCRLimitError):
+                    recognize_with_model_provenance('unused', 'unused', directory, 'eng',
+                                                   {'eng.traineddata':digest},
+                                                   runner=lambda *a, **k: b'tesseract vtest\n')
+
+    def test_injected_runner_used_for_version_and_validated_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'image.png'
+            Image.new('RGB', (4, 4), 'white').save(path)
+            image_bytes = path.read_bytes()
+            (Path(directory) / 'eng.traineddata').write_bytes(b'model')
+            digest = hashlib.sha256(b'model').hexdigest()
+            calls = []
+            def runner(command, **kwargs):
+                calls.append(command)
+                if command[-1] == '--version':
+                    return b'tesseract vtest\n'
+                self.assertNotEqual(Path(command[1]), path)
+                self.assertEqual(Path(command[1]).read_bytes(), image_bytes)
+                return b'synthetic text'
+            result = recognize_with_model_provenance(path, 'engine', directory, 'eng',
+                        {'eng.traineddata':digest}, runner=runner)
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(result['model_sha256'], {'eng.traineddata':digest})
+            self.assertEqual(result['status'], 'human_review_required')
 
 if __name__ == '__main__':
     unittest.main()

@@ -68,7 +68,7 @@ def bounded_process(command, timeout=TIMEOUT_SECONDS, max_output=MAX_OUTPUT_BYTE
         raise OCRLimitError('OCR process failed')
     return b''.join(chunks)
 
-def recognize_synthetic_png(path, executable, model_dir, languages):
+def recognize_synthetic_png(path, executable, model_dir, languages, *, runner=bounded_process):
     """OCR one PNG with explicit configuration; output always requires review."""
     if languages not in ALLOWED_LANGUAGES:
         raise ValueError('Unsupported languages')
@@ -90,8 +90,8 @@ def recognize_synthetic_png(path, executable, model_dir, languages):
     with tempfile.TemporaryDirectory(prefix='nawa_ocr_prototype_') as directory:
         copied_image = Path(directory) / 'input.png'
         copied_image.write_bytes(data)
-        output = bounded_process([str(executable), str(copied_image), 'stdout', '--tessdata-dir',
-                                  str(model_dir), '-l', languages, '--psm', '6'])
+        output = runner([str(executable), str(copied_image), 'stdout', '--tessdata-dir',
+                         str(model_dir), '-l', languages, '--psm', '6'])
     try:
         text = output.decode('utf-8')
     except UnicodeDecodeError as exc:
@@ -99,7 +99,7 @@ def recognize_synthetic_png(path, executable, model_dir, languages):
     return {'status':'human_review_required', 'source_sha256':hashlib.sha256(data).hexdigest(),
             'language':languages, 'extracted_text_untrusted':text}
 
-def recognize_with_model_provenance(path, executable, model_dir, languages, expected_models):
+def recognize_with_model_provenance(path, executable, model_dir, languages, expected_models, *, runner=bounded_process):
     """Run the local prototype only when supplied model hashes match."""
     if languages not in ALLOWED_LANGUAGES:
         raise ValueError('Unsupported languages')
@@ -123,11 +123,11 @@ def recognize_with_model_provenance(path, executable, model_dir, languages, expe
         return hashes
     hashes = check_models()
     try:
-        engine_version = bounded_process([str(executable), '--version'], timeout=10,
-                                         max_output=8192).decode('utf-8').splitlines()[0]
+        engine_version = runner([str(executable), '--version'], timeout=10,
+                                max_output=8192).decode('utf-8').splitlines()[0]
     except (UnicodeDecodeError, IndexError) as exc:
         raise OCRLimitError('Cannot identify OCR engine version') from exc
-    result = recognize_synthetic_png(path, executable, model_dir, languages)
+    result = recognize_synthetic_png(path, executable, model_dir, languages, runner=runner)
     check_models()
     result.update({'engine_version_unverified':engine_version, 'model_sha256':hashes,
                    'page_segmentation_mode':6})
