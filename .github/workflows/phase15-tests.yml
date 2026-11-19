@@ -9,6 +9,34 @@ permissions:
   contents: read
 
 jobs:
+  synthetic-receipt-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nawa_test
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: nawa_phase15_qa_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nawa_test -d nawa_phase15_qa_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NAWA_PHASE15_TEST_DSN: 'host=127.0.0.1 port=5432 dbname=nawa_phase15_qa_ci user=nawa_test password=synthetic-ci-only'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PostgreSQL test dependency
+        run: python -m pip install 'psycopg[binary]>=3.2,<4'
+      - name: Test synthetic receipt transactions
+        working-directory: experiments/phase15
+        run: python -m unittest -v test_synthetic_pg_receipt_ledger
+
   synthetic-ocr-metrics:
     strategy:
       matrix:

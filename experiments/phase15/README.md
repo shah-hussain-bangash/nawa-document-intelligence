@@ -252,6 +252,16 @@ or promotion; it does not address key provisioning, database tampering,
 worker authentication, backup rollback, distributed operation, or production
 replay protection.
 
+`synthetic_pg_receipt_ledger.py` is a separate disposable PostgreSQL
+experiment of the same one-time receipt and event transaction. It checks for
+a QA database-name prefix and uses a newly generated synthetic schema. That
+name check alone does not prove a database is disposable and is not an access
+control. GitHub CI provisions a dedicated disposable database for these
+tests; do not point the experiment at saved NAWA data. It is not wired into
+the intake worker or promotion. Key management, authenticated producers,
+rollback/replay after restoring a backup, and protection from database writers
+remain unresolved.
+
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored
 test copy is rejected without changing its existing human review. This does
