@@ -73,6 +73,7 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
         self.assertEqual(conn.execute.call_count, 1)
 
     def test_stale_app_restore_cannot_reuse_receipt_if_ledger_survives(self):
+        from synthetic_reconciliation import classify_snapshots
         # Both databases are created only on the disposable Phase 15 CI server.
         params = psycopg.conninfo.conninfo_to_dict(DSN)
         self.assertTrue(params['dbname'].startswith('nawa_phase15_qa_'))
@@ -105,9 +106,17 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
             with psycopg.connect(**restored_params) as conn:
                 self.assertEqual(conn.execute('SELECT state FROM synthetic_app_jobs WHERE job_id=%s',
                                               (self.context['job_id'],)).fetchone()[0], 'pending')
+            with self.connect() as conn:
+                ledger_state, result_hash = conn.execute(sql.SQL('SELECT state,result_sha256 FROM {}.receipts WHERE job_id=%s')
+                    .format(sql.Identifier(self.schema)), (self.context['job_id'],)).fetchone()
+            outcome = classify_snapshots({'state':ledger_state,'result_sha256':result_hash},
+                                         {'state':'pending','result_sha256':None})
+            self.assertEqual(outcome['status'], 'manual_reconciliation_required')
+            self.assertEqual(outcome['automatic_action'], 'none')
             self.assertFalse(self.consume())  # The separately preserved ledger remembers consumption.
 
     def test_ledger_commit_before_app_commit_requires_reconciliation(self):
+        from synthetic_reconciliation import classify_snapshots
         # A ledger-first design can prevent duplicate acceptance but can also
         # strand a legitimate job if the application write never commits.
         with self.connect() as conn:
@@ -119,7 +128,11 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
         with self.connect() as conn:
             state = conn.execute(sql.SQL('SELECT state FROM {}.app_jobs WHERE job_id=%s').format(sql.Identifier(self.schema)),
                                  (self.context['job_id'],)).fetchone()[0]
+            ledger_state, result_hash = conn.execute(sql.SQL('SELECT state,result_sha256 FROM {}.receipts WHERE job_id=%s')
+                .format(sql.Identifier(self.schema)), (self.context['job_id'],)).fetchone()
         self.assertEqual(state, 'pending')
+        self.assertEqual(classify_snapshots({'state':ledger_state,'result_sha256':result_hash},
+            {'state':state,'result_sha256':None})['status'], 'manual_reconciliation_required')
         self.assertFalse(self.consume())
 
 if __name__ == '__main__':

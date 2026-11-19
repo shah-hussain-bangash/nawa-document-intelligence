@@ -268,6 +268,15 @@ can defeat the demonstration. Key management, authenticated producers,
 cross-database failure handling and protection from database writers remain
 unresolved.
 
+`synthetic_reconciliation.py` classifies supplied synthetic ledger and
+application snapshots without taking any action. A consumed receipt with a
+pending application job is marked for manual reconciliation; matching completed
+hashes are reported only as matching observations. Missing, malformed, or
+conflicting observations do not trigger a retry. Tests exercise the stale
+restore and stranded-job examples. The observations may be read at different
+times, so this is not a consistent cross-database snapshot, an operator
+workflow, or an authorization to repair records.
+
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored
 test copy is rejected without changing its existing human review. This does
