@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
+import secrets
 import subprocess
 import tempfile
 import unittest
@@ -117,25 +118,33 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
                                          {'state':'pending','result_sha256':None})
             self.assertEqual(outcome['status'], 'manual_reconciliation_required')
             self.assertEqual(outcome['automatic_action'], 'none')
-            # A NOLOGIN role is selected with SET ROLE solely inside these
-            # disposable tests; this checks privileges, not login authentication.
+            # A disposable synthetic login is created only in CI's isolated
+            # cluster. Its generated password is never printed or committed.
             reader_role = 'nawa_p15_reader_' + uuid4().hex[:12]
+            reader_password = secrets.token_urlsafe(32)
             with self.connect() as conn:
-                conn.execute(sql.SQL('CREATE ROLE {} NOLOGIN').format(sql.Identifier(reader_role)))
+                conn.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION')
+                             .format(sql.Identifier(reader_role),sql.Literal(reader_password)))
+                conn.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO {}')
+                             .format(sql.Identifier(params['dbname']),sql.Identifier(reader_role)))
                 conn.execute(sql.SQL('GRANT USAGE ON SCHEMA {} TO {}')
                              .format(sql.Identifier(self.schema),sql.Identifier(reader_role)))
                 conn.execute(sql.SQL('GRANT SELECT ON {}.receipts TO {}')
                              .format(sql.Identifier(self.schema),sql.Identifier(reader_role)))
             with psycopg.connect(**restored_params) as conn:
+                conn.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO {}')
+                             .format(sql.Identifier(restore_name),sql.Identifier(reader_role)))
                 conn.execute(sql.SQL('GRANT USAGE ON SCHEMA public TO {}').format(sql.Identifier(reader_role)))
                 conn.execute(sql.SQL('GRANT SELECT ON public.synthetic_app_jobs TO {}').format(sql.Identifier(reader_role)))
             def reader_connect(params):
-                conn = psycopg.connect(**params, autocommit=True)
-                conn.execute(sql.SQL('SET ROLE {}').format(sql.Identifier(reader_role)))
-                conn.autocommit = False
-                return conn
+                return psycopg.connect(**dict(params, user=reader_role, password=reader_password))
             ledger_reader = lambda: reader_connect(params)
             restored_reader = lambda: reader_connect(restored_params)
+            with self.assertRaises(psycopg.OperationalError):
+                psycopg.connect(**dict(params, user=reader_role, password='synthetic-wrong-password', connect_timeout=5))
+            with ledger_reader() as conn:
+                self.assertEqual(conn.execute('SELECT current_user').fetchone()[0], reader_role)
+                self.assertFalse(conn.execute('SELECT rolsuper FROM pg_roles WHERE rolname=current_user').fetchone()[0])
             inspected = inspect(ledger_reader, restored_reader,
                                 schema=self.schema,job_id=self.context['job_id'],tenant=self.context['tenant'])
             self.assertEqual(inspected['status'], 'manual_reconciliation_required')
@@ -146,6 +155,9 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 with ledger_reader() as conn:
                     conn.execute(sql.SQL('UPDATE {}.receipts SET state=state WHERE false').format(sql.Identifier(self.schema)))
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                with ledger_reader() as conn:
+                    conn.execute(sql.SQL('SELECT * FROM {}.events').format(sql.Identifier(self.schema)))
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 with restored_reader() as conn:
                     conn.execute('UPDATE public.synthetic_app_jobs SET state=state WHERE false')
