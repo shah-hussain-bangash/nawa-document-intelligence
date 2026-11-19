@@ -288,9 +288,10 @@ test tables, checks that a wrong password fails, and checks that UPDATE and
 ungranted event-table reads are denied. This exercises authentication and
 database privileges in the disposable test cluster; it does not establish
 real deployment permissions or credential management. The test also enables
-row-level security on both synthetic tables, binds the test tenant to its
-database login name, and checks that another tenant's rows are invisible even
-when directly queried. This one-login-per-test-tenant model is an experiment,
+row-level security on both synthetic tables, binds each of two test tenants to
+its database login name, and checks that both tenants' rows are hidden from
+one another even when directly queried. It also checks that neither login can
+switch into the other's role. This one-login-per-test-tenant model is an experiment,
 not the NAWA application's tenant authorization design; administrators and
 roles with RLS bypass privileges require separate controls. A database-name prefix is not
 a security boundary. This code is not connected to NAWA, and it does not

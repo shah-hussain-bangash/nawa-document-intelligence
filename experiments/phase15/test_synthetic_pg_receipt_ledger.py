@@ -121,41 +121,47 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
             # A disposable synthetic login is created only in CI's isolated
             # cluster. Its generated password is never printed or committed.
             reader_role = self.context['tenant']
-            reader_password = secrets.token_urlsafe(32)
+            other_role = 'nawa_p15_reader_' + uuid4().hex[:12]
+            passwords = {reader_role:secrets.token_urlsafe(32), other_role:secrets.token_urlsafe(32)}
             with self.connect() as conn:
-                conn.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION')
-                             .format(sql.Identifier(reader_role),sql.Literal(reader_password)))
-                conn.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO {}')
-                             .format(sql.Identifier(params['dbname']),sql.Identifier(reader_role)))
-                conn.execute(sql.SQL('GRANT USAGE ON SCHEMA {} TO {}')
-                             .format(sql.Identifier(self.schema),sql.Identifier(reader_role)))
-                conn.execute(sql.SQL('GRANT SELECT ON {}.receipts TO {}')
-                             .format(sql.Identifier(self.schema),sql.Identifier(reader_role)))
+                for role, password in passwords.items():
+                    conn.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION')
+                                 .format(sql.Identifier(role),sql.Literal(password)))
+                    conn.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO {}')
+                                 .format(sql.Identifier(params['dbname']),sql.Identifier(role)))
+                    conn.execute(sql.SQL('GRANT USAGE ON SCHEMA {} TO {}')
+                                 .format(sql.Identifier(self.schema),sql.Identifier(role)))
+                    conn.execute(sql.SQL('GRANT SELECT ON {}.receipts TO {}')
+                                 .format(sql.Identifier(self.schema),sql.Identifier(role)))
                 conn.execute(sql.SQL('''INSERT INTO {}.receipts VALUES
                     (%s,%s,%s,%s,%s,'pending',NULL,NULL)''').format(sql.Identifier(self.schema)),
-                    ('d'*32,'synthetic-b','e'*32,'f'*64,'test-v1'))
+                    ('d'*32,other_role,'e'*32,'f'*64,'test-v1'))
                 conn.execute(sql.SQL('ALTER TABLE {}.receipts ENABLE ROW LEVEL SECURITY')
                              .format(sql.Identifier(self.schema)))
                 conn.execute(sql.SQL('ALTER TABLE {}.receipts FORCE ROW LEVEL SECURITY')
                              .format(sql.Identifier(self.schema)))
                 conn.execute(sql.SQL('''CREATE POLICY synthetic_tenant_read ON {}.receipts FOR SELECT
-                    TO {} USING (tenant = current_user::text)''')
-                    .format(sql.Identifier(self.schema),sql.Identifier(reader_role)))
+                    TO {},{} USING (tenant = current_user::text)''')
+                    .format(sql.Identifier(self.schema),sql.Identifier(reader_role),sql.Identifier(other_role)))
             with psycopg.connect(**restored_params) as conn:
-                conn.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO {}')
-                             .format(sql.Identifier(restore_name),sql.Identifier(reader_role)))
-                conn.execute(sql.SQL('GRANT USAGE ON SCHEMA public TO {}').format(sql.Identifier(reader_role)))
-                conn.execute(sql.SQL('GRANT SELECT ON public.synthetic_app_jobs TO {}').format(sql.Identifier(reader_role)))
+                for role in passwords:
+                    conn.execute(sql.SQL('GRANT CONNECT ON DATABASE {} TO {}')
+                                 .format(sql.Identifier(restore_name),sql.Identifier(role)))
+                    conn.execute(sql.SQL('GRANT USAGE ON SCHEMA public TO {}').format(sql.Identifier(role)))
+                    conn.execute(sql.SQL('GRANT SELECT ON public.synthetic_app_jobs TO {}').format(sql.Identifier(role)))
                 conn.execute('INSERT INTO public.synthetic_app_jobs VALUES (%s,%s,%s,NULL)',
-                             ('d'*32,'synthetic-b','pending'))
+                             ('d'*32,other_role,'pending'))
                 conn.execute('ALTER TABLE public.synthetic_app_jobs ENABLE ROW LEVEL SECURITY')
                 conn.execute('ALTER TABLE public.synthetic_app_jobs FORCE ROW LEVEL SECURITY')
                 conn.execute(sql.SQL('''CREATE POLICY synthetic_tenant_read ON public.synthetic_app_jobs
-                    FOR SELECT TO {} USING (tenant = current_user::text)''').format(sql.Identifier(reader_role)))
-            def reader_connect(params):
-                return psycopg.connect(**dict(params, user=reader_role, password=reader_password))
+                    FOR SELECT TO {},{} USING (tenant = current_user::text)''')
+                    .format(sql.Identifier(reader_role),sql.Identifier(other_role)))
+            def reader_connect(params, role=reader_role):
+                return psycopg.connect(**dict(params, user=role, password=passwords[role]))
             ledger_reader = lambda: reader_connect(params)
             restored_reader = lambda: reader_connect(restored_params)
+            other_ledger = lambda: reader_connect(params, other_role)
+            other_app = lambda: reader_connect(restored_params, other_role)
             with self.assertRaises(psycopg.OperationalError):
                 psycopg.connect(**dict(params, user=reader_role, password='synthetic-wrong-password', connect_timeout=5))
             with ledger_reader() as conn:
@@ -175,8 +181,27 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
             self.assertEqual(inspected['status'], 'manual_reconciliation_required')
             self.assertEqual(inspected['automatic_action'], 'none')
             other_tenant = inspect(ledger_reader, restored_reader,
-                                   schema=self.schema,job_id='d'*32,tenant='synthetic-b')
+                                   schema=self.schema,job_id='d'*32,tenant=other_role)
             self.assertEqual(other_tenant['status'], 'missing_observation')
+            reverse = inspect(other_ledger, other_app, schema=self.schema,
+                              job_id=self.context['job_id'],tenant=reader_role)
+            self.assertEqual(reverse['status'], 'missing_observation')
+            own_other = inspect(other_ledger, other_app, schema=self.schema,
+                                job_id='d'*32,tenant=other_role)
+            self.assertEqual(own_other['status'], 'both_pending')
+            with other_ledger() as conn:
+                self.assertEqual(conn.execute(sql.SQL('SELECT count(*) FROM {}.receipts')
+                    .format(sql.Identifier(self.schema))).fetchone()[0], 1)
+                self.assertIsNone(conn.execute(sql.SQL('SELECT job_id FROM {}.receipts WHERE job_id=%s')
+                    .format(sql.Identifier(self.schema)), (self.context['job_id'],)).fetchone())
+            with other_app() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM public.synthetic_app_jobs').fetchone()[0], 1)
+                self.assertIsNone(conn.execute('SELECT job_id FROM public.synthetic_app_jobs WHERE job_id=%s',
+                                               (self.context['job_id'],)).fetchone())
+            for connect_as, target in ((ledger_reader, other_role), (other_ledger, reader_role)):
+                with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                    with connect_as() as conn:
+                        conn.execute(sql.SQL('SET ROLE {}').format(sql.Identifier(target)))
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 with ledger_reader() as conn:
                     conn.execute(sql.SQL('UPDATE {}.receipts SET state=state WHERE false').format(sql.Identifier(self.schema)))
