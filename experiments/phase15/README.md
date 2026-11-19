@@ -192,6 +192,30 @@ not integrated into the OCR prototype: attaching an already running OCR
 process has a race before assignment, and sandboxing, failure handling,
 nested-job compatibility and independent review are still needed.
 
+A follow-up local Windows experiment (`windows_gated_launcher_experiment.py`)
+starts an isolated Python starter that waits for a signal, attaches that
+starter to the existing Windows job, then allows it to launch a synthetic
+child. Three local tests passed: the child is not started before assignment,
+an assignment failure prevents launch, and closing the job stops a started
+child. The gated starter addresses the tested child-before-assignment race,
+but it is a prototype: it relies on a trusted Python runtime and the local
+NAWA launcher, is not connected to OCR, and is not a sandbox. Breakaway
+processes, CPU/memory limits, nested-job environments, output handling and
+other failure paths need independent security and platform review.
+
+In GitHub CI, Windows runs the two gated-launch tests using a test double for
+job assignment. The actual Windows job cleanup test runs only on a machine
+with the separate NAWA launcher file and is skipped on hosted runners; Linux
+skips these Windows-only tests. CI therefore does not verify Windows job
+cleanup or the local Tesseract smoke test.
+
+The gated starter has also been used in `gated_ocr_smoke.py` to run the local
+Tesseract executable on the two existing hash-pinned synthetic images. The
+English result matched 6 / 6 fields and the Arabic-label result 2 / 6, the
+same counts as the baseline. The smoke test closes the job after the gated
+process exits and before reading its output. This is a fixed local test, not
+an OCR service, an integration with NAWA, or evidence of process sandboxing.
+
 This prototype is **not a security boundary**: it has not been independently
 reviewed and does not sandbox image decoding or Tesseract, enforce CPU/memory
 limits or process-tree termination, or defend its temporary copy from a hostile
