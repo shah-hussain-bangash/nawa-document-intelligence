@@ -23,5 +23,5 @@ jobs:
         run: python -m pip install Pillow==11.3.0 PyMuPDF==1.28.2
       - name: Test OCR metrics and local prototype
         working-directory: experiments/phase15
-        run: python -m unittest -v test_ocr_benchmark test_rtl_field_experiment test_bounded_ocr_prototype test_additional_samples test_windows_gated_launcher
+        run: python -m unittest -v test_ocr_benchmark test_rtl_field_experiment test_bounded_ocr_prototype test_additional_samples test_windows_gated_launcher test_windows_gated_bounded
 

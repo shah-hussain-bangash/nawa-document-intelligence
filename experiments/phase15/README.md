@@ -216,6 +216,15 @@ same counts as the baseline. The smoke test closes the job after the gated
 process exits and before reading its output. This is a fixed local test, not
 an OCR service, an integration with NAWA, or evidence of process sandboxing.
 
+`windows_gated_bounded.py` combines the gated starter, job cleanup, elapsed
+time limit, and captured-output limit for explicitly supplied trusted test
+commands. Five local Windows checks passed, covering output, timeouts, errors,
+and termination of a synthetic descendant after its parent exits. A local
+synthetic English Tesseract smoke test matched 6 / 6 fields. It remains an
+experiment: it does not enforce CPU or memory limits, protect against job
+breakaway, validate the executable, isolate image decoding, or handle
+untrusted documents. It is not yet wired to the existing prototype or NAWA.
+
 This prototype is **not a security boundary**: it has not been independently
 reviewed and does not sandbox image decoding or Tesseract, enforce CPU/memory
 limits or process-tree termination, or defend its temporary copy from a hostile
