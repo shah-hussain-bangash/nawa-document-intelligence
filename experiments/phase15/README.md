@@ -199,6 +199,12 @@ result could bypass marker checks. Actual rendering provenance, authenticated
 producer identity, authorization, review persistence, and an independently
 reviewed promotion policy remain open.
 
+The synthetic PostgreSQL integration suite includes a case that inserts an
+explicit OCR marker into a disposable test record, checks that promotion
+creates no quotation or promotion row, then restores the original synthetic
+text result and confirms it can be promoted. This tests marker enforcement,
+not the ability to detect an OCR result that has been mislabeled as text.
+
 ## Official fast versus best language models
 
 The official `tessdata_best` Arabic and English models at commit

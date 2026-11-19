@@ -427,6 +427,36 @@ class PostgresIntakeTests(unittest.TestCase):
                                     (self.tenant,)).fetchone()[0]
             self.assertEqual(size, MAX_BYTES_PER_TENANT)
 
+    def test_promotion_rejects_ocr_marker_without_creating_quotation(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            principal = Principal(identity_key, self.tenant, 'analyst')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = service.submit(principal, 'english.txt', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            original = self.jobs.result(self.tenant, document)
+            marked = dict(original, input_type='ocr_pdf')
+            with self.connect() as conn:
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(marked), self.tenant, document))
+            with self.assertRaisesRegex(ValueError, 'OCR'):
+                service.promote(principal, document)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_quotation_tenants WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 0)
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 0)
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(original), self.tenant, document))
+            self.assertTrue(service.promote(principal, document)['created'])
+
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))
@@ -734,4 +764,3 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
-
