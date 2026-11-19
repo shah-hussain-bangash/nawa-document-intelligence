@@ -41,7 +41,7 @@ class PromotionGuardTests(unittest.TestCase):
     def test_actual_promotion_rejects_before_source_or_database_mutation(self):
         candidate = dict(self.quote, status='human_review_required')
         conn = MagicMock()
-        conn.execute.return_value.fetchone.return_value = ('completed', candidate, 'a'*64)
+        conn.execute.return_value.fetchone.return_value = ('completed', candidate, 'a'*64, None)
         context = MagicMock()
         context.__enter__.return_value = conn
         store = MagicMock()
@@ -54,7 +54,7 @@ class PromotionGuardTests(unittest.TestCase):
 
     def test_actual_promotion_accepts_existing_text_result(self):
         conn = MagicMock()
-        conn.execute.return_value.fetchone.side_effect = [('completed', self.quote, 'a'*64), None, (0,)]
+        conn.execute.return_value.fetchone.side_effect = [('completed', self.quote, 'a'*64, None), None, (0,)]
         context = MagicMock()
         context.__enter__.return_value = conn
         store = MagicMock()
@@ -65,6 +65,21 @@ class PromotionGuardTests(unittest.TestCase):
         self.assertTrue(result['created'])
         self.assertEqual(result['quotation']['total'], '1050.00')
         store.read_verified.assert_called_once()
+
+    def test_promotion_rejects_origin_mismatch_before_source_read(self):
+        candidate = dict(self.quote, extraction_origin='synthetic_text_worker_v1')
+        for row in [('completed', candidate, 'a'*64, None),
+                    ('completed', self.quote, 'a'*64, 'synthetic_text_worker_v1')]:
+            conn = MagicMock()
+            conn.execute.return_value.fetchone.return_value = row
+            context = MagicMock()
+            context.__enter__.return_value = conn
+            store = MagicMock()
+            service = ScopedIntake(lambda: context, store)
+            with patch.object(service, '_require'), patch.object(service, '_recheck'):
+                with self.assertRaisesRegex(ValueError, 'origin'):
+                    service.promote(MagicMock(tenant='synthetic'), uuid4().hex)
+            store.read_verified.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()

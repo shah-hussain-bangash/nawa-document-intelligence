@@ -110,7 +110,7 @@ class ScopedIntake:
             if metadata.sha256 != row[1].strip():
                 raise ValueError('Document integrity check failed')
             conn.execute('''UPDATE nawa_intake_jobs SET state='validated', attempts=0,
-                claim_token_hash=NULL, lease_until=NULL, result=NULL, updated_at=now()
+                claim_token_hash=NULL, lease_until=NULL, result=NULL, result_origin=NULL, updated_at=now()
                 WHERE tenant_id=%s AND document_id=%s''', (principal.tenant, document))
             actor_hash = hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
             conn.execute('''INSERT INTO nawa_intake_admin_events (tenant_id,document_id,action,actor_hash,reason)
@@ -125,13 +125,15 @@ class ScopedIntake:
         document = UUID(document_id)
         with self.connect() as conn:
             self._recheck(conn, principal, 'load')
-            row = conn.execute('''SELECT j.state,j.result,d.sha256 FROM nawa_intake_documents d
+            row = conn.execute('''SELECT j.state,j.result,d.sha256,j.result_origin FROM nawa_intake_documents d
                 JOIN nawa_intake_jobs j ON j.tenant_id=d.tenant_id AND j.document_id=d.id
                 WHERE d.tenant_id=%s AND d.id=%s FOR UPDATE OF d,j''',
                 (principal.tenant, document)).fetchone()
             if row is None or row[0] != 'completed' or not isinstance(row[1], dict):
                 raise ValueError('Completed document unavailable')
             require_text_only_result(row[1])
+            if row[1].get('extraction_origin') != row[3]:
+                raise ValueError('Synthetic worker origin does not match stored origin')
             # Recheck the current source before returning or creating a review
             # record; processing may have completed before the file changed.
             self.store.read_verified(document.hex, row[2].strip())

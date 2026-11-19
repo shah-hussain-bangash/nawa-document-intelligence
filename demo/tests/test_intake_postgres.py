@@ -443,6 +443,10 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
             original = self.jobs.result(self.tenant, document)
             self.assertEqual(original['extraction_origin'], 'synthetic_text_worker_v1')
+            with self.connect() as conn:
+                stored_origin = conn.execute('SELECT result_origin FROM nawa_intake_jobs WHERE tenant_id=%s AND document_id=%s',
+                                             (self.tenant, document)).fetchone()[0]
+            self.assertEqual(stored_origin, 'synthetic_text_worker_v1')
             marked = dict(original, input_type='ocr_pdf')
             with self.connect() as conn:
                 conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
@@ -454,6 +458,13 @@ class PostgresIntakeTests(unittest.TestCase):
                                               (self.tenant,)).fetchone()[0], 0)
                 self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
                                               (self.tenant,)).fetchone()[0], 0)
+                unmarked = dict(original)
+                del unmarked['extraction_origin']
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(unmarked), self.tenant, document))
+            with self.assertRaisesRegex(ValueError, 'origin'):
+                service.promote(principal, document)
+            with self.connect() as conn:
                 conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
                              (json.dumps(original), self.tenant, document))
             self.assertTrue(service.promote(principal, document)['created'])
@@ -645,7 +656,7 @@ class PostgresIntakeTests(unittest.TestCase):
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 2)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 3)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
@@ -684,12 +695,19 @@ class PostgresIntakeTests(unittest.TestCase):
             store = LocalIntakeStore(root / 'files')
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
             document, metadata = store.save('queued.txt', content)
+            legacy_document, legacy_metadata = store.save('legacy.txt', b'synthetic legacy record')
             with connect() as conn:
                 conn.execute('''INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes)
                                 VALUES (%s,%s,%s,%s,%s)''',
                              (document,tenant,metadata.filename,metadata.sha256,metadata.size))
                 conn.execute('INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state) VALUES (%s,%s,%s,%s)',
                              (uuid4(),tenant,document,'received'))
+                conn.execute('''INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes)
+                                VALUES (%s,%s,%s,%s,%s)''',
+                             (legacy_document,tenant,legacy_metadata.filename,legacy_metadata.sha256,legacy_metadata.size))
+                conn.execute('''INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state,result)
+                                VALUES (%s,%s,%s,%s,%s::jsonb)''',
+                             (uuid4(),tenant,legacy_document,'completed',json.dumps({'legacy':'unchanged'})))
             reviews = ScopedState(connect)
             quotation = reviews.add_sample(principal('analyst'), 'english_quote.txt')['id']
             reviews.review_start(principal('analyst'), quotation)
@@ -700,6 +718,9 @@ class PostgresIntakeTests(unittest.TestCase):
                 verify_intake_migrations(conn)
                 self.assertEqual(conn.execute('SELECT checksum FROM nawa_intake_schema_migrations WHERE name=%s',
                                               (original.name,)).fetchone()[0], previous_checksum)
+                legacy = conn.execute('SELECT result,result_origin FROM nawa_intake_jobs WHERE tenant_id=%s AND document_id=%s',
+                                      (tenant, legacy_document)).fetchone()
+                self.assertEqual(legacy, ({'legacy':'unchanged'}, None))
             jobs = PostgresIntakeJobs(connect)
             self.assertEqual(jobs.state(tenant, document), ('received', 0))
             self.assertIsNone(jobs.claim(tenant))

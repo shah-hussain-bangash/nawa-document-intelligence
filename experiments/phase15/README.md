@@ -207,6 +207,19 @@ accepts legacy unmarked text records for compatibility. The marker is not
 cryptographic proof or authenticated worker identity, and a compromised or
 incorrect producer could mislabel content. No OCR worker is integrated.
 
+An additive synthetic PostgreSQL migration adds a nullable `result_origin`
+column separate from result JSON. New completed text-worker jobs copy the
+origin into the column in the same completion transaction; promotion rejects
+an inconsistency between the column and JSON. Existing rows remain unchanged
+and unmarked (`NULL`), and unmarked legacy results remain eligible for the
+existing text-only policy. Requeue clears the column with the result.
+The column is populated from the worker result, so this detects later
+JSON-only changes; it is not independent worker attestation, and a database
+writer able to change both values can still mislabel a result. The migration is
+explicit and only for the disposable synthetic environment; it has not been
+applied to the user's databases. Upgrade and rollback planning, authenticated
+worker identity and strict treatment of legacy records remain open.
+
 The synthetic PostgreSQL integration suite includes a case that inserts an
 explicit OCR marker into a disposable test record, checks that promotion
 creates no quotation or promotion row, then restores the original synthetic
