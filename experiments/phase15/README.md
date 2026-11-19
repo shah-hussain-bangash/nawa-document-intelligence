@@ -179,6 +179,28 @@ OCR accuracy or support using these values. Human review is still required.
 CI checks the image preparation and refusal to overwrite a result, not this
 local Tesseract run.
 
+## Alternative local Arabic recognition experiment
+
+An isolated Windows CPU test used PaddleOCR 3.3.2 and PaddlePaddle 3.2.0
+with `arabic_PP-OCRv5_mobile_rec`. The [model documentation](https://www.paddleocr.ai/main/en/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.html)
+lists Arabic and English support; this does not establish accuracy on NAWA
+documents. On the same four manually selected synthetic number crops, the
+original and enlarged versions produced **0 / 8 strict numeric matches**.
+The model transcribed some digits but emitted the Arabic comma `،` where the
+reference has the decimal separator `٫`; the evaluator does not guess that
+the two mean the same thing. Some outputs were incomplete or empty. Confidence
+scores are model outputs, not calibrated correctness probabilities.
+
+`paddle_arabic_crop_experiment.py` and `paddle-arabic-crop-result.json`
+record the test, model file hashes, versions and outputs. The observed package
+versions are in `paddle-qa-requirements-observed.txt`; this is not a locked or
+audited dependency set. The model was downloaded into an isolated local
+test directory and inference used local synthetic crops, not NAWA records.
+Recorded hashes describe the files used; they are not independent vendor
+authentication. The test does not cover automatic region detection, other
+fonts, physical scans, independently reviewed ground truth, or deployment.
+It provides no production accuracy claim and all results require human review.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
