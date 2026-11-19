@@ -639,11 +639,29 @@ class PostgresIntakeTests(unittest.TestCase):
             restored_params = dict(params, dbname=restore_name)
             restored = PostgresIntakeJobs(lambda: psycopg.connect(**restored_params))
             restored_store = LocalIntakeStore(root / 'backup-files')
-            self.assertEqual(restored.result(self.tenant, document)['total'], '945.00')
+            restored_result = restored.result(self.tenant, document)
+            self.assertEqual(restored_result['total'], '945.00')
+            self.assertEqual(restored_result['extraction_origin'], 'synthetic_text_worker_v1')
+            with psycopg.connect(**restored_params) as conn:
+                origin = conn.execute('SELECT result_origin FROM nawa_intake_jobs WHERE tenant_id=%s AND document_id=%s',
+                                      (self.tenant, document)).fetchone()[0]
+                self.assertEqual(origin, 'synthetic_text_worker_v1')
             self.assertEqual(restored_store.read_verified(document, digest), content)
             restored_review = ScopedState(lambda: psycopg.connect(**restored_params)).review_show(
                 principal('reviewer'), quotation)
             self.assertEqual(restored_review, original_review)
+            # Mutate only the restored test copy: removing the JSON marker must
+            # not bypass the independently stored origin check.
+            altered = dict(restored_result)
+            del altered['extraction_origin']
+            with psycopg.connect(**restored_params) as conn:
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(altered), self.tenant, document))
+            restored_intake = ScopedIntake(lambda: psycopg.connect(**restored_params), restored_store)
+            with self.assertRaisesRegex(ValueError, 'origin'):
+                restored_intake.promote(principal('analyst'), document)
+            self.assertEqual(ScopedState(lambda: psycopg.connect(**restored_params)).review_show(
+                principal('reviewer'), quotation), original_review)
 
     def test_explicit_intake_migration_is_idempotent_and_detects_changed_history(self):
         name = 'nawa_phase13_qa_' + uuid4().hex[:12]
@@ -787,4 +805,3 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
-

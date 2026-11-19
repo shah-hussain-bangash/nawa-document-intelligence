@@ -220,6 +220,11 @@ explicit and only for the disposable synthetic environment; it has not been
 applied to the user's databases. Upgrade and rollback planning, authenticated
 worker identity and strict treatment of legacy records remain open.
 
+The disposable PostgreSQL backup/restore test also checks that the separate
+origin survives restore, and that a JSON-only origin change in the restored
+test copy is rejected without changing its existing human review. This does
+not verify a production backup, recovery time objective or external storage.
+
 The synthetic PostgreSQL integration suite includes a case that inserts an
 explicit OCR marker into a disposable test record, checks that promotion
 creates no quotation or promotion row, then restores the original synthetic
