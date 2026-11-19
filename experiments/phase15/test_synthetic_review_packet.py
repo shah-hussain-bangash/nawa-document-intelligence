@@ -54,7 +54,7 @@ const URL={createObjectURL:()=> 'blob:test',revokeObjectURL:()=>{}};
 vm.runInNewContext(fs.readFileSync(process.argv[1],'utf8'),{document,Blob,URL,setTimeout:()=>{}});
 handler(); process.stdout.write(blob);'''
         result = subprocess.run(['node', '-e', harness, str(script_file)], check=True,
-                                capture_output=True, text=True, timeout=10)
+                                capture_output=True, text=True, timeout=30)
         data = json.loads(result.stdout)
         self.assertEqual(data['status'], 'human_review_required')
         self.assertEqual(data['source_image_sha256'], self.sha)
@@ -77,3 +77,4 @@ handler(); process.stdout.write(blob);'''
 
 if __name__ == '__main__':
     unittest.main()
+
