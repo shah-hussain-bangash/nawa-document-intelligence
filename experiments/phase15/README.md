@@ -145,6 +145,17 @@ failure occurs even with the number region manually selected; text-order
 handling alone does not fix this example. The local script and results are
 `best_numeric_crop_experiment.py` and `best-numeric-crop-result.json`.
 
+The official `tessdata_best` Arabic-script model (`script/Arabic`) was then
+tested at the same pinned commit on that same image. Full-page OCR matched
+2 / 6 fields, the same field count as the best Arabic language model. On the
+24 manually selected number-crop runs, the script model correctly read the
+VAT rate in 2 runs; none of the subtotal, VAT amount, or total crops matched.
+This is an exploratory result on the same hand-selected example, not an
+independent accuracy estimate or a basis for automatic decisions. Model bytes
+were checked against the official Git blob and remain local; the experiment
+and synthetic results are in `arabic_script_experiment.py` and
+`arabic-script-result.json`.
+
 ## Official fast versus best language models
 
 The official `tessdata_best` Arabic and English models at commit
