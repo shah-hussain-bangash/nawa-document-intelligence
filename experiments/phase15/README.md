@@ -73,9 +73,16 @@ results require human review.
 
 The script now accepts explicit `--pdf-dir`, `--tesseract`, `--tessdata`, and
 `--output` paths, verifies the three PDF hashes and two pinned fast-model
-hashes before running OCR, and refuses to overwrite a result. From a checkout
-containing the Phase 13 sample PDFs, with PyMuPDF and the pinned language files
-installed separately, a Windows PowerShell example is:
+hashes before running OCR, and refuses to overwrite a result.
+
+New runs also record the executable and model hashes and a rendered-image
+hash for each page. The PDF bytes hashed are the bytes rendered. The
+executable and model files are checked again after the run; this is a
+consistency check, not proof of executable authenticity or protection against
+temporary replacement during execution. Older saved results lack these fields.
+
+From a checkout containing the Phase 13 sample PDFs, with PyMuPDF and the
+pinned language files installed separately, a Windows PowerShell example is:
 
 ```powershell
 python experiments/phase15/additional_samples.py `

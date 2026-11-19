@@ -41,6 +41,7 @@ def main():
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError('Refusing to overwrite the output file')
+    engine_sha256 = hashlib.sha256(args.tesseract.read_bytes()).hexdigest()
     for name, digest in bench.MODEL_HASHES.items():
         bench.verify(args.tessdata / name, digest)
     for name, expected in PDF_HASHES.items():
@@ -51,29 +52,39 @@ def main():
     with tempfile.TemporaryDirectory(prefix='nawa_synthetic_ocr_') as temp:
         for case in CASES:
             pdf = args.pdf_dir / case['file']
-            digest = hashlib.sha256(pdf.read_bytes()).hexdigest()
+            pdf_bytes = pdf.read_bytes()
+            digest = hashlib.sha256(pdf_bytes).hexdigest()
+            if digest not in PDF_HASHES[case['file']]:
+                raise ValueError('Synthetic PDF input changed: ' + case['file'])
             image = Path(temp) / (case['file'] + '.png')
-            with pymupdf.open(pdf) as document:
+            with pymupdf.open(stream=pdf_bytes, filetype='pdf') as document:
                 document[case['page']].get_pixmap(dpi=200, alpha=False).save(image)
+            image_sha256 = hashlib.sha256(image.read_bytes()).hexdigest()
             proc = subprocess.run([str(args.tesseract), str(image), 'stdout',
                 '--tessdata-dir', str(args.tessdata), '-l', case['lang'], '--psm', '6'],
                 check=True, capture_output=True, timeout=30)
             text = proc.stdout.decode('utf-8')
             matches = bench.field_results(text, case['fields'])
             rows.append({'file':case['file'], 'pdf_sha256':digest, 'page':case['page'] + 1,
-                'language':case['lang'], **bench.rates('\n'.join(case['reference']), text),
+                'rendered_image_sha256':image_sha256, 'language':case['lang'],
+                **bench.rates('\n'.join(case['reference']), text),
                 'fields_correct':sum(matches.values()), 'field_matches':matches,
                 'reference_synthetic':case['reference'], 'ocr_text_synthetic':text})
     version = subprocess.run([str(args.tesseract), '--version'], check=True,
                              capture_output=True, timeout=10).stdout.decode('utf-8').splitlines()[0]
-    result = {'status':'human_review_required', 'engine':version,
+    if hashlib.sha256(args.tesseract.read_bytes()).hexdigest() != engine_sha256:
+        raise ValueError('Synthetic OCR executable changed during run')
+    for name, digest in bench.MODEL_HASHES.items():
+        bench.verify(args.tessdata / name, digest)
+    result = {'status':'human_review_required', 'engine':version, 'engine_sha256':engine_sha256,
+              'model_sha256':dict(bench.MODEL_HASHES),
               'model_commit':'87416418657359cb625c412a48b6e1d6d41c29bd', 'render_dpi':200,
               'psm':6, 'scope':'Three additional synthetic PDF pages rasterized to images; not physical scans or independent ground truth.',
               'cases':rows}
     with args.output.open('x', encoding='utf-8') as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     for row in rows:
-        print(f"{row['file']} page {row['page']}: {row['fields_correct']}/6 fields, CER {row['cer']:.1%}, WER {row['wer']:.1%}")
+        print(f"{row['file']} page {row['page']}: {row['fields_correct']}/{len(row['field_matches'])} fields, CER {row['cer']:.1%}, WER {row['wer']:.1%}")
 
 if __name__ == '__main__':
     main()
