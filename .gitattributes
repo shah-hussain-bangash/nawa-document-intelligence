@@ -1,0 +1,3 @@
+# Preserve synthetic PDF fixture bytes across operating systems.
+demo/samples/pdf/*.pdf -text
+

@@ -89,7 +89,11 @@ blobs and in this Windows checkout with line-ending conversion. The script
 accepts only these two explicitly recorded hashes per affected fixture and
 records the actual hash used. Both local variants were tested. The Arabic
 fixture has a single accepted hash. This does not make arbitrary modified PDFs
-valid; binary-file attributes should be reviewed separately.
+valid. The draft adds a Git attribute marking only `demo/samples/pdf/*.pdf`
+as binary so future checkouts retain the committed bytes. A disposable Git
+test checks the rule with Windows-style line-ending conversion. Existing local
+files are not automatically replaced, and both recorded hashes remain
+accepted for this experiment.
 
 GitHub Actions also runs the three synthetic PDF cases on Ubuntu using the
 official pinned fast models. It checks the PDF and model hashes, requires at
