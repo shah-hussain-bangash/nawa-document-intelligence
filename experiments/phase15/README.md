@@ -182,17 +182,22 @@ The real-browser download test remains pending.
 ## Experimental intake handoff
 
 The Phase 13 synthetic intake worker extracts selectable text and does not
-invoke this OCR experiment. Its existing promotion path expects a completed
-intake result; it does not enforce the Phase 15 OCR review contract. A future
-integration must add and verify that gate before handing OCR candidates to it.
+invoke this OCR experiment. The Phase 15 draft adds a promotion guard to its
+draft intake path: explicit OCR, unknown extraction types, review-state
+markers, and OCR-marked evidence are rejected before promotion. Existing
+synthetic text and text-layer PDF results remain eligible. This is not
+deployed to the running portal.
 
 `ocr_intake_handoff.py` defines a separate experimental handoff that produces
 only `requires_human_review` and `promotable: false`, and records hashes without
 creating a quotation or copying OCR text into the handoff. The caller supplies
 the source PDF hash and page, which this function does not independently bind
-to the image. The contract is not connected to intake, and its flags do not
-protect any existing promotion path. Actual rendering provenance, authorization,
-review persistence, and enforcement at the promotion boundary remain open.
+to the image. The contract is not connected to intake. The new marker guard
+rejects its explicit review state, but cannot prove provenance: legacy text
+results without an input-type marker are still accepted, and a mislabeled
+result could bypass marker checks. Actual rendering provenance, authenticated
+producer identity, authorization, review persistence, and an independently
+reviewed promotion policy remain open.
 
 ## Official fast versus best language models
 

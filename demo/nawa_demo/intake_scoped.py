@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from .authorization import Principal, authorized
 from .identity_repository import membership_by_key
 from .intake_postgres import IntakeRejected, PostgresIntakeJobs
+from .intake_promotion_guard import require_text_only_result
 from .intake_validation import check_document
 
 
@@ -130,6 +131,7 @@ class ScopedIntake:
                 (principal.tenant, document)).fetchone()
             if row is None or row[0] != 'completed' or not isinstance(row[1], dict):
                 raise ValueError('Completed document unavailable')
+            require_text_only_result(row[1])
             # Recheck the current source before returning or creating a review
             # record; processing may have completed before the file changed.
             self.store.read_verified(document.hex, row[2].strip())
@@ -155,4 +157,3 @@ class ScopedIntake:
             conn.execute('INSERT INTO nawa_intake_promotions (tenant_id,document_id,quotation_id) VALUES (%s,%s,%s)',
                          (principal.tenant, document, item_id))
             return {'id':item_id, 'quotation':public_quote, 'created':True}
-
