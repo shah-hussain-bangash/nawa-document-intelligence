@@ -19,7 +19,20 @@ class OCRBenchmarkTests(unittest.TestCase):
     def test_unicode_format_marks_are_removed(self):
         self.assertEqual(normalize('AED\u200f  نص'),'AED نص')
 
+    def test_numeric_grouping_is_validated_before_removing_commas(self):
+        expected = {'total': '1050.00'}
+        for text in ('Grand Total: 1,050.00', 'Grand Total: ١٬٠٥٠٫٠٠'):
+            with self.subTest(text=text):
+                self.assertTrue(field_results(text, expected)['total'])
+        for text in ('Grand Total: 10,50.00', 'Grand Total: 1,05,0.00',
+                     'Grand Total: 1050,.00'):
+            with self.subTest(text=text):
+                self.assertFalse(field_results(text, expected)['total'])
+
+    def test_supplier_punctuation_is_not_discarded(self):
+        self.assertFalse(field_results('Supplier: Example, Supplies',
+                                       {'supplier': 'Example Supplies'})['supplier'])
+
 
 if __name__=='__main__':
     unittest.main()
-

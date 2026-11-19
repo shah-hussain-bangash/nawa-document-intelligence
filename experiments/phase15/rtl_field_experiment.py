@@ -3,9 +3,6 @@ import ocr_benchmark as baseline
 
 def field_matches(text, expected):
     """Accept exactly one known label and one value per line; reject duplicates."""
-    digit_map = str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫٬', '01234567890123456789.,')
-    def canonical(value):
-        return baseline.normalize(value).translate(digit_map).replace(',', '').strip().casefold()
     label_map = {baseline.normalize(label).casefold(): key
                  for key, labels in baseline.LABELS.items() for label in labels}
     fields = {}
@@ -21,5 +18,6 @@ def field_matches(text, expected):
         if value:
             fields.setdefault(key, []).append(value)
     return {key: len(fields.get(key, [])) == 1 and
-            canonical(fields[key][0]) == canonical(value)
+            baseline.comparison_value(key, fields[key][0]) is not None and
+            baseline.comparison_value(key, fields[key][0]) == baseline.comparison_value(key, value)
             for key, value in expected.items()}

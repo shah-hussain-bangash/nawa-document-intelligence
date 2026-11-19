@@ -31,6 +31,12 @@ reviewed. `baseline-result.json` contains the synthetic output, individual
 field checks and timing. The Arabic reference includes a title and footer;
 missing them contributes to error rates.
 
+The experimental field comparison now accepts comma grouping in numeric
+values only when groups are well formed (for example, `1,050.00`); malformed
+grouping is rejected and supplier punctuation is retained. Rechecking the
+stored synthetic output with this rule did not change any of the five prior
+case-level field results. This change does not improve the OCR output itself.
+
 ## Exploratory Arabic settings comparison
 
 On the same synthetic Arabic-label image, 24 combinations of scale (original

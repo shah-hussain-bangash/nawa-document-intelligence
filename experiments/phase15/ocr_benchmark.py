@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import time
 import unicodedata
@@ -57,10 +58,21 @@ def rates(reference,recognized):
             'wer':distance(reference.split(),recognized.split())/len(reference.split())}
 
 
+def comparison_value(key, text):
+    """Conservatively canonicalize benchmark values, rejecting malformed numbers."""
+    if not isinstance(text, str):
+        return None
+    value = normalize(text).strip().casefold()
+    if key not in {'subtotal', 'vat_rate', 'vat_amount', 'total'}:
+        return value
+    digit_map = str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫٬', '01234567890123456789.,')
+    value = value.translate(digit_map)
+    if not re.fullmatch(r'(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]+)?', value):
+        return None
+    return value.replace(',', '')
+
+
 def field_results(text,expected):
-    digit_map=str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫٬','01234567890123456789.,')
-    def value(text):
-        return normalize(text).translate(digit_map).replace(',','').strip().casefold()
     fields={}
     for line in text.splitlines():
         line=normalize(line)
@@ -70,7 +82,8 @@ def field_results(text,expected):
         match=next((key for key,variants in LABELS.items() if label.casefold() in variants),None)
         if match:
             fields.setdefault(match,[]).append(raw)
-    return {key:len(fields.get(key,[]))==1 and value(fields[key][0])==value(expected[key])
+    return {key:len(fields.get(key,[]))==1 and comparison_value(key, fields[key][0]) is not None
+            and comparison_value(key, fields[key][0])==comparison_value(key, expected[key])
             for key in expected}
 
 
@@ -122,4 +135,3 @@ def main():
 
 if __name__=='__main__':
     main()
-

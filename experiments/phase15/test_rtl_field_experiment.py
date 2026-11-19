@@ -17,5 +17,10 @@ class ReversedLabelTests(unittest.TestCase):
     def test_wrong_value_is_not_a_match(self):
         self.assertEqual(field_matches('USD :العملة', {'currency':'AED'}), {'currency':False})
 
+    def test_malformed_grouping_is_not_counted_correct(self):
+        expected = {'total': '1050.00'}
+        self.assertTrue(field_matches('١٬٠٥٠٫٠٠ :الإجمالي شامل الضريبة', expected)['total'])
+        self.assertFalse(field_matches('١٠٬٥٠٫٠٠ :الإجمالي شامل الضريبة', expected)['total'])
+
 if __name__ == '__main__':
     unittest.main()
