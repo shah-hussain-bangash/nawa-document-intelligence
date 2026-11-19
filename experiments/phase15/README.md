@@ -156,6 +156,13 @@ were checked against the official Git blob and remain local; the experiment
 and synthetic results are in `arabic_script_experiment.py` and
 `arabic-script-result.json`.
 
+For human inspection, `synthetic_review_packet.py` can create a new local
+packet for the same fixed synthetic image. It includes a copy of the original,
+four manually selected number-region crops, source and crop SHA-256 hashes,
+pixel coordinates, and an HTML review page. It proposes no values or approval.
+The regions are specific to this one fixture; this is not a general reviewer
+interface, production evidence chain, or processor for real documents.
+
 ## Official fast versus best language models
 
 The official `tessdata_best` Arabic and English models at commit
