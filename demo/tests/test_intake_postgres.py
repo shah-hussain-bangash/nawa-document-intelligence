@@ -469,6 +469,38 @@ class PostgresIntakeTests(unittest.TestCase):
                              (json.dumps(original), self.tenant, document))
             self.assertTrue(service.promote(principal, document)['created'])
 
+    def test_optional_recorded_origin_policy_preserves_legacy_read_access(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        principal = Principal(identity_key, self.tenant, 'analyst')
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            compatible = ScopedIntake(self.connect, store)
+            strict = ScopedIntake(self.connect, store, origin_policy='require_recorded')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            legacy, _ = compatible.submit(principal, 'legacy.txt', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            legacy_result = self.jobs.result(self.tenant, legacy)
+            del legacy_result['extraction_origin']
+            with self.connect() as conn:
+                conn.execute('''UPDATE nawa_intake_jobs SET result=%s::jsonb,result_origin=NULL
+                                WHERE tenant_id=%s AND document_id=%s''',
+                             (json.dumps(legacy_result), self.tenant, legacy))
+            self.assertEqual(strict.result(principal, legacy)['total'], '1050.00')
+            with self.assertRaisesRegex(ValueError, 'origin required'):
+                strict.promote(principal, legacy)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_quotation_tenants WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 0)
+            self.assertTrue(compatible.promote(principal, legacy)['created'])
+            current, _ = strict.submit(principal, 'current.txt', content + b'\n# second synthetic source\n')
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            self.assertTrue(strict.promote(principal, current)['created'])
+
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))

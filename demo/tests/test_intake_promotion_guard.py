@@ -81,5 +81,33 @@ class PromotionGuardTests(unittest.TestCase):
                     service.promote(MagicMock(tenant='synthetic'), uuid4().hex)
             store.read_verified.assert_not_called()
 
+    def test_strict_policy_blocks_legacy_before_source_read(self):
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.return_value = ('completed', self.quote, 'a'*64, None)
+        context = MagicMock()
+        context.__enter__.return_value = conn
+        store = MagicMock()
+        service = ScopedIntake(lambda: context, store, origin_policy='require_recorded')
+        with patch.object(service, '_require'), patch.object(service, '_recheck'):
+            with self.assertRaisesRegex(ValueError, 'origin required'):
+                service.promote(MagicMock(tenant='synthetic'), uuid4().hex)
+        store.read_verified.assert_not_called()
+
+    def test_invalid_origin_policy_is_rejected(self):
+        for policy in ('unknown', None, True):
+            with self.subTest(policy=policy):
+                with self.assertRaises(ValueError): ScopedIntake(None, None, origin_policy=policy)
+
+    def test_strict_policy_allows_matching_recorded_text_origin(self):
+        quote = dict(self.quote, extraction_origin='synthetic_text_worker_v1')
+        conn = MagicMock()
+        conn.execute.return_value.fetchone.side_effect = [
+            ('completed', quote, 'a'*64, 'synthetic_text_worker_v1'), None, (0,)]
+        context = MagicMock()
+        context.__enter__.return_value = conn
+        service = ScopedIntake(lambda: context, MagicMock(), origin_policy='require_recorded')
+        with patch.object(service, '_require'), patch.object(service, '_recheck'):
+            self.assertTrue(service.promote(MagicMock(tenant='synthetic'), uuid4().hex)['created'])
+
 if __name__ == '__main__':
     unittest.main()

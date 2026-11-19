@@ -218,7 +218,15 @@ JSON-only changes; it is not independent worker attestation, and a database
 writer able to change both values can still mislabel a result. The migration is
 explicit and only for the disposable synthetic environment; it has not been
 applied to the user's databases. Upgrade and rollback planning, authenticated
-worker identity and strict treatment of legacy records remain open.
+worker identity and deployment policy for legacy records remain open.
+
+The synthetic intake draft offers an explicit server-side `require_recorded`
+origin policy. Under it, legacy unmarked records remain readable but cannot be
+promoted; matching recorded text-worker results remain eligible. The default
+`legacy_compatible` policy preserves existing behavior. This policy is not
+exposed as a user-controlled setting or enabled in the live portal. It checks
+recorded markers, not authenticated worker identity, and cannot protect
+against a database writer changing both stored values.
 
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored

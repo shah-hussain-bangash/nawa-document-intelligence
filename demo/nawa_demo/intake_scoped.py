@@ -13,9 +13,12 @@ from .intake_validation import check_document
 
 class ScopedIntake:
     """Use only principals resolved from an authenticated server-side session."""
-    def __init__(self, connect, store):
+    def __init__(self, connect, store, *, origin_policy='legacy_compatible'):
+        if origin_policy not in ('legacy_compatible', 'require_recorded'):
+            raise ValueError('Invalid synthetic origin policy')
         self.connect = connect
         self.store = store
+        self.origin_policy = origin_policy
 
     @staticmethod
     def _require(principal, action):
@@ -134,6 +137,8 @@ class ScopedIntake:
             require_text_only_result(row[1])
             if row[1].get('extraction_origin') != row[3]:
                 raise ValueError('Synthetic worker origin does not match stored origin')
+            if self.origin_policy == 'require_recorded' and row[3] != 'synthetic_text_worker_v1':
+                raise ValueError('Recorded synthetic worker origin required for promotion')
             # Recheck the current source before returning or creating a review
             # record; processing may have completed before the file changed.
             self.store.read_verified(document.hex, row[2].strip())
