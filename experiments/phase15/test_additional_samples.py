@@ -23,7 +23,7 @@ class SyntheticReproductionTests(unittest.TestCase):
             argv = ['additional_samples.py', '--pdf-dir', directory, '--tesseract', 'unused',
                     '--tessdata', directory, '--output', str(Path(directory) / 'result.json')]
             with patch.object(sys, 'argv', argv), patch.object(samples.bench, 'MODEL_HASHES', {}), \
-                 patch.object(samples, 'PDF_HASHES', {'case.pdf':'0' * 64}), \
+                 patch.object(samples, 'PDF_HASHES', {'case.pdf':{'0' * 64}}), \
                  patch.object(samples.subprocess, 'run') as run:
                 with self.assertRaises(ValueError):
                     samples.main()

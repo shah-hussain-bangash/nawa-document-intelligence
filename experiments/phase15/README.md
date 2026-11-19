@@ -84,6 +84,13 @@ was repeated locally with the same field counts and error rates. The original
 Arabic-label image baseline still needs locally generated files and cannot be
 reproduced from the checkout alone.
 
+The two English PDF fixtures have different byte hashes in the canonical Git
+blobs and in this Windows checkout with line-ending conversion. The script
+accepts only these two explicitly recorded hashes per affected fixture and
+records the actual hash used. Both local variants were tested. The Arabic
+fixture has a single accepted hash. This does not make arbitrary modified PDFs
+valid; binary-file attributes should be reviewed separately.
+
 GitHub Actions also runs the three synthetic PDF cases on Ubuntu using the
 official pinned fast models. It checks the PDF and model hashes, requires at
 least five matched fields on each English page and nonempty Arabic OCR output,

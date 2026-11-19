@@ -9,9 +9,9 @@ import pymupdf
 import ocr_benchmark as bench
 
 PDF_HASHES = {
-    'incorrect_vat.pdf':'be8de4dbf2cfbf4dad03009b571ebb13b5e873248ec149842576a2ea7d7dc3e0',
-    'second_page_supplier.pdf':'3bbebac92722b82770c31725806efb6148f2b317b0a3af7348145a2f336d95d6',
-    'arabic_text_supplier.pdf':'efe191b915a9ba0f205017f9c7911d72422ddb047c9a7ef48c3e728a47499b68',
+    'incorrect_vat.pdf':{'be8de4dbf2cfbf4dad03009b571ebb13b5e873248ec149842576a2ea7d7dc3e0', 'b1edcea773136941a4bb3c4e24f86c6d8fe6881037295ef0807159b063300c16'},
+    'second_page_supplier.pdf':{'3bbebac92722b82770c31725806efb6148f2b317b0a3af7348145a2f336d95d6', '1b95cabe02ceca5f7e9f71216c3f9b1ef6e8e41a546faea053641ab7a71fad03'},
+    'arabic_text_supplier.pdf':{'efe191b915a9ba0f205017f9c7911d72422ddb047c9a7ef48c3e728a47499b68'},
 }
 CASES = [
     {'file': 'incorrect_vat.pdf', 'page': 0, 'lang': 'eng',
@@ -43,8 +43,10 @@ def main():
         raise FileExistsError('Refusing to overwrite the output file')
     for name, digest in bench.MODEL_HASHES.items():
         bench.verify(args.tessdata / name, digest)
-    for name, digest in PDF_HASHES.items():
-        bench.verify(args.pdf_dir / name, digest)
+    for name, expected in PDF_HASHES.items():
+        digest = hashlib.sha256((args.pdf_dir / name).read_bytes()).hexdigest()
+        if digest not in expected:
+            raise ValueError('Synthetic PDF input changed: ' + name)
     rows = []
     with tempfile.TemporaryDirectory(prefix='nawa_synthetic_ocr_') as temp:
         for case in CASES:
