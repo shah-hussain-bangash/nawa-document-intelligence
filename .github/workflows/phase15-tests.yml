@@ -25,3 +25,38 @@ jobs:
         working-directory: experiments/phase15
         run: python -m unittest -v test_ocr_benchmark test_rtl_field_experiment test_bounded_ocr_prototype test_additional_samples test_windows_gated_launcher test_windows_gated_bounded
 
+  synthetic-ocr-engine-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install synthetic test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y tesseract-ocr
+          python -m pip install PyMuPDF==1.28.2
+      - name: Download pinned official language data
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nawa-tessdata"
+          for language in eng ara; do
+            curl --fail --silent --show-error --location --retry 2 \
+              "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/${language}.traineddata" \
+              --output "$RUNNER_TEMP/nawa-tessdata/${language}.traineddata"
+          done
+      - name: OCR three pinned synthetic PDF pages
+        working-directory: experiments/phase15
+        shell: bash
+        run: |
+          set -euo pipefail
+          python additional_samples.py \
+            --pdf-dir ../../demo/samples/pdf \
+            --tesseract "$(command -v tesseract)" \
+            --tessdata "$RUNNER_TEMP/nawa-tessdata" \
+            --output "$RUNNER_TEMP/nawa-synthetic-ocr-result.json"
+          python -c 'import json,os,pathlib; d=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"nawa-synthetic-ocr-result.json").read_text(encoding="utf-8")); assert d["status"] == "human_review_required" and len(d["cases"]) == 3 and all(c["fields_correct"] >= 5 for c in d["cases"][:2]) and d["cases"][2]["ocr_text_synthetic"].strip()'
+

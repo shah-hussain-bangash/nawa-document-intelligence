@@ -84,6 +84,13 @@ was repeated locally with the same field counts and error rates. The original
 Arabic-label image baseline still needs locally generated files and cannot be
 reproduced from the checkout alone.
 
+GitHub Actions also runs the three synthetic PDF cases on Ubuntu using the
+official pinned fast models. It checks the PDF and model hashes, requires at
+least five matched fields on each English page and nonempty Arabic OCR output,
+and confirms the result requires human review. This is a smoke test, not an
+Arabic accuracy threshold or evidence of production readiness. It uses the
+runner's installed Tesseract version, which can differ from the local run.
+
 ## Reversed-label evaluation experiment
 
 The Arabic PDF's OCR produced `AED :العملة`, while the original field
@@ -154,8 +161,8 @@ in the PR. Source: https://github.com/tesseract-ocr/tessdata_best/tree/e12c65a91
 - `ocr_benchmark.py` is an offline, fixed-fixture measurement script, not
   an OCR service or secure document processor. It requires the specified
   local Tesseract executable, model files and synthetic images. It refuses to
-  overwrite an existing result. The repository CI runs metric unit tests,
-  not this model-dependent measurement.
+  overwrite an existing result. The original two-image benchmark is local;
+  CI runs the separate three-PDF synthetic engine smoke test described above.
 
 ## Remaining Phase 15 work
 
