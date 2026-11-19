@@ -282,7 +282,11 @@ synthetic application job in separate PostgreSQL read-only transactions and
 passes the observations to that classifier. A missing record or unavailable
 database never triggers a retry; error details are not returned. The CI test
 uses disposable databases on the same server, checks tenant scoping, and
-confirms the observed states are not modified. A database-name prefix is not
+confirms the observed states are not modified. It also uses a synthetic
+PostgreSQL NOLOGIN role selected with `SET ROLE`, grants it only schema usage
+and SELECT on the two test tables, and checks that UPDATE is denied. This
+tests database privileges; it does not test login authentication or a real
+deployment role. A database-name prefix is not
 a security boundary. This code is not connected to NAWA, and it does not
 provide an atomic cross-database snapshot or a production reconciliation
 process.

@@ -117,13 +117,38 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
                                          {'state':'pending','result_sha256':None})
             self.assertEqual(outcome['status'], 'manual_reconciliation_required')
             self.assertEqual(outcome['automatic_action'], 'none')
-            inspected = inspect(self.connect, lambda: psycopg.connect(**restored_params),
+            # A NOLOGIN role is selected with SET ROLE solely inside these
+            # disposable tests; this checks privileges, not login authentication.
+            reader_role = 'nawa_p15_reader_' + uuid4().hex[:12]
+            with self.connect() as conn:
+                conn.execute(sql.SQL('CREATE ROLE {} NOLOGIN').format(sql.Identifier(reader_role)))
+                conn.execute(sql.SQL('GRANT USAGE ON SCHEMA {} TO {}')
+                             .format(sql.Identifier(self.schema),sql.Identifier(reader_role)))
+                conn.execute(sql.SQL('GRANT SELECT ON {}.receipts TO {}')
+                             .format(sql.Identifier(self.schema),sql.Identifier(reader_role)))
+            with psycopg.connect(**restored_params) as conn:
+                conn.execute(sql.SQL('GRANT USAGE ON SCHEMA public TO {}').format(sql.Identifier(reader_role)))
+                conn.execute(sql.SQL('GRANT SELECT ON public.synthetic_app_jobs TO {}').format(sql.Identifier(reader_role)))
+            def reader_connect(params):
+                conn = psycopg.connect(**params, autocommit=True)
+                conn.execute(sql.SQL('SET ROLE {}').format(sql.Identifier(reader_role)))
+                conn.autocommit = False
+                return conn
+            ledger_reader = lambda: reader_connect(params)
+            restored_reader = lambda: reader_connect(restored_params)
+            inspected = inspect(ledger_reader, restored_reader,
                                 schema=self.schema,job_id=self.context['job_id'],tenant=self.context['tenant'])
             self.assertEqual(inspected['status'], 'manual_reconciliation_required')
             self.assertEqual(inspected['automatic_action'], 'none')
-            other_tenant = inspect(self.connect, lambda: psycopg.connect(**restored_params),
+            other_tenant = inspect(ledger_reader, restored_reader,
                                    schema=self.schema,job_id=self.context['job_id'],tenant='synthetic-b')
             self.assertEqual(other_tenant['status'], 'missing_observation')
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                with ledger_reader() as conn:
+                    conn.execute(sql.SQL('UPDATE {}.receipts SET state=state WHERE false').format(sql.Identifier(self.schema)))
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                with restored_reader() as conn:
+                    conn.execute('UPDATE public.synthetic_app_jobs SET state=state WHERE false')
             with psycopg.connect(**restored_params) as conn:
                 self.assertEqual(conn.execute('SELECT state FROM synthetic_app_jobs WHERE job_id=%s',
                                               (self.context['job_id'],)).fetchone()[0], 'pending')
