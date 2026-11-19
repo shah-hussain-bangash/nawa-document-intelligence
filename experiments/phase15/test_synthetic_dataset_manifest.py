@@ -1,7 +1,8 @@
 import copy
+import hashlib
 import unittest
 
-from synthetic_dataset_manifest import validate_manifest
+from synthetic_dataset_manifest import validate_manifest, verify_sample_bytes
 
 
 class SyntheticDatasetManifestTests(unittest.TestCase):
@@ -54,6 +55,31 @@ class SyntheticDatasetManifestTests(unittest.TestCase):
         self.sample['ground_truth'] = 'private text is not accepted here'
         with self.assertRaises(ValueError):
             validate_manifest(self.manifest)
+
+    def test_matching_sample_bytes(self):
+        sample = b'synthetic image bytes'
+        self.sample['content_sha256'] = hashlib.sha256(sample).hexdigest()
+        result = verify_sample_bytes(self.manifest, {'page-a': sample})
+        self.assertEqual(result['status'], 'sample_hashes_match')
+        self.assertTrue(result['human_review_required'])
+
+    def test_rejects_changed_or_invalid_bytes(self):
+        self.sample['content_sha256'] = hashlib.sha256(b'expected').hexdigest()
+        for data in (b'changed', b'', 'expected', b'x' * (16 * 1024 * 1024 + 1)):
+            with self.subTest(data_type=type(data).__name__, size=len(data)):
+                with self.assertRaises(ValueError):
+                    verify_sample_bytes(self.manifest, {'page-a': data})
+
+    def test_requires_exact_sample_set(self):
+        self.sample['content_sha256'] = hashlib.sha256(b'expected').hexdigest()
+        for samples in ({}, {'page-a': b'expected', 'extra': b'x'}, None):
+            with self.subTest(samples_type=type(samples).__name__), self.assertRaises(ValueError):
+                verify_sample_bytes(self.manifest, samples)
+
+    def test_validates_manifest_before_sample_bytes(self):
+        self.manifest['scope'] = 'real'
+        with self.assertRaises(ValueError):
+            verify_sample_bytes(self.manifest, {'page-a': b'expected'})
 
 
 if __name__ == '__main__':

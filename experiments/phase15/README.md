@@ -368,8 +368,10 @@ in the PR. Source: https://github.com/tesseract-ocr/tessdata_best/tree/e12c65a91
 `synthetic_dataset_manifest.py` is an experimental, synthetic-only metadata
 validator. It checks declared creator and reviewer identifiers, license
 reference, language, content hash and split, and rejects source IDs or hashes
-shared between development and evaluation splits. It does not read documents,
-verify hashes against files, authenticate reviewers, establish license rights,
+shared between development and evaluation splits. An optional function checks
+caller-supplied sample bytes against the declared hashes and requires the exact
+sample set. It does not read files, establish the origin of bytes or hashes,
+authenticate reviewers, establish license rights,
 or verify ground truth. Metadata passing the check is not evidence that a
 dataset is representative, independently reviewed, accurate, or suitable
 for production. A curated bilingual dataset and independent review remain

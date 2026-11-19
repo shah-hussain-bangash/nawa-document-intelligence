@@ -1,4 +1,5 @@
 """Validate experimental synthetic OCR dataset metadata, not its truth or accuracy."""
+import hashlib
 import re
 
 _ID = re.compile(r'[a-z0-9][a-z0-9_-]{0,63}\Z')
@@ -42,4 +43,21 @@ def validate_manifest(manifest):
                 raise ValueError('Source or content occurs across splits')
             seen[key] = sample['split']
     return {'status': 'metadata_valid_only', 'sample_count': len(ids),
+            'human_review_required': True}
+
+
+def verify_sample_bytes(manifest, sample_bytes):
+    """Check caller-supplied synthetic bytes; do not load files or run OCR."""
+    validate_manifest(manifest)
+    expected = {sample['sample_id']: sample['content_sha256']
+                for sample in manifest['samples']}
+    if not isinstance(sample_bytes, dict) or sample_bytes.keys() != expected.keys():
+        raise ValueError('Synthetic sample set does not match manifest')
+    for sample_id, expected_digest in expected.items():
+        data = sample_bytes[sample_id]
+        if not isinstance(data, bytes) or not 0 < len(data) <= 16 * 1024 * 1024:
+            raise ValueError('Invalid synthetic sample bytes')
+        if hashlib.sha256(data).hexdigest() != expected_digest:
+            raise ValueError('Synthetic sample hash mismatch')
+    return {'status': 'sample_hashes_match', 'sample_count': len(expected),
             'human_review_required': True}
