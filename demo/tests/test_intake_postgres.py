@@ -747,7 +747,8 @@ class PostgresIntakeTests(unittest.TestCase):
                 with read_only.transaction():
                     read_only.execute('SET TRANSACTION READ ONLY')
                     self.assertEqual(inspect_history(read_only)['history_status'], 'current_history')
-            conn.execute("DELETE FROM nawa_intake_schema_migrations WHERE name='002_synthetic_requeue.sql'")
+            # Construct an 001-only history regardless of later migration count.
+            conn.execute("DELETE FROM nawa_intake_schema_migrations WHERE name <> '001_synthetic_intake.sql'")
             for checksum, status in ((ORIGINAL_001,'original_001_only'),
                                      (VALIDATED_IN_001,'intermediate_validated_in_001'),
                                      (REQUEUE_IN_001,'intermediate_requeue_in_001'),
@@ -786,3 +787,4 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
+
