@@ -273,6 +273,17 @@ values unclear, without guessing. The packet itself cannot authenticate a
 reviewer, prove independence, establish accuracy, or approve a quotation.
 Independent review and a representative evaluation set remain outstanding.
 
+`compare_blind_transcriptions.py` compares a completed packet's supplied
+transcriptions against the pinned synthetic fixture manifest. It separately
+reports matching and differing values, blanks, reviewer-marked unclear values,
+and numbers that cannot be compared safely. It verifies the manifest hash and
+the page identities stated in the packet, but it does not authenticate the
+reviewer, establish independence, verify that a reviewer actually viewed the
+image, or approve a quotation. Matching uses the benchmark's normalization;
+it is not a character-for-character transcription check. The untouched blank
+packet reports every field as not transcribed, and no human review has yet
+been claimed.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
