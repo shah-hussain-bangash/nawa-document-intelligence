@@ -265,6 +265,14 @@ not correct punctuation, recognize misspelled or value-before-label text, or
 approve a quotation. `arabic-numeric-diagnostics-result.json` shows its hints
 for the saved two-page synthetic output; it is not connected to the portal.
 
+`blind_synthetic_review.py` creates a new transcription packet containing
+copies of the two pinned pages and a blank answer template. The packet does
+not include expected values or OCR outputs. It checks image hashes and refuses
+an existing destination. A reviewer can transcribe from the images or mark
+values unclear, without guessing. The packet itself cannot authenticate a
+reviewer, prove independence, establish accuracy, or approve a quotation.
+Independent review and a representative evaluation set remain outstanding.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
