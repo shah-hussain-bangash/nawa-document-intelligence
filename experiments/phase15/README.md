@@ -227,6 +227,20 @@ and the helper cannot promote or approve a quotation. The result and hash of
 its saved input are in `arabic-label-candidate-result.json`. One hand-selected
 sample cannot establish general accuracy or production safety.
 
+The same local Paddle pipeline and candidate checker were also tried on page
+1 of the repository's `arabic_text_supplier.pdf`, rendered with PyMuPDF
+1.28.2 at 200 DPI. The PDF contains the same synthetic supplier and amounts
+as the first example, so it is another layout, not independent test data.
+The strict colon-based checker matched 1 / 6 fields (the English total), and
+the exact Arabic-label candidate checker matched 2 / 6 (supplier and VAT
+rate). The candidate checker handles Arabic labels only and its count is not
+combined with the strict checker. The output still contained incomplete
+currency and subtotal text and ambiguous punctuation in two amounts.
+`paddle-arabic-pdf-result.json` records the synthetic outputs and observed
+model hashes; `render_synthetic_arabic_pdf.py` can produce the pinned input
+from the corresponding known-hash PDF. It refuses a different rendering or
+an existing output file. Results remain human-review-only.
+
 For human inspection, `synthetic_review_packet.py` can create a new local
 packet for the same fixed synthetic image. It includes a copy of the original,
 four manually selected number-region crops, source and crop SHA-256 hashes,
