@@ -74,6 +74,7 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
 
     def test_stale_app_restore_cannot_reuse_receipt_if_ledger_survives(self):
         from synthetic_reconciliation import classify_snapshots
+        from synthetic_reconciliation_inspector import inspect
         # Both databases are created only on the disposable Phase 15 CI server.
         params = psycopg.conninfo.conninfo_to_dict(DSN)
         self.assertTrue(params['dbname'].startswith('nawa_phase15_qa_'))
@@ -91,8 +92,10 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
         app_cli.pop('password', None)
         restored_cli.pop('password', None)
         with psycopg.connect(**app_params) as conn:
-            conn.execute('CREATE TABLE synthetic_app_jobs (job_id text PRIMARY KEY, state text NOT NULL)')
-            conn.execute('INSERT INTO synthetic_app_jobs VALUES (%s,%s)', (self.context['job_id'],'pending'))
+            conn.execute('''CREATE TABLE synthetic_app_jobs (job_id text PRIMARY KEY, tenant text NOT NULL,
+                            state text NOT NULL, result_sha256 text)''')
+            conn.execute('INSERT INTO synthetic_app_jobs VALUES (%s,%s,%s,NULL)',
+                         (self.context['job_id'],self.context['tenant'],'pending'))
         with tempfile.TemporaryDirectory(prefix='nawa_p15_backup_') as directory:
             dump = Path(directory) / 'synthetic-app.dump'
             subprocess.run(['pg_dump','--format=custom','--file',str(dump),
@@ -100,7 +103,8 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
                            check=True,capture_output=True,timeout=60,env=pg_env)
             self.assertTrue(self.consume())
             with psycopg.connect(**app_params) as conn:
-                conn.execute("UPDATE synthetic_app_jobs SET state='completed' WHERE job_id=%s", (self.context['job_id'],))
+                conn.execute("UPDATE synthetic_app_jobs SET state='completed',result_sha256=%s WHERE job_id=%s",
+                             (self.receipt['payload']['result_sha256'],self.context['job_id']))
             subprocess.run(['pg_restore','--no-owner','--dbname',psycopg.conninfo.make_conninfo(**restored_cli),str(dump)],
                            check=True,capture_output=True,timeout=60,env=pg_env)
             with psycopg.connect(**restored_params) as conn:
@@ -113,7 +117,38 @@ class SyntheticPostgresReceiptTests(unittest.TestCase):
                                          {'state':'pending','result_sha256':None})
             self.assertEqual(outcome['status'], 'manual_reconciliation_required')
             self.assertEqual(outcome['automatic_action'], 'none')
+            inspected = inspect(self.connect, lambda: psycopg.connect(**restored_params),
+                                schema=self.schema,job_id=self.context['job_id'],tenant=self.context['tenant'])
+            self.assertEqual(inspected['status'], 'manual_reconciliation_required')
+            self.assertEqual(inspected['automatic_action'], 'none')
+            other_tenant = inspect(self.connect, lambda: psycopg.connect(**restored_params),
+                                   schema=self.schema,job_id=self.context['job_id'],tenant='synthetic-b')
+            self.assertEqual(other_tenant['status'], 'missing_observation')
+            with psycopg.connect(**restored_params) as conn:
+                self.assertEqual(conn.execute('SELECT state FROM synthetic_app_jobs WHERE job_id=%s',
+                                              (self.context['job_id'],)).fetchone()[0], 'pending')
+            with self.connect() as conn:
+                self.assertEqual(conn.execute(sql.SQL('SELECT state FROM {}.receipts WHERE job_id=%s')
+                    .format(sql.Identifier(self.schema)), (self.context['job_id'],)).fetchone()[0], 'consumed')
             self.assertFalse(self.consume())  # The separately preserved ledger remembers consumption.
+
+    def test_inspector_fails_closed_without_exposing_database_errors(self):
+        from synthetic_reconciliation_inspector import inspect
+        def unavailable():
+            raise OSError('sensitive synthetic connection detail')
+        result = inspect(self.connect, unavailable, schema=self.schema,
+                         job_id=self.context['job_id'], tenant=self.context['tenant'])
+        self.assertEqual(result['status'], 'observation_unavailable')
+        self.assertEqual(result['automatic_action'], 'none')
+        self.assertNotIn('sensitive synthetic connection detail', str(result))
+
+    def test_inspector_rejects_invalid_job_before_connecting(self):
+        from synthetic_reconciliation_inspector import inspect
+        def must_not_connect():
+            raise AssertionError('Unexpected connection')
+        with self.assertRaises(ValueError):
+            inspect(must_not_connect, must_not_connect, schema=self.schema,
+                    job_id='invalid', tenant=self.context['tenant'])
 
     def test_ledger_commit_before_app_commit_requires_reconciliation(self):
         from synthetic_reconciliation import classify_snapshots

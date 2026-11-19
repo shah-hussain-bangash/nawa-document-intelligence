@@ -277,6 +277,16 @@ restore and stranded-job examples. The observations may be read at different
 times, so this is not a consistent cross-database snapshot, an operator
 workflow, or an authorization to repair records.
 
+`synthetic_reconciliation_inspector.py` reads the experimental ledger and
+synthetic application job in separate PostgreSQL read-only transactions and
+passes the observations to that classifier. A missing record or unavailable
+database never triggers a retry; error details are not returned. The CI test
+uses disposable databases on the same server, checks tenant scoping, and
+confirms the observed states are not modified. A database-name prefix is not
+a security boundary. This code is not connected to NAWA, and it does not
+provide an atomic cross-database snapshot or a production reconciliation
+process.
+
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored
 test copy is rejected without changing its existing human review. This does
