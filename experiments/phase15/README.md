@@ -251,6 +251,10 @@ runner; the default remains the original local subprocess runner, and neither
 path is wired to NAWA. `windows_synthetic_ocr_smoke.py` tested the combined
 prototype locally on both pinned fixtures: English 6 / 6 and Arabic 2 / 6,
 with human review required. The combined Tesseract path is not tested in CI.
+Two Windows end-to-end tests use a controlled synthetic engine to exercise
+the validated image copy, model-hash checks, gated Windows runner, job cleanup,
+review-required status, and engine failure behavior. They test process
+plumbing, not OCR accuracy or the real Tesseract executable.
 
 This prototype is **not a security boundary**: it has not been independently
 reviewed and does not sandbox image decoding or Tesseract or defend its
