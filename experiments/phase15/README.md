@@ -306,7 +306,10 @@ its current membership. It accepts no client-selected tenant and has no HTTP
 endpoint. The disposable PostgreSQL test uses manually issued test sessions
 and two test database roles. This does not establish integration with a real
 identity provider. Membership can be revoked after the check while a request
-is in flight, and production credential management remains open.
+is in flight, so the broker checks the session and membership again after
+inspection and discards the result if they changed. This still cannot make
+revocation atomic with response delivery. Production credential management
+remains open.
 
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored

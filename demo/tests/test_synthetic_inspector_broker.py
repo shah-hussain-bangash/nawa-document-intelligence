@@ -50,5 +50,43 @@ class SyntheticInspectorBrokerTests(unittest.TestCase):
             self.broker.inspect(self.a, 'a'*32)
         self.assertNotIn('private synthetic connection detail', str(caught.exception))
 
+    def test_revocation_during_inspection_discards_observation(self):
+        def inspect(*args, **kwargs):
+            self.members[('subject-a','tenant-a')] = None
+            return {'private': 'synthetic observation'}
+        self.inspector.side_effect = inspect
+        with self.assertRaises(PermissionError) as caught:
+            self.broker.inspect(self.a, 'a'*32)
+        self.assertNotIn('synthetic observation', str(caught.exception))
+
+    def test_logout_during_inspection_discards_observation(self):
+        def inspect(*args, **kwargs):
+            self.sessions.revoke(self.a)
+            return {'private': 'synthetic observation'}
+        self.inspector.side_effect = inspect
+        with self.assertRaises(PermissionError):
+            self.broker.inspect(self.a, 'a'*32)
+
+    def test_role_change_during_inspection_discards_observation(self):
+        def inspect(*args, **kwargs):
+            self.members[('subject-a','tenant-a')] = Principal('subject-a','tenant-a','analyst')
+            return {'private': 'synthetic observation'}
+        self.inspector.side_effect = inspect
+        with self.assertRaises(PermissionError):
+            self.broker.inspect(self.a, 'a'*32)
+
+    def test_valid_session_returns_observation(self):
+        self.assertEqual(self.broker.inspect(self.a, 'a'*32), {'status': 'synthetic'})
+
+    def test_membership_lookup_failure_does_not_disclose_details(self):
+        def unavailable(*args):
+            raise OSError('private membership detail')
+        self.sessions.lookup = unavailable
+        with self.assertRaises(PermissionError) as caught:
+            self.broker.inspect(self.a, 'a'*32)
+        self.assertNotIn('private membership detail', str(caught.exception))
+        self.assertTrue(caught.exception.__suppress_context__)
+        self.inspector.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main()

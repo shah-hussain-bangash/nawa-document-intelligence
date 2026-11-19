@@ -28,9 +28,18 @@ class SyntheticInspectorBroker:
             ledger, app, schema = route['ledger_connect'], route['app_connect'], route['schema']
             if not callable(ledger) or not callable(app) or not isinstance(schema, str):
                 raise SessionError('Session unavailable')
-        except (SessionError, KeyError, TypeError) as exc:
-            raise PermissionError('Synthetic inspection unavailable') from exc
+        except Exception:
+            raise PermissionError('Synthetic inspection unavailable') from None
         try:
-            return self._inspector(ledger, app, schema=schema, job_id=job_id, tenant=principal.tenant)
+            result = self._inspector(ledger, app, schema=schema, job_id=job_id, tenant=principal.tenant)
         except Exception:
             raise RuntimeError('Synthetic inspection unavailable') from None
+        # Discard observations if the session or membership changed while reading.
+        # This does not make revocation and response delivery atomic.
+        try:
+            current = self._sessions.authorize_current(session_token, 'view')
+            if current != principal:
+                raise SessionError('Session unavailable')
+        except Exception:
+            raise PermissionError('Synthetic inspection unavailable') from None
+        return result
