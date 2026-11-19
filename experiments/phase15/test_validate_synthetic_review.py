@@ -15,8 +15,10 @@ class SyntheticExportValidationTests(unittest.TestCase):
         source = self.root / 'image.png'
         Image.new('RGB', (20, 20), 'white').save(source)
         digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        self.digest = digest
+        self.regions = [('Amount', (0, 0, 10, 10))]
         self.packet_dir = self.root / 'packet'
-        packet = create_packet(source, digest, [('Amount', (0, 0, 10, 10))], self.packet_dir)
+        packet = create_packet(source, digest, self.regions, self.packet_dir)
         self.export = {'status':'human_review_required', 'source_image_sha256':digest,
                        'regions':[{k:v for k,v in packet['regions'][0].items() if k != 'status'}]}
         self.export['regions'][0]['reviewer_transcription'] = '900.00'
@@ -24,7 +26,8 @@ class SyntheticExportValidationTests(unittest.TestCase):
 
     def check(self):
         self.export_path.write_text(json.dumps(self.export), encoding='utf-8')
-        return validate_export(self.packet_dir, self.export_path)
+        return validate_export(self.packet_dir, self.export_path,
+                               expected_source_sha256=self.digest, expected_regions=self.regions)
 
     def test_valid_export_stays_review_required(self):
         result = self.check()
@@ -60,6 +63,25 @@ class SyntheticExportValidationTests(unittest.TestCase):
 
     def test_rejects_approval_status(self):
         self.export['status'] = 'approved'
+        with self.assertRaises(ValueError): self.check()
+
+    def test_rejects_replaced_source_even_if_hashes_updated(self):
+        source = self.packet_dir / 'source.png'
+        Image.new('RGB', (20, 20), 'black').save(source)
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        packet_path = self.packet_dir / 'review-packet.json'
+        packet = json.loads(packet_path.read_text(encoding='utf-8'))
+        packet['source_image_sha256'] = digest
+        packet_path.write_text(json.dumps(packet), encoding='utf-8')
+        self.export['source_image_sha256'] = digest
+        with self.assertRaises(ValueError): self.check()
+
+    def test_rejects_changed_packet_and_export_region_coordinates(self):
+        packet_path = self.packet_dir / 'review-packet.json'
+        packet = json.loads(packet_path.read_text(encoding='utf-8'))
+        packet['regions'][0]['box_pixels'] = [1, 1, 11, 11]
+        packet_path.write_text(json.dumps(packet), encoding='utf-8')
+        self.export['regions'][0]['box_pixels'] = [1, 1, 11, 11]
         with self.assertRaises(ValueError): self.check()
 
     def test_rejects_oversized_transcription(self):

@@ -169,11 +169,14 @@ interface, production evidence chain, or processor for real documents.
 
 `validate_synthetic_review.py` checks a downloaded synthetic export against
 the local packet: image and crop hashes, region metadata, and crop pixels
-against the referenced coordinates. It rejects changed crops, inconsistent
+against the referenced coordinates. The command also checks the source image
+hash and expected region labels and coordinates against constants for the
+fixed synthetic fixture outside the packet. It rejects changed crops, inconsistent
 metadata, unsafe crop paths and approval status. A successful result still
 requires human review. This checks consistency only: the packet and export
-are unsigned, and it cannot prove the reviewer's identity, the correctness of
-their transcription, or authenticity if all source files are replaced together.
+are unsigned, and it cannot prove the reviewer's identity or the correctness
+of their transcription. The anchor is only trustworthy if the code and its
+fixture constants have been obtained and protected through trusted means.
 The real-browser download test remains pending.
 
 ## Official fast versus best language models

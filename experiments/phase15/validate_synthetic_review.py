@@ -16,7 +16,7 @@ def read_json(path):
         raise ValueError('Review JSON exceeds limit')
     return json.loads(data.decode('utf-8'))
 
-def validate_export(packet_dir, export_path):
+def validate_export(packet_dir, export_path, *, expected_source_sha256, expected_regions):
     packet_dir = Path(packet_dir)
     packet = read_json(packet_dir / 'review-packet.json')
     export = read_json(export_path)
@@ -26,17 +26,22 @@ def validate_export(packet_dir, export_path):
         raise ValueError('Invalid review status')
     source = (packet_dir / 'source.png').read_bytes()
     source_sha = hashlib.sha256(source).hexdigest()
-    if source_sha != packet.get('source_image_sha256') or source_sha != export.get('source_image_sha256'):
+    if (source_sha != expected_source_sha256 or source_sha != packet.get('source_image_sha256')
+            or source_sha != export.get('source_image_sha256')):
         raise ValueError('Source image hash mismatch')
     expected, reviewed = packet.get('regions'), export.get('regions')
     if not isinstance(expected, list) or not isinstance(reviewed, list) or not 1 <= len(expected) <= 20 or len(expected) != len(reviewed):
         raise ValueError('Review region count mismatch')
+    if len(expected) != len(expected_regions):
+        raise ValueError('Trusted region count mismatch')
     used_labels, used_files = set(), set()
     with Image.open(io.BytesIO(source), formats=['PNG']) as original:
-        for region, entry in zip(expected, reviewed):
+        for region, entry, trusted in zip(expected, reviewed, expected_regions):
             if not isinstance(region, dict) or not isinstance(entry, dict):
                 raise ValueError('Invalid region')
             label, name, box = region.get('label'), region.get('crop_file'), region.get('box_pixels')
+            if (label, box) != (trusted[0], list(trusted[1])):
+                raise ValueError('Review region differs from trusted fixture')
             if (not isinstance(label, str) or not label or label in used_labels or
                     not isinstance(name, str) or not re.fullmatch(r'region-[1-9][0-9]*\.png', name) or name in used_files):
                 raise ValueError('Invalid or duplicate region identity')
@@ -66,11 +71,15 @@ def validate_export(packet_dir, export_path):
             'scope':'Synthetic local consistency check; no reviewer authentication or approval.'}
 
 def main():
+    import ocr_benchmark as bench
+    from numeric_crop_experiment import REGIONS
     parser = argparse.ArgumentParser(description='Check a synthetic review export')
     parser.add_argument('--packet-dir', type=Path, required=True)
     parser.add_argument('--export', type=Path, required=True)
     args = parser.parse_args()
-    print(json.dumps(validate_export(args.packet_dir, args.export), indent=2))
+    regions = [(name.replace('_', ' ').title(), box) for name, box, _ in REGIONS]
+    print(json.dumps(validate_export(args.packet_dir, args.export,
+        expected_source_sha256=bench.SAMPLES[1]['sha256'], expected_regions=regions), indent=2))
 
 if __name__ == '__main__':
     main()
