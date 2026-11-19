@@ -13,7 +13,10 @@ def require_text_only_result(result):
     if 'input_type' in result and result['input_type'] != 'text_layer_pdf':
         raise ValueError('Unknown or OCR extraction requires separate review')
     forbidden = {'status', 'state', 'promotable', 'requires_human_review'}
-    if forbidden.intersection(result) or any(str(key).startswith('ocr_') for key in result):
+    # Phase 3's text-only extractor explicitly emits an empty OCR page list.
+    if 'ocr_pages' in result and result['ocr_pages'] != []:
+        raise ValueError('Unknown or OCR extraction requires separate review')
+    if forbidden.intersection(result) or any(str(key).startswith('ocr_') and key != 'ocr_pages' for key in result):
         raise ValueError('Unknown or OCR extraction requires separate review')
     evidence = result.get('evidence')
     if not isinstance(evidence, dict) or not evidence:
