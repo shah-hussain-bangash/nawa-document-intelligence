@@ -24,6 +24,13 @@ class DockerEntrypointTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'requires OIDC and PostgreSQL'):
                 dashboard_container.serve()
 
+    def test_invalid_synthetic_policy_fails_before_database_connection(self):
+        settings = {'NAWA_INTAKE':'synthetic', 'NAWA_AUTH':'oidc', 'NAWA_STORAGE':'postgres',
+                    'NAWA_SYNTHETIC_ORIGIN_POLICY':'strict-typo'}
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(ValueError, 'origin policy'):
+                dashboard_container.serve()
+
     @patch('nawa_demo.dashboard_container.HTTPServer')
     @patch('nawa_demo.dashboard_container.make_handler')
     @patch('nawa_demo.dashboard_container.DashboardState')
@@ -52,4 +59,3 @@ class DockerEntrypointTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

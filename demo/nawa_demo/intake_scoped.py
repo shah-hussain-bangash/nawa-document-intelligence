@@ -11,14 +11,18 @@ from .intake_promotion_guard import require_text_only_result
 from .intake_validation import check_document
 
 
+def validate_origin_policy(value):
+    if value not in ('legacy_compatible', 'require_recorded'):
+        raise ValueError('Invalid synthetic origin policy')
+    return value
+
+
 class ScopedIntake:
     """Use only principals resolved from an authenticated server-side session."""
     def __init__(self, connect, store, *, origin_policy='legacy_compatible'):
-        if origin_policy not in ('legacy_compatible', 'require_recorded'):
-            raise ValueError('Invalid synthetic origin policy')
         self.connect = connect
         self.store = store
-        self.origin_policy = origin_policy
+        self.origin_policy = validate_origin_policy(origin_policy)
 
     @staticmethod
     def _require(principal, action):

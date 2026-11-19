@@ -223,10 +223,13 @@ worker identity and deployment policy for legacy records remain open.
 The synthetic intake draft offers an explicit server-side `require_recorded`
 origin policy. Under it, legacy unmarked records remain readable but cannot be
 promoted; matching recorded text-worker results remain eligible. The default
-`legacy_compatible` policy preserves existing behavior. This policy is not
-exposed as a user-controlled setting or enabled in the live portal. It checks
-recorded markers, not authenticated worker identity, and cannot protect
-against a database writer changing both stored values.
+`legacy_compatible` policy preserves existing behavior. The synthetic
+container reads `NAWA_SYNTHETIC_ORIGIN_POLICY` at startup, rejects unknown
+values before connecting to the database, and does not accept the policy from
+an HTTP request. The isolated Phase 13 QA Compose configuration selects
+`require_recorded` for both synthetic tenants; the live portal is unchanged.
+This checks recorded markers, not authenticated worker identity, and cannot
+protect against a database writer changing both stored values.
 
 The disposable PostgreSQL backup/restore test also checks that the separate
 origin survives restore, and that a JSON-only origin change in the restored

@@ -1,10 +1,12 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 from nawa_demo.core import extract
 from nawa_demo.intake_promotion_guard import require_text_only_result
 from nawa_demo.intake_scoped import ScopedIntake
+from nawa_demo.intake_runtime import build_synthetic_intake
 
 SAMPLES = Path(__file__).resolve().parents[1] / 'samples'
 
@@ -97,6 +99,20 @@ class PromotionGuardTests(unittest.TestCase):
         for policy in ('unknown', None, True):
             with self.subTest(policy=policy):
                 with self.assertRaises(ValueError): ScopedIntake(None, None, origin_policy=policy)
+
+    def test_runtime_rejects_invalid_policy_before_connecting(self):
+        connect = MagicMock(side_effect=AssertionError('Must not connect'))
+        with self.assertRaisesRegex(ValueError, 'origin policy'):
+            build_synthetic_intake(connect, str(SAMPLES.resolve()), origin_policy='typo')
+        connect.assert_not_called()
+
+    def test_runtime_passes_explicit_policy_to_service(self):
+        context = MagicMock()
+        context.__enter__.return_value = object()
+        with TemporaryDirectory() as directory:
+            with patch('nawa_demo.intake_runtime.verify_intake_migrations'):
+                service = build_synthetic_intake(lambda: context, directory, origin_policy='require_recorded')
+            self.assertEqual(service.origin_policy, 'require_recorded')
 
     def test_strict_policy_allows_matching_recorded_text_origin(self):
         quote = dict(self.quote, extraction_origin='synthetic_text_worker_v1')
