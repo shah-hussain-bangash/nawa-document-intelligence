@@ -40,6 +40,29 @@ class SyntheticReceiptLedgerTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda _: self.consume(), range(2)))
         self.assertEqual(sorted(results), [False, True])
+        with closing(sqlite3.connect(self.path)) as conn:
+            self.assertEqual(conn.execute('SELECT count(*) FROM synthetic_receipt_events').fetchone()[0], 1)
+
+    def test_event_failure_rolls_back_consumption(self):
+        with closing(sqlite3.connect(self.path)) as conn, conn:
+            conn.execute('''CREATE TRIGGER synthetic_fail BEFORE INSERT ON synthetic_receipt_events
+                            BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END''')
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.consume()
+        with closing(sqlite3.connect(self.path)) as conn, conn:
+            row = conn.execute('SELECT state,receipt_mac,result_sha256 FROM synthetic_receipts').fetchone()
+            self.assertEqual(row, ('pending', None, None))
+            self.assertEqual(conn.execute('SELECT count(*) FROM synthetic_receipt_events').fetchone()[0], 0)
+            conn.execute('DROP TRIGGER synthetic_fail')
+        self.assertTrue(self.consume())
+
+    def test_consumed_result_hash_is_recorded_after_reopen(self):
+        self.assertTrue(self.consume())
+        with closing(sqlite3.connect(self.path)) as conn:
+            row = conn.execute('''SELECT r.state,r.result_sha256,e.result_sha256
+                                  FROM synthetic_receipts r JOIN synthetic_receipt_events e ON e.job_id=r.job_id''').fetchone()
+        self.assertEqual(row, ('consumed', self.receipt['payload']['result_sha256'],
+                               self.receipt['payload']['result_sha256']))
 
     def test_database_does_not_store_the_test_key_or_raw_result(self):
         self.assertTrue(self.consume())

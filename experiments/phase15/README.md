@@ -242,9 +242,11 @@ recording, replay protection, interoperable serialization and security review
 must be designed before any production claim.
 
 `synthetic_receipt_ledger.py` separately demonstrates one-time receipt
-consumption in a disposable SQLite database. It verifies a receipt and marks
-the synthetic job consumed in one transaction; tests cover replay, concurrent
-attempts, wrong keys and altered results. The test database stores neither the
+consumption in a disposable SQLite database. It verifies a receipt, marks the
+synthetic job consumed, and records a result hash and test audit event in one
+transaction; tests cover replay, concurrent attempts, wrong keys, altered
+results, restart, and rollback when event insertion fails. The event is not
+tamper-proof or append-only. The test database stores neither the
 synthetic key nor raw result. This ledger is not wired to PostgreSQL, intake,
 or promotion; it does not address key provisioning, database tampering,
 worker authentication, backup rollback, distributed operation, or production
