@@ -194,20 +194,20 @@ nested-job compatibility and independent review are still needed.
 
 A follow-up local Windows experiment (`windows_gated_launcher_experiment.py`)
 starts an isolated Python starter that waits for a signal, attaches that
-starter to the existing Windows job, then allows it to launch a synthetic
+starter to a Windows cleanup job, then allows it to launch a synthetic
 child. Three local tests passed: the child is not started before assignment,
 an assignment failure prevents launch, and closing the job stops a started
 child. The gated starter addresses the tested child-before-assignment race,
-but it is a prototype: it relies on a trusted Python runtime and the local
-NAWA launcher, is not connected to OCR, and is not a sandbox. Breakaway
+but it is a prototype: it relies on a trusted Python runtime, is not connected
+to the NAWA OCR workflow, and is not a sandbox. Breakaway
 processes, CPU/memory limits, nested-job environments, output handling and
 other failure paths need independent security and platform review.
 
-In GitHub CI, Windows runs the two gated-launch tests using a test double for
-job assignment. The actual Windows job cleanup test runs only on a machine
-with the separate NAWA launcher file and is skipped on hosted runners; Linux
-skips these Windows-only tests. CI therefore does not verify Windows job
-cleanup or the local Tesseract smoke test.
+The gated-launch experiment now includes a minimal Windows job implementation
+in `windows_cleanup_job.py`. Its real cleanup test no longer needs the original
+NAWA launcher file and is configured to run on Windows CI. The two assignment
+tests use a test double. Linux skips the three Windows-only tests, and CI does
+not run the local Tesseract smoke test.
 
 The gated starter has also been used in `gated_ocr_smoke.py` to run the local
 Tesseract executable on the two existing hash-pinned synthetic images. The

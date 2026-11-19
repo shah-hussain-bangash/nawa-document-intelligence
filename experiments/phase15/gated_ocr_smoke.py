@@ -1,19 +1,16 @@
 """Windows-only gated OCR smoke tests on two hash-pinned synthetic PNGs."""
-import importlib.util
 import subprocess
-from pathlib import Path
 import ocr_benchmark as baseline
 from windows_gated_launcher_experiment import start_gated
+from windows_cleanup_job import WindowsCleanupJob
 
-SOURCE = Path(r'C:\UAE-Sovereign-Agentic-AI\nawa-workspace\scripts\process_control.py')
-
-def run_sample(module, sample, expected_matches):
+def run_sample(sample, expected_matches):
     image = baseline.HERE / sample['image']
     baseline.verify(image, sample['sha256'])
     for language in sample['language'].split('+'):
         name = language + '.traineddata'
         baseline.verify(baseline.TESSDATA / name, baseline.MODEL_HASHES[name])
-    job = module.WindowsJob()
+    job = WindowsCleanupJob()
     parent = None
     try:
         parent = start_gated(job, [str(baseline.TESSERACT), str(image), 'stdout',
@@ -42,11 +39,8 @@ def run_sample(module, sample, expected_matches):
             parent.stdout.close()
 
 def main():
-    spec = importlib.util.spec_from_file_location('nawa_local_process_control', SOURCE)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
     for sample, expected in zip(baseline.SAMPLES, (6, 2)):
-        run_sample(module, sample, expected)
+        run_sample(sample, expected)
 
 if __name__ == '__main__':
     main()

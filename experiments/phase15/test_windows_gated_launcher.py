@@ -1,5 +1,4 @@
 """Synthetic process tests, not an isolation or security certification."""
-import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -8,8 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock
 import windows_gated_launcher_experiment as launcher
-
-SOURCE = Path(r'C:\UAE-Sovereign-Agentic-AI\nawa-workspace\scripts\process_control.py')
+import windows_cleanup_job
 
 @unittest.skipUnless(os.name == 'nt', 'Windows-only local experiment')
 class GatedLaunchTests(unittest.TestCase):
@@ -43,12 +41,8 @@ class GatedLaunchTests(unittest.TestCase):
                 launcher.start_gated(job, [sys.executable, '-c', code, str(marker)])
             self.assertFalse(marker.exists())
 
-    @unittest.skipUnless(SOURCE.is_file(), 'Requires local NAWA Windows launcher')
     def test_job_closure_stops_started_synthetic_child(self):
-        spec = importlib.util.spec_from_file_location('nawa_local_process_control', SOURCE)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        job = module.WindowsJob()
+        job = windows_cleanup_job.WindowsCleanupJob()
         child = 'import time; print("ready",flush=True); time.sleep(8)'
         parent = None
         try:
