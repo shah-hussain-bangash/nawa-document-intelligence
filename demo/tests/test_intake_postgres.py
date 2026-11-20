@@ -46,8 +46,37 @@ from nawa_demo.scoped_state import ScopedState
 DSN = os.environ.get('NAWA_PHASE13_TEST_DSN')
 
 
+def make_principal(connect, identity_key, tenant, role):
+    # Integration fixtures must use the same server-resolved generation as a
+    # real authenticated session, rather than inventing a Principal locally.
+    with connect() as conn:
+        result = membership_by_key(conn, identity_key=identity_key, tenant=tenant)
+    if result is None or result.role != role:
+        raise AssertionError('Synthetic membership fixture unavailable')
+    return result
+
+
 @unittest.skipUnless(DSN and psycopg, 'isolated PostgreSQL test not configured')
 class PostgresIntakeTests(unittest.TestCase):
+    def test_old_principal_rejected_after_unobserved_membership_cycle(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        old = make_principal(self.connect, identity_key, self.tenant, 'analyst')
+        with TemporaryDirectory() as folder:
+            service = ScopedIntake(self.connect, LocalIntakeStore(folder))
+            self.assertEqual(service.list_documents(old), [])
+            with self.connect() as conn:
+                conn.execute('UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s', (issuer, subject))
+                conn.execute('UPDATE nawa_memberships SET active=true WHERE issuer=%s AND subject=%s', (issuer, subject))
+            with self.assertRaises(PermissionError):
+                service.list_documents(old)
+            fresh = make_principal(self.connect, identity_key, self.tenant, 'analyst')
+            self.assertEqual(service.list_documents(fresh), [])
+
     def setUp(self):
         self.tenant = 'synthetic-' + uuid4().hex
         self.other = 'synthetic-' + uuid4().hex
@@ -181,8 +210,8 @@ class PostgresIntakeTests(unittest.TestCase):
                          (issuer, subject, self.tenant, 'analyst'))
             conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                          (issuer, subject, self.other, 'viewer'))
-        analyst = Principal(identity_key, self.tenant, 'analyst')
-        viewer = Principal(identity_key, self.other, 'viewer')
+        analyst = make_principal(self.connect, identity_key, self.tenant, 'analyst')
+        viewer = make_principal(self.connect, identity_key, self.other, 'viewer')
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(self.connect, store)
@@ -229,7 +258,7 @@ class PostgresIntakeTests(unittest.TestCase):
             conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
             conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                          (issuer, subject, self.tenant, 'analyst'))
-        analyst = Principal(identity_key, self.tenant, 'analyst')
+        analyst = make_principal(self.connect, identity_key, self.tenant, 'analyst')
         suffix = uuid4().hex
         function, trigger = 'nawa_test_failure_' + suffix, 'nawa_test_trigger_' + suffix
         with TemporaryDirectory() as folder:
@@ -276,8 +305,8 @@ class PostgresIntakeTests(unittest.TestCase):
                          (issuer, subject, self.tenant, 'analyst'))
             conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                          (issuer, subject, self.other, 'viewer'))
-        analyst = Principal(identity_key, self.tenant, 'analyst')
-        viewer = Principal(identity_key, self.other, 'viewer')
+        analyst = make_principal(self.connect, identity_key, self.tenant, 'analyst')
+        viewer = make_principal(self.connect, identity_key, self.other, 'viewer')
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(self.connect, store)
@@ -334,7 +363,7 @@ class PostgresIntakeTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(uncertain_connection, store)
-            principal = Principal(identity_key, self.tenant, 'analyst')
+            principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
             with self.assertRaisesRegex(RuntimeError, 'after commit'):
                 service.submit(principal, 'x.txt', b'synthetic')
             stored = list(Path(folder).iterdir())
@@ -352,7 +381,7 @@ class PostgresIntakeTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(self.connect, store)
-            principal = Principal(identity_key, self.tenant, 'analyst')
+            principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
             document, _ = service.submit(principal, 'english.txt', content)
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
@@ -375,7 +404,7 @@ class PostgresIntakeTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(self.connect, store)
-            principal = Principal(identity_key, self.tenant, 'analyst')
+            principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
             first = None
             for index in range(MAX_DOCUMENTS_PER_TENANT - 1):
                 document, _ = service.submit(principal, f'{index}.txt', f'synthetic-{index}'.encode())
@@ -406,7 +435,7 @@ class PostgresIntakeTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(self.connect, store)
-            principal = Principal(identity_key, self.tenant, 'analyst')
+            principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
             first, _ = service.submit(principal, 'one.txt', b'A' * MAX_DOCUMENT_BYTES)
             service.submit(principal, 'two.txt', b'B' * MAX_DOCUMENT_BYTES)
             service.submit(principal, 'three.txt', b'C' * MAX_DOCUMENT_BYTES)
@@ -437,7 +466,7 @@ class PostgresIntakeTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(self.connect, store)
-            principal = Principal(identity_key, self.tenant, 'analyst')
+            principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
             document, _ = service.submit(principal, 'english.txt', content)
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
@@ -476,7 +505,7 @@ class PostgresIntakeTests(unittest.TestCase):
             conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
             conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                          (issuer, subject, self.tenant, 'analyst'))
-        principal = Principal(identity_key, self.tenant, 'analyst')
+        principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             compatible = ScopedIntake(self.connect, store)
@@ -521,8 +550,8 @@ class PostgresIntakeTests(unittest.TestCase):
                 conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
                 conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                              (issuer, subject, self.tenant, role))
-        analyst = Principal(json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
-        reviewer = Principal(json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
+        analyst = make_principal(self.connect, json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
+        reviewer = make_principal(self.connect, json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             intake = ScopedIntake(self.connect, store)
@@ -568,8 +597,8 @@ class PostgresIntakeTests(unittest.TestCase):
                 conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
                 conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                              (issuer, subject, self.tenant, role))
-        analyst = Principal(json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
-        reviewer = Principal(json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
+        analyst = make_principal(self.connect, json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
+        reviewer = make_principal(self.connect, json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             intake = ScopedIntake(self.connect, store)
@@ -609,8 +638,8 @@ class PostgresIntakeTests(unittest.TestCase):
                 conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
                 conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                              (issuer, subject, self.tenant, role))
-        analyst = Principal(json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
-        reviewer = Principal(json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
+        analyst = make_principal(self.connect, json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
+        reviewer = make_principal(self.connect, json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             intake = ScopedIntake(self.connect, store)
@@ -643,8 +672,8 @@ class PostgresIntakeTests(unittest.TestCase):
                 conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
                 conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                              (issuer, subject, self.tenant, role))
-        analyst = Principal(json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
-        reviewer = Principal(json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
+        analyst = make_principal(self.connect, json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
+        reviewer = make_principal(self.connect, json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
         pdf = pymupdf.open()
         pdf.new_page().insert_text((50, 60), 'Synthetic cover')
         page = pdf.new_page()
@@ -691,7 +720,7 @@ class PostgresIntakeTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             service = ScopedIntake(self.connect, store)
-            principal = Principal(identity_key, self.tenant, 'analyst')
+            principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
             document, _ = service.submit(principal, 'english.txt', content)
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
@@ -789,7 +818,7 @@ class PostgresIntakeTests(unittest.TestCase):
             conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
             conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                          (issuer, subject, self.tenant, 'analyst'))
-        principal = Principal(identity_key, self.tenant, 'analyst')
+        principal = make_principal(self.connect, identity_key, self.tenant, 'analyst')
         with TemporaryDirectory() as folder:
             service = build_synthetic_intake(self.connect, str(Path(folder).resolve()))
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
@@ -823,7 +852,7 @@ class PostgresIntakeTests(unittest.TestCase):
                 conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer,subject))
                 conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                              (issuer,subject,self.tenant,role))
-        principal = lambda role: Principal(json.dumps([issuer,subjects[role]], separators=(',',':')), self.tenant, role)
+        principal = lambda role: make_principal(self.connect, json.dumps([issuer,subjects[role]], separators=(',',':')), self.tenant, role)
         with TemporaryDirectory() as folder:
             root = Path(folder)
             store = LocalIntakeStore(root / 'source')
@@ -904,7 +933,7 @@ class PostgresIntakeTests(unittest.TestCase):
         connect = lambda: psycopg.connect(**params)
         issuer, tenant = 'https://synthetic-upgrade', 'tenant-upgrade'
         subjects = {'analyst':uuid4().hex, 'reviewer':uuid4().hex}
-        principal = lambda role: Principal(json.dumps([issuer,subjects[role]], separators=(',',':')), tenant, role)
+        principal = lambda role: make_principal(connect, json.dumps([issuer,subjects[role]], separators=(',',':')), tenant, role)
         with TemporaryDirectory() as folder:
             root = Path(folder)
             old_migrations = root / 'old-migrations'
@@ -1001,8 +1030,8 @@ class PostgresIntakeTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes() + b'\n# qa-test\n'
-            analyst = Principal(json.dumps(['https://snapshot','snapshot-analyst'], separators=(',',':')), 'tenant-a', 'analyst')
-            reviewer = Principal(json.dumps(['https://snapshot','snapshot-reviewer'], separators=(',',':')), 'tenant-a', 'reviewer')
+            analyst = make_principal(self.connect, json.dumps(['https://snapshot','snapshot-analyst'], separators=(',',':')), 'tenant-a', 'analyst')
+            reviewer = make_principal(self.connect, json.dumps(['https://snapshot','snapshot-reviewer'], separators=(',',':')), 'tenant-a', 'reviewer')
             intake = ScopedIntake(self.connect, store)
             doc, _ = intake.submit(analyst, 'synthetic.txt', content)
             self.assertEqual(process_one(self.jobs, store, 'tenant-a'), 'completed')
@@ -1017,3 +1046,4 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
+
