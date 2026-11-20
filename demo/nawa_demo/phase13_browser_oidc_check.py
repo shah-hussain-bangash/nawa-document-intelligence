@@ -132,6 +132,13 @@ def browser_tenant_isolation(browser, analyst_page, other_user):
             result = browser_api(page, '/api/review/correct', correction)
             if result['status'] != 200 or result['body'].get('revision') != 2:
                 raise AssertionError('Browser tenant own correction failed')
+        for index, page in enumerate(pages):
+            own = browser_api(page, '/api/compare', {'ids':[ids[index], reviews[index]]})
+            if own['status'] != 200 or {q['id'] for q in own['body']['quotations']} != {ids[index], reviews[index]}:
+                raise AssertionError('Browser own-tenant comparison failed')
+            foreign = browser_api(page, '/api/compare', {'ids':[ids[index], reviews[1-index]]})
+            if foreign['status'] != 400 or foreign['body'] != {'error':'Invalid or unavailable request'}:
+                raise AssertionError('Browser cross-tenant comparison was not safely denied')
     finally:
         other.close()
 
@@ -348,7 +355,7 @@ def main():
                 analyst.close()
         finally:
             browser.close()
-    print('PASS: trusted synthetic browser sign-in, two-tenant read and correction isolation, TXT and PDF review, roles and logout replay checks.')
+    print('PASS: trusted synthetic browser sign-in, two-tenant read, correction and comparison isolation, TXT and PDF review, roles and logout replay checks.')
 
 
 if __name__ == '__main__':
