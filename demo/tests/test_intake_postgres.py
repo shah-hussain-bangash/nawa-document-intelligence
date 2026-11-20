@@ -513,6 +513,53 @@ class PostgresIntakeTests(unittest.TestCase):
                 self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
                                               (self.tenant,)).fetchone()[0], 2)
 
+    def test_required_correction_source_validates_replays_and_rejects_tampering(self):
+        issuer = 'https://synthetic-issuer'
+        analyst_subject, reviewer_subject = uuid4().hex, uuid4().hex
+        with self.connect() as conn:
+            for subject, role in ((analyst_subject, 'analyst'), (reviewer_subject, 'reviewer')):
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, self.tenant, role))
+        analyst = Principal(json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
+        reviewer = Principal(json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            intake = ScopedIntake(self.connect, store)
+            state = ScopedState(self.connect, correction_source_policy='require_intake_txt', correction_source_store=store)
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            content = content.replace(b'Grand Total: 1050.00', b'Grand Total: 1051.00')
+            document, _ = intake.submit(analyst, 'source.txt', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            item = intake.promote(analyst, document)['id']
+            second = state.add_sample(analyst, 'arabic_quote.txt')['id']
+            state.review_start(analyst, item)
+            payload = {'id':item, 'field':'total', 'value':'1050.00', 'reason':'Synthetic correction',
+                       'source':'source.txt', 'line':3, 'quote':'forged', 'expected_revision':1}
+            with self.assertRaisesRegex(ValueError, 'does not match source'):
+                state.review_correction(analyst, payload)
+            self.assertEqual(state.review_show(analyst, item)['revision'], 1)
+            payload['quote'] = 'Subtotal: 1000.00'
+            self.assertEqual(state.review_correction(analyst, payload)['revision'], 2)
+            source = Path(folder) / document
+            source.write_bytes(b'tampered')
+            decision = {'id':item, 'decision':'approve', 'reason':'Synthetic review', 'expected_revision':2}
+            with self.assertRaisesRegex(ValueError, 'integrity'):
+                state.review_decision(reviewer, decision)
+            self.assertEqual(state.review_show(analyst, item)['revision'], 2)
+            source.write_bytes(content)
+            self.assertEqual(state.review_decision(reviewer, decision)['status'], 'approved')
+            self.assertEqual(state.compare(analyst, [item, second])['quotations'][0]['total'], '1050.00')
+            source.write_bytes(b'tampered after approval')
+            with self.assertRaisesRegex(ValueError, 'integrity'):
+                state.compare(analyst, [item, second])
+            state.review_start(analyst, second)
+            with self.assertRaisesRegex(ValueError, 'source unavailable'):
+                state.review_correction(analyst, {'id':second, 'field':'total', 'value':'946.00',
+                    'reason':'Synthetic test', 'source':'arabic_quote.txt', 'line':6,
+                    'quote':'الإجمالي شامل الضريبة: ٩٤٥٫٠٠', 'expected_revision':1})
+            self.assertEqual(state.review_show(analyst, second)['revision'], 1)
+
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))

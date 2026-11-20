@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from .authorization import Principal, authorized
 from .core import extract
+from .correction_source_check import load_intake_text, verify_line
 from .dashboard import ALLOWED_SAMPLES, SAMPLES, DashboardState, _public_quote
 from .identity_repository import membership_by_key
 from .review import FIELDS, begin, correct, decide, inspect
@@ -25,9 +26,19 @@ class ReviewNotInitialized(ValueError):
     pass
 
 
+def validate_correction_source_policy(value):
+    if value not in ('legacy_asserted', 'require_intake_txt'):
+        raise ValueError('Invalid synthetic correction source policy')
+    return value
+
+
 class ScopedState:
-    def __init__(self, connect):
+    def __init__(self, connect, *, correction_source_policy='legacy_asserted', correction_source_store=None):
         self._connect = connect
+        self.correction_source_policy = validate_correction_source_policy(correction_source_policy)
+        if self.correction_source_policy == 'require_intake_txt' and correction_source_store is None:
+            raise ValueError('Synthetic correction source store required')
+        self.correction_source_store = correction_source_store
 
     @staticmethod
     def _require(principal, action):
@@ -131,9 +142,17 @@ class ScopedState:
         if state['status'] != 'approved':
             return {**quote, 'comparison':{'basis':state['status'], 'eligible':False,
                                            'review_revision':state['revision']}}
+        self._verify_corrections(conn, principal, item_id, quote, row[1])
         return {**quote, **state['fields'],
                 'checks':{key:state['checks'][key] for key in ('vat_matches_rate', 'total_matches_components')},
                 'comparison':{'basis':'approved_review', 'eligible':True, 'review_revision':state['revision']}}
+
+    def _verify_corrections(self, conn, principal, item_id, quote, ledger):
+        corrections = [event['data']['evidence'] for event in ledger['events'] if event['type'] == 'correction']
+        if self.correction_source_policy == 'require_intake_txt' and corrections:
+            filename, lines = load_intake_text(conn, principal, item_id, quote, self.correction_source_store)
+            for evidence in corrections:
+                verify_line(evidence['source'], evidence['line'], evidence['quote'], filename, lines)
 
     def review_start(self, principal, item_id):
         self._require(principal, 'review_start')
@@ -165,7 +184,7 @@ class ScopedState:
         item_id = payload.get('id')
         with self._connect() as conn:
             self._recheck(conn, principal, action)
-            self._quote(conn, principal, item_id, lock=True)
+            original = self._quote(conn, principal, item_id, lock=True)
             row = conn.execute('SELECT revision, ledger FROM nawa_reviews WHERE quotation_id = %s FOR UPDATE',
                                (item_id,)).fetchone()
             if row is None:
@@ -174,9 +193,15 @@ class ScopedState:
                 raise ValueError('Review revision mismatch')
             actor = 'oidc:' + hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
             if action == 'decide':
+                if payload.get('decision') == 'approve':
+                    self._verify_corrections(conn, principal, item_id, original, row[1])
                 updated = decide(row[1], actor=actor, decision=payload.get('decision'),
                                  reason=payload.get('reason'), expected_revision=payload.get('expected_revision'))
             else:
+                if self.correction_source_policy == 'require_intake_txt':
+                    filename, lines = load_intake_text(conn, principal, item_id, original,
+                                                       self.correction_source_store)
+                    verify_line(payload.get('source'), payload.get('line'), payload.get('quote'), filename, lines)
                 updated = correct(row[1], actor=actor, field=payload.get('field'),
                                   value=payload.get('value'), reason=payload.get('reason'),
                                   source=payload.get('source'), line=payload.get('line'),
