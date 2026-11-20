@@ -44,6 +44,15 @@ visual page or semantic verification. Other PDF hashes, scanned PDFs, missing
 sources and changed files are rejected. This narrow fixture support does not
 provide general PDF correction verification.
 
+The separate opt-in `require_intake_text_layer` policy also accepts newly
+generated synthetic PDFs with a readable text layer. It uses the intake
+extractor in a subprocess, limits input to 4 MiB, 50 pages and 1 MiB of
+extracted text, and applies a 20-second timeout. Invalid, encrypted, empty
+or unsupported documents fail closed. It does not perform OCR. Resource
+limits are not a security sandbox, and this experiment is not approved for
+real documents or production use. The disposable browser QA stack selects
+this policy; the default policy is unchanged.
+
 This check establishes only that a cited line matched the retained source at
 the time of the check. It does not prove that the correction follows from that
 line, verify worker identity, make file access atomic against a malicious

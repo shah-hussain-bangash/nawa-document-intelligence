@@ -129,9 +129,9 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     ).wait_for(state='visible', timeout=15000)
 
 
-def synthetic_pdf_review_journey(analyst_page, reviewer_page, *, sample_name, filename, global_line, page):
-    """Exercise a pinned PDF source check in the browser."""
-    sample = (Path('demo/samples/pdf') / sample_name).read_bytes()
+def synthetic_pdf_review_journey(analyst_page, reviewer_page, *, filename, global_line, page, sample_name=None, sample_bytes=None):
+    """Exercise a synthetic PDF source check in the browser."""
+    sample = sample_bytes if sample_bytes is not None else (Path('demo/samples/pdf') / sample_name).read_bytes()
     analyst_page.locator('#intakeFiles').set_input_files({'name':filename, 'mimeType':'application/pdf', 'buffer':sample})
     analyst_page.locator('#intakeSubmit').click()
     result = analyst_page.locator('#intakeResults .row').filter(has_text=filename).first
@@ -214,6 +214,23 @@ def main():
                 analyst_page.locator('#comparison').get_by_text(
                     'Example Page Two Supplies — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
                     exact=True).wait_for(state='visible', timeout=15000)
+                import pymupdf
+                document = pymupdf.open()
+                document.new_page().insert_text((50, 60), 'Synthetic cover')
+                sheet = document.new_page()
+                for index, line in enumerate(('Supplier: Browser New Supplier', 'Currency: AED',
+                        'Subtotal: 900.00', 'VAT Rate: 5', 'VAT Amount: 45.00', 'Grand Total: 945.00')):
+                    sheet.insert_text((50, 60 + index * 25), line)
+                generated_pdf = document.tobytes()
+                document.close()
+                synthetic_pdf_review_journey(analyst_page, reviewer_page,
+                    sample_bytes=generated_pdf, filename='browser-new-synthetic.pdf', global_line=7, page=2)
+                analyst_page.get_by_role('checkbox', name='Compare browser-new-synthetic.pdf').check()
+                analyst_page.get_by_role('checkbox', name='Compare arabic_quote.txt').check()
+                analyst_page.locator('#compareBtn').click()
+                analyst_page.locator('#comparison').get_by_text(
+                    'Browser New Supplier — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
+                    exact=True).wait_for(state='visible', timeout=15000)
                 # Logout invalidates the server-side session, including a replayed cookie.
                 old = next(cookie for cookie in analyst.cookies() if cookie['name'] == 'nawa_session')
                 status = analyst_page.evaluate('''async () => {
@@ -239,7 +256,7 @@ def main():
                 analyst.close()
         finally:
             browser.close()
-    print('PASS: trusted synthetic browser sign-in, TXT and pinned PDF review, roles and logout replay checks.')
+    print('PASS: trusted synthetic browser sign-in, TXT and PDF review, roles and logout replay checks.')
 
 
 if __name__ == '__main__':

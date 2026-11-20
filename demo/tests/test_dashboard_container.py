@@ -32,7 +32,7 @@ class DockerEntrypointTests(unittest.TestCase):
                 dashboard_container.serve()
 
     def test_correction_source_policy_fails_closed_before_database_connection(self):
-        for mode in ('typo', 'require_intake_txt', 'require_intake_fixture'):
+        for mode in ('typo', 'require_intake_txt', 'require_intake_fixture', 'require_intake_text_layer'):
             with self.subTest(mode=mode):
                 settings = {'NAWA_INTAKE':'off', 'NAWA_AUTH':'oidc', 'NAWA_STORAGE':'postgres',
                             'NAWA_SYNTHETIC_CORRECTION_SOURCE':mode}

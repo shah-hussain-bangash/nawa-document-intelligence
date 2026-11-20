@@ -634,6 +634,53 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertEqual(compared['total'], '945')
             self.assertEqual(compared['comparison']['source_checks'], [expected])
 
+    def test_opt_in_text_layer_correction_for_new_synthetic_pdf(self):
+        import pymupdf
+        issuer = 'https://synthetic-issuer'
+        analyst_subject, reviewer_subject = uuid4().hex, uuid4().hex
+        with self.connect() as conn:
+            for subject, role in ((analyst_subject, 'analyst'), (reviewer_subject, 'reviewer')):
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, self.tenant, role))
+        analyst = Principal(json.dumps([issuer, analyst_subject], separators=(',', ':')), self.tenant, 'analyst')
+        reviewer = Principal(json.dumps([issuer, reviewer_subject], separators=(',', ':')), self.tenant, 'reviewer')
+        pdf = pymupdf.open()
+        pdf.new_page().insert_text((50, 60), 'Synthetic cover')
+        page = pdf.new_page()
+        for index, line in enumerate(('Supplier: Synthetic New Supplier', 'Currency: AED', 'Subtotal: 300.00',
+                                      'VAT Rate: 5', 'VAT Amount: 15.00', 'Grand Total: 315.00')):
+            page.insert_text((50, 60 + index * 25), line)
+        content = pdf.tobytes()
+        pdf.close()
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            intake = ScopedIntake(self.connect, store)
+            state = ScopedState(self.connect, correction_source_policy='require_intake_text_layer', correction_source_store=store)
+            fixtures_only = ScopedState(self.connect, correction_source_policy='require_intake_fixture', correction_source_store=store)
+            document, _ = intake.submit(analyst, 'new-synthetic.pdf', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            item = intake.promote(analyst, document)['id']
+            other = state.add_sample(analyst, 'english_quote.txt')['id']
+            state.review_start(analyst, item)
+            correction = {'id':item, 'field':'total', 'value':'315', 'reason':'Synthetic format correction',
+                          'source':'new-synthetic.pdf', 'line':7, 'quote':'Grand Total: 315.00', 'expected_revision':1}
+            with self.assertRaises(ValueError):
+                fixtures_only.review_correction(analyst, correction)
+            incorrect = dict(correction, line=6)
+            with self.assertRaises(ValueError):
+                state.review_correction(analyst, incorrect)
+            location = {'kind':'pdf_text_layer', 'global_line':7, 'page':2, 'page_line':6}
+            self.assertEqual(state.review_correction(analyst, correction)['source_checks'], [location])
+            decision = {'id':item, 'decision':'approve', 'reason':'Synthetic review', 'expected_revision':2}
+            self.assertEqual(state.review_decision(reviewer, decision)['source_checks'], [location])
+            compared = state.compare(analyst, [item, other])['quotations'][0]
+            self.assertEqual(compared['total'], '315')
+            self.assertEqual(compared['comparison']['source_checks'], [location])
+            (Path(folder) / document).write_bytes(b'changed synthetic source')
+            with self.assertRaisesRegex(ValueError, 'integrity'):
+                state.compare(analyst, [item, other])
+
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))

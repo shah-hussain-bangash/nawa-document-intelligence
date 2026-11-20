@@ -27,7 +27,7 @@ class ReviewNotInitialized(ValueError):
 
 
 def validate_correction_source_policy(value):
-    if value not in ('legacy_asserted', 'require_intake_txt', 'require_intake_fixture'):
+    if value not in ('legacy_asserted', 'require_intake_txt', 'require_intake_fixture', 'require_intake_text_layer'):
         raise ValueError('Invalid synthetic correction source policy')
     return value
 
@@ -154,7 +154,8 @@ class ScopedState:
         corrections = [event['data']['evidence'] for event in ledger['events'] if event['type'] == 'correction']
         if self.correction_source_policy != 'legacy_asserted' and corrections:
             filename, lines = load_intake_text(conn, principal, item_id, quote, self.correction_source_store,
-                allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture')
+                allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture',
+                allow_strict_text_layer=self.correction_source_policy == 'require_intake_text_layer')
             return [verify_line(evidence['source'], evidence['line'], evidence['quote'], filename, lines)
                     for evidence in corrections]
         return []
@@ -207,7 +208,8 @@ class ScopedState:
                 if self.correction_source_policy != 'legacy_asserted':
                     filename, lines = load_intake_text(conn, principal, item_id, original,
                         self.correction_source_store,
-                        allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture')
+                        allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture',
+                        allow_strict_text_layer=self.correction_source_policy == 'require_intake_text_layer')
                     source_checks = [verify_line(payload.get('source'), payload.get('line'), payload.get('quote'), filename, lines)]
                 updated = correct(row[1], actor=actor, field=payload.get('field'),
                                   value=payload.get('value'), reason=payload.get('reason'),

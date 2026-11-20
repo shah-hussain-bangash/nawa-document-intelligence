@@ -1,4 +1,5 @@
-"""Extract raw lines from two pinned synthetic PDFs; never run OCR."""
+"""Extract raw lines from synthetic PDF text layers; never run OCR."""
+import argparse
 import hashlib
 import json
 import sys
@@ -15,10 +16,14 @@ MAX_TEXT = 1024 * 1024
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--strict-text-layer', action='store_true')
+    args = parser.parse_args()
     apply_parser_limits()
     content = sys.stdin.buffer.read(MAX_PDF + 1)
     digest = hashlib.sha256(content).hexdigest()
-    if len(content) > MAX_PDF or (digest != ARABIC_SHA256 and digest not in MULTIPAGE_SHA256):
+    if (len(content) > MAX_PDF or (digest != ARABIC_SHA256
+            and digest not in MULTIPAGE_SHA256 and not args.strict_text_layer)):
         raise ValueError('Unsupported synthetic PDF fixture')
     if digest == ARABIC_SHA256:
         import pymupdf
@@ -29,9 +34,19 @@ def main():
     else:
         from .intake_pdf import open_pdf
         document = open_pdf(content)
-        if document.is_encrypted or len(document.pages) != 2:
+        count = len(document.pages)
+        if document.is_encrypted or not 1 <= count <= 50:
             raise ValueError('Unsupported synthetic PDF structure')
-        pages = [page.extract_text() or '' for page in document.pages]
+        if digest in MULTIPAGE_SHA256 and count != 2:
+            raise ValueError('Unsupported synthetic PDF structure')
+        pages = []
+        total = 0
+        for page in document.pages:
+            text = page.extract_text() or ''
+            total += len(text.encode('utf-8'))
+            if total > MAX_TEXT:
+                raise ValueError('Synthetic PDF text exceeds limit')
+            pages.append(text)
     if not any(page.strip() for page in pages) or sum(len(page.encode('utf-8')) for page in pages) > MAX_TEXT:
         raise ValueError('Synthetic PDF text unavailable')
     lines = [{'text':line, 'page':page_number, 'page_line':line_number}

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 from pathlib import Path
 import subprocess
+import pymupdf
 
 from nawa_demo.authorization import Principal
 from nawa_demo.correction_source_check import load_intake_text, verify_line
@@ -99,6 +100,33 @@ class CorrectionSourceCheckTests(unittest.TestCase):
             with self.assertRaises(ValueError) as caught:
                 fixture_pdf_lines(source.read_bytes())
         self.assertNotIn('sensitive parser detail', str(caught.exception))
+
+    def test_opt_in_checks_unlisted_synthetic_text_layer_with_page_location(self):
+        document = pymupdf.open()
+        document.new_page().insert_text((50, 60), 'Synthetic cover page')
+        document.new_page().insert_text((50, 60), 'Grand Total: 315.00')
+        content = document.tobytes()
+        document.close()
+        self.conn.execute.return_value.fetchone.return_value = (self.document, 'synthetic.pdf', 'a' * 64)
+        self.store.read_verified.return_value = content
+        with self.assertRaises(ValueError):
+            load_intake_text(self.conn, self.principal, 'q1', {'document':'synthetic.pdf'},
+                             self.store, allow_fixture_pdf=True)
+        filename, lines = load_intake_text(self.conn, self.principal, 'q1', {'document':'synthetic.pdf'},
+                                          self.store, allow_strict_text_layer=True)
+        self.assertEqual(verify_line(filename, 2, 'Grand Total: 315.00', filename, lines),
+                         {'kind':'pdf_text_layer', 'global_line':2, 'page':2, 'page_line':1})
+
+    def test_opt_in_rejects_blank_encrypted_and_invalid_pdf(self):
+        from nawa_demo.correction_source_check import fixture_pdf_lines
+        document = pymupdf.open()
+        document.new_page()
+        blank = document.tobytes()
+        encrypted = document.tobytes(encryption=pymupdf.PDF_ENCRYPT_AES_256, user_pw='synthetic-test')
+        document.close()
+        for value in (blank, encrypted, b'not a PDF'):
+            with self.subTest(size=len(value)), self.assertRaises(ValueError):
+                fixture_pdf_lines(value, allow_strict_text_layer=True)
 
 
 if __name__ == '__main__':

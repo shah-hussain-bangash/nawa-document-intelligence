@@ -14,13 +14,17 @@ PDF_FIXTURE_SHA256 = frozenset({
 MAX_LINE_JSON = 2 * 1024 * 1024
 
 
-def fixture_pdf_lines(content):
-    """Re-extract pinned synthetic fixtures in a limited subprocess."""
-    if not isinstance(content, bytes) or hashlib.sha256(content).hexdigest() not in PDF_FIXTURE_SHA256:
+def fixture_pdf_lines(content, *, allow_strict_text_layer=False):
+    """Re-extract a synthetic text layer in a limited subprocess, never OCR."""
+    if (not isinstance(content, bytes) or len(content) > 4 * 1024 * 1024 or
+            (hashlib.sha256(content).hexdigest() not in PDF_FIXTURE_SHA256 and not allow_strict_text_layer)):
         raise ValueError('Unsupported synthetic PDF correction source')
     try:
         with tempfile.TemporaryFile() as output:
-            subprocess.run([sys.executable, '-m', 'nawa_demo.synthetic_pdf_source_lines'],
+            command = [sys.executable, '-m', 'nawa_demo.synthetic_pdf_source_lines']
+            if allow_strict_text_layer:
+                command.append('--strict-text-layer')
+            subprocess.run(command,
                            input=content, stdout=output, stderr=subprocess.DEVNULL, check=True, timeout=20)
             output.seek(0)
             raw = output.read(MAX_LINE_JSON + 1)
@@ -29,7 +33,7 @@ def fixture_pdf_lines(content):
         lines = json.loads(raw.decode('utf-8'))
         if (not isinstance(lines, list) or not lines or not all(
                 isinstance(line, dict) and set(line) == {'text', 'page', 'page_line'}
-                and isinstance(line['text'], str) and type(line['page']) is int and 1 <= line['page'] <= 2
+                and isinstance(line['text'], str) and type(line['page']) is int and 1 <= line['page'] <= 50
                 and type(line['page_line']) is int and line['page_line'] >= 1 for line in lines)):
             raise ValueError('Invalid synthetic PDF lines')
         return lines
@@ -37,7 +41,8 @@ def fixture_pdf_lines(content):
         raise ValueError('Synthetic PDF correction source unavailable') from None
 
 
-def load_intake_text(conn, principal, quotation_id, quotation, store, *, allow_fixture_pdf=False):
+def load_intake_text(conn, principal, quotation_id, quotation, store, *, allow_fixture_pdf=False,
+                     allow_strict_text_layer=False):
     """Read the tenant's promoted source with its stored digest; fail closed."""
     if store is None:
         raise ValueError('Synthetic correction source unavailable')
@@ -51,11 +56,11 @@ def load_intake_text(conn, principal, quotation_id, quotation, store, *, allow_f
     if not isinstance(filename, str) or quotation.get('document') != filename:
         raise ValueError('Synthetic correction source required')
     suffix = PurePosixPath(filename).suffix.lower()
-    if suffix != '.txt' and not (allow_fixture_pdf and suffix == '.pdf'):
+    if suffix != '.txt' and not ((allow_fixture_pdf or allow_strict_text_layer) and suffix == '.pdf'):
         raise ValueError('Supported synthetic correction source required')
     content = store.read_verified(document_id.hex, digest.strip())
     if suffix == '.pdf':
-        return filename, fixture_pdf_lines(content)
+        return filename, fixture_pdf_lines(content, allow_strict_text_layer=allow_strict_text_layer)
     try:
         return filename, content.decode('utf-8').splitlines()
     except UnicodeDecodeError:
