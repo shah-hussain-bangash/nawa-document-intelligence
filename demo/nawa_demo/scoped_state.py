@@ -27,7 +27,7 @@ class ReviewNotInitialized(ValueError):
 
 
 def validate_correction_source_policy(value):
-    if value not in ('legacy_asserted', 'require_intake_txt'):
+    if value not in ('legacy_asserted', 'require_intake_txt', 'require_intake_fixture'):
         raise ValueError('Invalid synthetic correction source policy')
     return value
 
@@ -36,7 +36,7 @@ class ScopedState:
     def __init__(self, connect, *, correction_source_policy='legacy_asserted', correction_source_store=None):
         self._connect = connect
         self.correction_source_policy = validate_correction_source_policy(correction_source_policy)
-        if self.correction_source_policy == 'require_intake_txt' and correction_source_store is None:
+        if self.correction_source_policy != 'legacy_asserted' and correction_source_store is None:
             raise ValueError('Synthetic correction source store required')
         self.correction_source_store = correction_source_store
 
@@ -149,8 +149,9 @@ class ScopedState:
 
     def _verify_corrections(self, conn, principal, item_id, quote, ledger):
         corrections = [event['data']['evidence'] for event in ledger['events'] if event['type'] == 'correction']
-        if self.correction_source_policy == 'require_intake_txt' and corrections:
-            filename, lines = load_intake_text(conn, principal, item_id, quote, self.correction_source_store)
+        if self.correction_source_policy != 'legacy_asserted' and corrections:
+            filename, lines = load_intake_text(conn, principal, item_id, quote, self.correction_source_store,
+                allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture')
             for evidence in corrections:
                 verify_line(evidence['source'], evidence['line'], evidence['quote'], filename, lines)
 
@@ -198,9 +199,10 @@ class ScopedState:
                 updated = decide(row[1], actor=actor, decision=payload.get('decision'),
                                  reason=payload.get('reason'), expected_revision=payload.get('expected_revision'))
             else:
-                if self.correction_source_policy == 'require_intake_txt':
+                if self.correction_source_policy != 'legacy_asserted':
                     filename, lines = load_intake_text(conn, principal, item_id, original,
-                                                       self.correction_source_store)
+                        self.correction_source_store,
+                        allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture')
                     verify_line(payload.get('source'), payload.get('line'), payload.get('quote'), filename, lines)
                 updated = correct(row[1], actor=actor, field=payload.get('field'),
                                   value=payload.get('value'), reason=payload.get('reason'),

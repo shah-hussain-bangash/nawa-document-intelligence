@@ -129,6 +129,49 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     ).wait_for(state='visible', timeout=15000)
 
 
+def synthetic_pdf_review_journey(analyst_page, reviewer_page):
+    """Exercise the pinned one-page PDF source check in the browser."""
+    sample = Path('demo/samples/pdf/arabic_text_supplier.pdf').read_bytes()
+    filename = 'browser-synthetic-arabic.pdf'
+    analyst_page.locator('#intakeFiles').set_input_files({'name':filename, 'mimeType':'application/pdf', 'buffer':sample})
+    analyst_page.locator('#intakeSubmit').click()
+    result = analyst_page.locator('#intakeResults .row').filter(has_text=filename).first
+    result.wait_for(state='visible', timeout=15000)
+    match = re.search(r'ID: ([0-9a-f]{32})', result.inner_text())
+    if not match:
+        raise AssertionError('Synthetic PDF intake did not return a document ID')
+    document_id = match.group(1)
+    analyst_page.locator('#intakeRefresh').click()
+    row = analyst_page.locator('#intakeJobs .row').filter(has_text=document_id)
+    row.wait_for(state='visible', timeout=15000)
+    row.get_by_role('button', name='Use document').click()
+    for _ in range(60):
+        analyst_page.locator('#intakeCheck').click()
+        analyst_page.wait_for_timeout(500)
+        if 'completed' in analyst_page.locator('#intakeStatus').inner_text():
+            break
+        time.sleep(0.5)
+    else:
+        raise AssertionError('Synthetic PDF intake did not complete')
+    analyst_page.locator('#intakePromote').click()
+    analyst_page.locator('#items').get_by_text(filename).wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
+    analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#review select').select_option('total')
+    analyst_page.get_by_placeholder('Corrected value').fill('945')
+    analyst_page.get_by_placeholder('Reason for correction').fill('Synthetic format correction')
+    analyst_page.get_by_placeholder('Evidence line number').fill('6')
+    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('Grand Total: 945.00')
+    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
+    analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    reviewer_page.reload(wait_until='domcontentloaded')
+    reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked formatting')
+    reviewer_page.locator('#review').get_by_role('button', name='Approve', exact=True).click()
+    reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--expect-untrusted', action='store_true')
@@ -160,6 +203,7 @@ def main():
                 if status != 403:
                     raise AssertionError('Synthetic reviewer upload permission was not denied')
                 synthetic_review_journey(analyst_page, reviewer_page)
+                synthetic_pdf_review_journey(analyst_page, reviewer_page)
                 # Logout invalidates the server-side session, including a replayed cookie.
                 old = next(cookie for cookie in analyst.cookies() if cookie['name'] == 'nawa_session')
                 status = analyst_page.evaluate('''async () => {
@@ -185,7 +229,7 @@ def main():
                 analyst.close()
         finally:
             browser.close()
-    print('PASS: trusted synthetic browser sign-in, intake, correction, approval, roles and logout replay checks.')
+    print('PASS: trusted synthetic browser sign-in, TXT and pinned PDF review, roles and logout replay checks.')
 
 
 if __name__ == '__main__':

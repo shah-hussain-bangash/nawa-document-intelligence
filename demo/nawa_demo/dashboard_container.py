@@ -26,7 +26,7 @@ def serve():
     from .scoped_state import validate_correction_source_policy
     correction_policy = validate_correction_source_policy(
         os.environ.get('NAWA_SYNTHETIC_CORRECTION_SOURCE', 'legacy_asserted'))
-    if correction_policy == 'require_intake_txt' and intake_mode != 'synthetic':
+    if correction_policy != 'legacy_asserted' and intake_mode != 'synthetic':
         raise ValueError('Verified synthetic corrections require synthetic intake')
     origin_policy = None
     if intake_mode == 'synthetic':

@@ -26,8 +26,16 @@ document name, line number and full excerpt must match the source. The same
 check is repeated for prior correction events before approval and before using
 approved corrected values in comparison. Missing, altered, cross-tenant,
 unsupported PDF, or unretained sources fail closed. Existing records are not
-backfilled or deleted. The isolated Phase 13 QA stack opts into the policy;
-the default and running portal remain unchanged.
+backfilled or deleted. The default and running portal remain unchanged.
+
+For the disposable QA stack, `require_intake_fixture` extends the same check
+to one exact, hash-pinned, single-page synthetic Arabic/English PDF fixture.
+Its text layer is re-extracted in a resource-limited subprocess with OCR off.
+The cited global line and excerpt must exactly match the raw extracted line;
+Arabic PDF text can be visually reordered or encoded as presentation forms,
+so this is not a visual page or semantic verification. Any other PDF hash,
+scanned PDF, multi-page PDF, missing source or changed file is rejected in this
+mode. This narrow case does not add general PDF correction verification.
 
 This check establishes only that a cited line matched the retained source at
 the time of the check. It does not prove that the correction follows from that
