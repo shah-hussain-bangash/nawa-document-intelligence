@@ -4,6 +4,7 @@ Identity, access lists and lifecycle snapshots are test fixtures. The caller
 must supply trusted data; these helpers do not authenticate users.
 """
 import hashlib
+import re
 from compare_retrieval import cosine, rrf
 from lifecycle_fixture import eligible, recheck_results
 from retrieval import BM25Index
@@ -58,6 +59,10 @@ def retrieve_for_review(query, *, tenant, principal, load_snapshot, embed_fn, li
             if provenance is not None:
                 data = provenance[p.passage_id]
                 if (not isinstance(data, dict) or not {'document_id','source_sha256','page_line','text_representation'} <= data.keys()
+                        or not isinstance(data['document_id'], str) or not data['document_id'].strip()
+                        or not isinstance(data['source_sha256'], str)
+                        or re.fullmatch(r'[0-9a-f]{64}', data['source_sha256']) is None
+                        or type(data['page_line']) is not int or data['page_line'] < 1
                         or data['text_representation'] not in ('as_extracted','normalized')):
                     raise ValueError('Incomplete provenance')
                 citation.update({'source_document_id':data['document_id'],
@@ -70,4 +75,3 @@ def retrieve_for_review(query, *, tenant, principal, load_snapshot, embed_fn, li
                 'evidence':evidence}
     except (ValueError, TypeError, KeyError, OSError, TimeoutError):
         return {'status':'unavailable'}
-
