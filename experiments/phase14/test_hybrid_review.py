@@ -52,6 +52,14 @@ class HybridReviewTests(unittest.TestCase):
         result = retrieve_for_review('current', tenant='a', principal='analyst',
                                      load_snapshot=lambda:{'passages':self.passages,'lifecycle':self.snapshot}, embed_fn=failed)
         self.assertEqual(result, {'status':'unavailable'})
+
+    def test_invalid_embedding_does_not_return_evidence(self):
+        for value in (float('nan'), float('inf'), True, 10**400):
+            with self.subTest(value=value):
+                result = retrieve_for_review('current', tenant='a', principal='analyst',
+                    load_snapshot=lambda:{'passages':self.passages,'lifecycle':self.snapshot},
+                    embed_fn=lambda texts:[[value] for _ in texts])
+                self.assertEqual(result, {'status':'unavailable'})
         result = retrieve_for_review('current', tenant='a', principal='analyst',
                                      load_snapshot=lambda:{}, embed_fn=lambda _:[])
         self.assertEqual(result, {'status':'unavailable'})
