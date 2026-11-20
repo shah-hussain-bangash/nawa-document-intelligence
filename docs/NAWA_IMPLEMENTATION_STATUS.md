@@ -16,15 +16,15 @@ The following pull requests are drafts. They are based on each other, not all on
 
 | Draft | Current scope and outstanding work |
 | --- | --- |
-| [#2 Identity](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/2) | Local synthetic OIDC/session prototype. Browser-driven sign-in with a trusted certificate, two-user acceptance and production session/tenant design remain open. |
-| [#3 Intake](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/3) | Synthetic intake and worker prototype. Review migration/recovery evidence and demonstrate the protected browser-to-review path. |
+| [#2 Identity](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/2) | Local synthetic OIDC/session prototype. A browser-driven test on the stacked PR #5 revision [`9b70fa5`](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/commit/9b70fa549805c8754a0d9a95377a62e6a4444364) passed with a disposable CI-only CA and separate analyst/reviewer contexts; see [the synthetic demo run](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/44680650579). Company-trusted local/staging browser sign-in and production session/tenant design remain open. |
+| [#3 Intake](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/3) | Synthetic intake and worker prototype. The stacked CI test used browser login, intake, reviewer-asserted correction and approval. Comparison still reads original quotation values rather than approved corrections; correction evidence text is a reviewer assertion. Migration and recovery review remain open. |
 | [#4 Retrieval](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/4) | Offline retrieval and grounding experiments. Authenticated retrieval, source/version rechecks, abstention and independent evaluation remain open; experimental claim checks are not an approval control. |
 | [#5 OCR](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/5) | Review-only OCR experiments and an intake guard. On one saved synthetic sample the English baseline matched 6/6 fields and Arabic matched 2/6; neither is a representative accuracy estimate. At [`b306837`](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/commit/b30683795278bb635cf2a6a62579086826a7e2cd), the [Phase 15 synthetic checks](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/44532629531) passed. A reviewed bilingual holdout, financial-field gates and independently established worker origin remain open. |
 
 ## Priority open work
 
-1. Verify a real browser-driven synthetic identity flow with a trusted certificate and separate users, including logout and access revocation.
-2. Review PR dependencies and migrations, then demonstrate synthetic document intake through evidence-linked reviewer correction and isolated restore. Keep existing databases and uploads unchanged during testing.
+1. Validate local/staging identity with an approved certificate and separate users, including access revocation. The CI-only browser test covers synthetic sign-in and logout, not company trust or staging.
+2. Fix and verify comparison after approved corrections; separately verify correction evidence against source. Review PR dependencies and migrations and demonstrate isolated recovery. Keep existing databases and uploads unchanged during testing.
 3. Keep OCR and generated claims review-only. Create independently reviewed Arabic/English evaluation data; measure financial-field failures, retrieval authorization, stale sources and abstention before considering integration.
 4. Record an explicit trusted worker-origin design, staged deployment boundary, secret handling, privacy and recovery decisions before any production claim.
 
