@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import time
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
@@ -58,7 +59,27 @@ def browser_api(page, path, payload=None):
     }''', {'path':path, 'payload':payload})
 
 
-def browser_tenant_isolation(browser, analyst_page, reviewer_page, other_user):
+def set_synthetic_membership(subject, active):
+    """Change only the disposable CI fixture membership, never a real user."""
+    require_ci()
+    code = '''import os, sys, psycopg
+if (os.environ.get('NAWA_INTAKE') != 'synthetic' or os.environ.get('NAWA_AUTH') != 'oidc'
+        or not os.environ.get('POSTGRES_DB','').startswith('nawa_phase13_qa_')):
+    raise SystemExit(1)
+with psycopg.connect(host=os.environ['POSTGRES_HOST'], dbname=os.environ['POSTGRES_DB'],
+        user=os.environ['POSTGRES_USER'], password=os.environ['POSTGRES_PASSWORD'], connect_timeout=5) as conn:
+    result = conn.execute('UPDATE nawa_memberships SET active=%s WHERE issuer=%s AND subject=%s AND tenant_id=%s',
+                          (sys.argv[2] == 'active', sys.argv[3], sys.argv[1], 'tenant-a'))
+    if result.rowcount != 1:
+        raise ValueError('Synthetic membership unavailable')
+'''
+    subprocess.run(['docker', 'compose', '-p', 'nawa-phase13-ci', '-f', 'compose.phase13-qa.yaml',
+                    'exec', '-T', 'nawa', 'python', '-c', code, subject,
+                    'active' if active else 'inactive', ISSUER],
+                   check=True, capture_output=True, timeout=30)
+
+
+def browser_tenant_isolation(browser, analyst_page, reviewer_page, reviewer_user, other_user):
     """Check two independently authenticated synthetic browser contexts."""
     other, other_page = login(browser, other_user, app='http://127.0.0.1:19766', tenant='tenant-b', role='analyst')
     try:
@@ -155,6 +176,18 @@ def browser_tenant_isolation(browser, analyst_page, reviewer_page, other_user):
         result = browser_api(other_page, '/api/review/show', {'id':reviews[1]})
         if result['status'] != 200 or result['body'].get('status') != 'pending_review' or result['body'].get('revision') != 2:
             raise AssertionError('Browser other-tenant review changed unexpectedly')
+        # Revoke only the disposable reviewer's local membership. This does
+        # not test provider-side account revocation or a real identity system.
+        try:
+            set_synthetic_membership(reviewer_user['subject'], False)
+            if browser_api(reviewer_page, '/api/quotations')['status'] != 403:
+                raise AssertionError('Browser revoked reviewer retained access')
+            if any(browser_api(page, '/api/quotations')['status'] != 200 for page in pages):
+                raise AssertionError('Browser unrelated analyst session was affected')
+        finally:
+            set_synthetic_membership(reviewer_user['subject'], True)
+        if browser_api(reviewer_page, '/api/quotations')['status'] != 200:
+            raise AssertionError('Browser restored synthetic membership did not recover')
     finally:
         other.close()
 
@@ -345,7 +378,7 @@ def main():
                 analyst_page.locator('#comparison').get_by_text(
                     'Browser New Supplier — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
                     exact=True).wait_for(state='visible', timeout=15000)
-                browser_tenant_isolation(browser, analyst_page, reviewer_page, users['outsider'])
+                browser_tenant_isolation(browser, analyst_page, reviewer_page, users['reviewer'], users['outsider'])
                 # Logout invalidates the server-side session, including a replayed cookie.
                 old = next(cookie for cookie in analyst.cookies() if cookie['name'] == 'nawa_session')
                 status = analyst_page.evaluate('''async () => {
@@ -371,7 +404,7 @@ def main():
                 analyst.close()
         finally:
             browser.close()
-    print('PASS: trusted synthetic browser sign-in, two-tenant isolation and reviewer separation, TXT and PDF review, and logout replay checks.')
+    print('PASS: synthetic browser sign-in, two-tenant isolation, reviewer separation and membership revocation, TXT/PDF review, and logout replay checks.')
 
 
 if __name__ == '__main__':
