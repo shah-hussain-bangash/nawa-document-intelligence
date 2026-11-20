@@ -14,6 +14,30 @@ The system combines document processing, structured information extraction, evid
 
 ---
 
+## Try the synthetic text demo
+
+From the repository root with Python 3, compare two bundled synthetic quotes:
+
+```powershell
+python -m demo.nawa_demo demo/samples/english_quote.txt demo/samples/arabic_quote.txt
+```
+
+To see an invalid VAT calculation excluded from the price-only ranking:
+
+```powershell
+python -m demo.nawa_demo demo/samples/english_quote.txt demo/samples/incorrect_vat_quote.txt
+```
+
+The demo uses fixed-format UTF-8 text, deterministic AED/VAT checks and source-line evidence. It is not an OCR accuracy benchmark or a procurement award decision. See [demo setup and limitations](demo/README.md), [synthetic samples](demo/samples/) and the [local browser dashboard](demo/README_PHASE9.md).
+
+## Implementation and evidence status
+
+As checked on 20 November 2026, main includes the synthetic demo and optional Phase 11 PostgreSQL persistence. [Identity (PR #2)](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/2), [intake (PR #3)](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/3), [retrieval (PR #4)](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/4) and [review-only OCR (PR #5)](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/5) are stacked drafts, not features merged into main. See the [evidence and open-work register](docs/NAWA_IMPLEMENTATION_STATUS.md) for scope and exact revisions.
+
+The main commit [`823565f`](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/commit/823565f7c44c15b07719b91670fe8bbfb8d96521) passed [synthetic demo/PostgreSQL CI](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038065) and [Docker smoke CI](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038120). These checks do not establish production readiness or general OCR accuracy.
+
+---
+
 ## 1. Business Problem
 
 Supplier quotation reviews often involve scanned PDFs, mixed Arabic and English content, inconsistent document layouts, and manually checked financial information.
@@ -62,11 +86,6 @@ Supporting concerns include:
 - Cloud deployment and monitoring.
 
 See [System Architecture](docs/02-system-architecture/NAWA_System_Architecture.pdf) and [Architecture Decisions](docs/02-system-architecture/NAWA_Architecture_Decisions.pdf).
-
-
-![NAWA Conceptual System Architecture](docs/02-system-architecture/NAWA_Architecture_Diagram.png)
-
-*Conceptual design illustrating the intended bilingual document intelligence workflow. Individual capabilities require implementation and verification evidence.*
 
 
 ### NAWA Conceptual Architecture
@@ -253,13 +272,13 @@ A recorded walkthrough and reproducible setup instructions will be added after v
 |---|---|
 | Architecture and technical documentation | Available |
 | Business and software requirements | Available as drafts |
-| Source-code implementation | Not yet linked |
-| Reproducible automated test run | Not yet linked |
-| Bilingual OCR and extraction benchmark | Pending |
-| Retrieval and citation benchmark | Pending |
+| Source-code implementation | [Synthetic demo](demo/) available; later phases are drafts |
+| Reproducible automated test run | [Core tests](demo/tests/test_core.py) and [main CI](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038065) |
+| Bilingual OCR and extraction benchmark | Small synthetic experiments; independently reviewed evaluation pending |
+| Retrieval and citation benchmark | Synthetic experiment; independent evaluation pending |
 | Security verification report | Pending |
-| CI/CD execution evidence | Not yet linked |
-| Application screenshots and demo | Not yet linked |
+| CI/CD execution evidence | [Main demo CI](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038065); [Docker smoke](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038120) |
+| Application screenshots and demo | [Local synthetic dashboard](demo/README_PHASE9.md); recorded walkthrough pending |
 | Production readiness approval | Not established |
 
 This table describes evidence available through the public portfolio, not necessarily all work completed privately.
@@ -277,9 +296,7 @@ NAWA is developed around several enterprise engineering principles:
 
 ## 14. Project Limitations
 
-This repository currently emphasizes technical documentation.
-
-Public source code, independently reproducible test results, benchmark datasets, and deployment evidence are not yet linked here.
+The repository includes runnable synthetic demos and technical documentation. Independent evaluation datasets, a verified staging deployment, and production assurance remain open.
 
 Architecture specifications and production plans should be interpreted as engineering design documents unless accompanied by implementation and verification evidence.
 
@@ -288,16 +305,6 @@ Architecture specifications and production plans should be interpreted as engine
 **NAWA demonstrates the design and engineering approach for a bilingual enterprise document intelligence system, with ongoing work to strengthen reproducible implementation, evaluation, security, and operational evidence.**
 
 
-## Runnable synthetic quotation demo
-
-A small, reproducible Python demo demonstrates deterministic Arabic/English **text** field extraction, source-line evidence, VAT/total validation, and price-only quotation comparison using synthetic data.
-
-- [Demo setup and limitations](demo/README.md)
-- [Sample quotations](demo/samples/)
-- [Automated tests](demo/tests/test_core.py)
-- [GitHub Actions test workflow](.github/workflows/demo-tests.yml)
-
-**Scope:** This is not the full NAWA platform. The demo does not implement PDF OCR, LLM extraction, RAG, permission isolation or production infrastructure. Test results should not be interpreted as real-world OCR/extraction benchmarks.
 ## Synthetic PDF ingestion demonstration
 
 The [page-aware PDF demo](demo/README_PDF.md) extends the existing quotation parser to **selectable-text PDFs**. It uses PyMuPDF to extract text from each page, then reuses the existing deterministic financial validation and comparison code. Each field includes a page number and extracted-text line evidence. [Six PDF ingestion tests](demo/tests/test_pdf_ingest.py) are included, alongside small synthetic PDF fixtures.
