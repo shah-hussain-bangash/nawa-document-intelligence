@@ -23,6 +23,13 @@ class SessionDraftTests(unittest.TestCase):
         with self.assertRaises(SessionError):
             self.store.authorize(token, 'decide', tenant='tenant-a', csrf=csrf)
 
+    def test_invalid_session_capacity_and_clock_are_rejected(self):
+        for limit in (float('nan'), float('inf'), 0, -1, True, 1.5, '256'):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                SessionStore(lambda s, t: None, limit=limit)
+        with self.assertRaises(ValueError):
+            SessionStore(lambda s, t: None, clock=None)
+
     def test_membership_changes_and_revocation_take_effect(self):
         token = self.tokens['session']
         self.members[('issuer|subject','tenant-a')] = Principal('issuer|subject','tenant-a','viewer')
