@@ -29,7 +29,8 @@ class SessionError(ValueError):
 class SessionStore:
     def __init__(self, membership_lookup, *, ttl=300, limit=256, clock=time.monotonic):
         if (not callable(membership_lookup) or type(ttl) not in (int, float)
-                or not math.isfinite(ttl) or ttl <= 0 or ttl > 300 or limit <= 0):
+                or not math.isfinite(ttl) or ttl <= 0 or ttl > 300
+                or type(limit) is not int or limit <= 0 or not callable(clock)):
             raise ValueError('Invalid session configuration')
         self.lookup, self.ttl, self.limit, self.clock = membership_lookup, ttl, limit, clock
         self._sessions = {}
