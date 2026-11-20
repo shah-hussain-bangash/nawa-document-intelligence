@@ -23,6 +23,10 @@ def serve():
         raise ValueError('NAWA_INTAKE must be off or synthetic')
     if intake_mode == 'synthetic' and (auth_mode != 'oidc' or mode != 'postgres'):
         raise ValueError('Synthetic intake requires OIDC and PostgreSQL')
+    origin_policy = None
+    if intake_mode == 'synthetic':
+        from .intake_scoped import validate_origin_policy
+        origin_policy = validate_origin_policy(os.environ.get('NAWA_SYNTHETIC_ORIGIN_POLICY', 'legacy_compatible'))
     if mode == 'memory':
         state = DashboardState()
     elif mode == 'postgres':
@@ -78,7 +82,7 @@ def serve():
         intake = None
         if intake_mode == 'synthetic':
             from .intake_runtime import build_synthetic_intake
-            intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'))
+            intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'), origin_policy=origin_policy)
         handler = make_protected_handler(ScopedState(connect), sessions, state, flow=flow,
                                          allowed_origin=origin, intake=intake)
     else:
@@ -93,4 +97,3 @@ def serve():
 
 if __name__ == '__main__':
     serve()
-

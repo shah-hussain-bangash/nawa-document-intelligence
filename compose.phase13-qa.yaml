@@ -49,6 +49,7 @@ services:
       NAWA_STORAGE: postgres
       NAWA_AUTH: oidc
       NAWA_INTAKE: synthetic
+      NAWA_SYNTHETIC_ORIGIN_POLICY: require_recorded
       NAWA_INTAKE_DIR: /intake
       NAWA_TENANT_ID: tenant-a
       NAWA_WEB_ORIGIN: http://127.0.0.1:19765
@@ -83,6 +84,7 @@ services:
       NAWA_STORAGE: postgres
       NAWA_AUTH: oidc
       NAWA_INTAKE: synthetic
+      NAWA_SYNTHETIC_ORIGIN_POLICY: require_recorded
       NAWA_INTAKE_DIR: /intake
       NAWA_TENANT_ID: tenant-b
       NAWA_BIND_PORT: 8766
@@ -173,4 +175,3 @@ services:
 volumes:
   qa13_database:
   qa13_documents:
-

@@ -1,0 +1,414 @@
+{
+  "status": "human_review_required",
+  "scope": "Exploratory tuning on one synthetic image; no held-out evaluation.",
+  "variants": [
+    {
+      "scale": 2,
+      "language": "ara+eng",
+      "psm": 3,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.3869047619047619,
+      "wer": 0.46153846153846156,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه15‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "ara+eng",
+      "psm": 4,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.3869047619047619,
+      "wer": 0.46153846153846156,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه15‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "eng+ara",
+      "psm": 3,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.3869047619047619,
+      "wer": 0.46153846153846156,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه15‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "eng+ara",
+      "psm": 4,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.3869047619047619,
+      "wer": 0.46153846153846156,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه15‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "ara+eng",
+      "psm": 6,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.39285714285714285,
+      "wer": 0.46153846153846156,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: £0,606\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "eng+ara",
+      "psm": 6,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.39285714285714285,
+      "wer": 0.46153846153846156,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: £0,606\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara+eng",
+      "psm": 6,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.4642857142857143,
+      "wer": 0.5384615384615384,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: فدرمة4\r\nالإجمالي شامل الضريبة: ٠.٠,ه44‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "eng+ara",
+      "psm": 6,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.4642857142857143,
+      "wer": 0.5384615384615384,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n\r\nالمجموع الفرعي: فدرمة4\r\nالإجمالي شامل الضريبة: ٠.٠,ه44‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara+eng",
+      "psm": 3,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.47023809523809523,
+      "wer": 0.5384615384615384,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n‏المجموع الفرعي: ‎1.0,٠6٠‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ه814‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara+eng",
+      "psm": 4,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.47023809523809523,
+      "wer": 0.5384615384615384,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n‏المجموع الفرعي: ‎1.0,٠6٠‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ه814‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "eng+ara",
+      "psm": 3,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.47023809523809523,
+      "wer": 0.5384615384615384,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n‏المجموع الفرعي: ‎1.0,٠6٠‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ه814‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "eng+ara",
+      "psm": 4,
+      "fields_correct": 2,
+      "field_matches": {
+        "supplier": true,
+        "currency": true,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.47023809523809523,
+      "wer": 0.5384615384615384,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: ‎AED‏\r\n‏المجموع الفرعي: ‎1.0,٠6٠‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ه814‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "ara",
+      "psm": 3,
+      "fields_correct": 1,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.40476190476190477,
+      "wer": 0.5,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: اعم\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه15‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "ara",
+      "psm": 4,
+      "fields_correct": 1,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.40476190476190477,
+      "wer": 0.5,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: اعم\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه15‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "ara",
+      "psm": 6,
+      "fields_correct": 1,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.40476190476190477,
+      "wer": 0.5,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: اعم\r\n\r\nالمجموع الفرعي: درف .4\r\n\r\nقيمة الضريبة: ٠٠,ه6‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ه814‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara",
+      "psm": 6,
+      "fields_correct": 1,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.49404761904761907,
+      "wer": 0.6153846153846154,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: (] عم\r\n\r\nالمجموع الفرعي: فدرمة4\r\nالإجمالي شامل الضريبة: ٠.٠,ه44‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara",
+      "psm": 3,
+      "fields_correct": 1,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.5,
+      "wer": 0.6153846153846154,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: (] عم\r\nالمجموع الفرعي: ‎1.0,٠6٠‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ه814‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara",
+      "psm": 4,
+      "fields_correct": 1,
+      "field_matches": {
+        "supplier": true,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.5,
+      "wer": 0.6153846153846154,
+      "ocr_text_synthetic": "اسم المورد: شركة المثال للتوريدات\r\nالعملة: (] عم\r\nالمجموع الفرعي: ‎1.0,٠6٠‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ه814‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara",
+      "psm": 11,
+      "fields_correct": 0,
+      "field_matches": {
+        "supplier": false,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.5892857142857143,
+      "wer": 0.6923076923076923,
+      "ocr_text_synthetic": "العملة: ملاعم\r\n\r\nالمجموع الفرعي: ‎1٠0٠١0,٠6٠‏\r\n\r\nقيمة الضريبة: ددرةة\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه44‏\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "ara+eng",
+      "psm": 11,
+      "fields_correct": 0,
+      "field_matches": {
+        "supplier": false,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.6011904761904762,
+      "wer": 0.6923076923076923,
+      "ocr_text_synthetic": "AED ‏العملة:‎\r\n\r\nالمجموع الفرعي: ‎1٠0٠١0,٠6٠‏\r\n\r\nقيمة الضريبة: ‎LO,es‏\r\n\r\nالإجمالي شامل الضريبة: ٠.٠,ه44‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "ara",
+      "psm": 11,
+      "fields_correct": 0,
+      "field_matches": {
+        "supplier": false,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.6904761904761905,
+      "wer": 0.7692307692307693,
+      "ocr_text_synthetic": "العملة: اعم\r\n\r\nالمجموع الفرعي: ‎100,0٠‏\r\n\r\nالإجمالي شامل الضريبة: ٠.,ره84‏\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "eng+ara",
+      "psm": 11,
+      "fields_correct": 0,
+      "field_matches": {
+        "supplier": false,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.7023809523809523,
+      "wer": 0.7692307692307693,
+      "ocr_text_synthetic": "AED ‏العملة:‎\r\n\r\nالمجموع الفرعي: ‎100,0٠‏\r\n\r\nالإجمالي شامل الضريبة: 4£0,06\r\n"
+    },
+    {
+      "scale": 2,
+      "language": "ara+eng",
+      "psm": 11,
+      "fields_correct": 0,
+      "field_matches": {
+        "supplier": false,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.7083333333333334,
+      "wer": 0.7692307692307693,
+      "ocr_text_synthetic": "AED ‏العملة:‎\r\n\r\nالمجموع الفرعي: ‎Lessee‏\r\n\r\nالإجمالي شامل الضريبة: 4£0,06\r\n"
+    },
+    {
+      "scale": 1,
+      "language": "eng+ara",
+      "psm": 11,
+      "fields_correct": 0,
+      "field_matches": {
+        "supplier": false,
+        "currency": false,
+        "subtotal": false,
+        "vat_rate": false,
+        "vat_amount": false,
+        "total": false
+      },
+      "cer": 0.7202380952380952,
+      "wer": 0.8076923076923077,
+      "ocr_text_synthetic": "AED ‏العملة:‎\r\n\r\nVes ses ‏المجموع الفرعي:‎\r\n\r\nالإجمالي شامل الضريبة: £0,040\r\n"
+    }
+  ]
+}

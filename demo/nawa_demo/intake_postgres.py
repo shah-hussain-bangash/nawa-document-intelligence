@@ -82,16 +82,19 @@ class PostgresIntakeJobs:
             raise ValueError('Failed jobs cannot contain a result')
         if not 1 <= max_attempts <= 3:
             raise ValueError('Invalid attempt limit')
+        origin = result.get('extraction_origin') if success else None
+        if origin is not None and origin != 'synthetic_text_worker_v1':
+            raise ValueError('Unknown synthetic worker origin')
         token_hash = hashlib.sha256(token.encode('ascii')).hexdigest()
         data = json.dumps(result, ensure_ascii=False, allow_nan=False) if success else None
         with self.connect() as conn:
             with conn.cursor() as cur:
                 cur.execute('''UPDATE nawa_intake_jobs SET
                     state=CASE WHEN %s THEN 'completed' WHEN attempts>=%s THEN 'failed' ELSE 'retry-pending' END,
-                    result=%s::jsonb,claim_token_hash=NULL,lease_until=NULL,updated_at=now()
+                    result=%s::jsonb,result_origin=%s,claim_token_hash=NULL,lease_until=NULL,updated_at=now()
                     WHERE id=%s AND tenant_id=%s AND state='processing' AND claim_token_hash=%s
                     AND lease_until>now() RETURNING state''',
-                    (success, max_attempts, data, UUID(job_id), tenant, token_hash))
+                    (success, max_attempts, data, origin, UUID(job_id), tenant, token_hash))
                 row = cur.fetchone()
                 if row is None:
                     raise ValueError('Job claim is unavailable or expired')
@@ -168,4 +171,3 @@ class PostgresIntakeJobs:
                 cur.execute('''SELECT version,document_id FROM nawa_intake_versions
                     WHERE tenant_id=%s AND family_id=%s ORDER BY version''', (tenant, UUID(family_id)))
                 return [(row[0], row[1].hex) for row in cur.fetchall()]
-

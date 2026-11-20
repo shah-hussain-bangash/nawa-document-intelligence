@@ -427,6 +427,92 @@ class PostgresIntakeTests(unittest.TestCase):
                                     (self.tenant,)).fetchone()[0]
             self.assertEqual(size, MAX_BYTES_PER_TENANT)
 
+    def test_promotion_rejects_ocr_marker_without_creating_quotation(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            service = ScopedIntake(self.connect, store)
+            principal = Principal(identity_key, self.tenant, 'analyst')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = service.submit(principal, 'english.txt', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            original = self.jobs.result(self.tenant, document)
+            self.assertEqual(original['extraction_origin'], 'synthetic_text_worker_v1')
+            with self.connect() as conn:
+                stored_origin = conn.execute('SELECT result_origin FROM nawa_intake_jobs WHERE tenant_id=%s AND document_id=%s',
+                                             (self.tenant, document)).fetchone()[0]
+            self.assertEqual(stored_origin, 'synthetic_text_worker_v1')
+            marked = dict(original, input_type='ocr_pdf')
+            with self.connect() as conn:
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(marked), self.tenant, document))
+            with self.assertRaisesRegex(ValueError, 'OCR'):
+                service.promote(principal, document)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_quotation_tenants WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 0)
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 0)
+                unmarked = dict(original)
+                del unmarked['extraction_origin']
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(unmarked), self.tenant, document))
+            with self.assertRaisesRegex(ValueError, 'origin'):
+                service.promote(principal, document)
+            with self.connect() as conn:
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(original), self.tenant, document))
+            self.assertTrue(service.promote(principal, document)['created'])
+
+    def test_optional_recorded_origin_policy_preserves_legacy_read_access(self):
+        issuer, subject = 'https://synthetic-issuer', uuid4().hex
+        identity_key = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        principal = Principal(identity_key, self.tenant, 'analyst')
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            compatible = ScopedIntake(self.connect, store)
+            strict = ScopedIntake(self.connect, store, origin_policy='require_recorded')
+            content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            legacy, _ = compatible.submit(principal, 'legacy.txt', content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            legacy_result = self.jobs.result(self.tenant, legacy)
+            del legacy_result['extraction_origin']
+            with self.connect() as conn:
+                conn.execute('''UPDATE nawa_intake_jobs SET result=%s::jsonb,result_origin=NULL
+                                WHERE tenant_id=%s AND document_id=%s''',
+                             (json.dumps(legacy_result), self.tenant, legacy))
+            self.assertEqual(strict.result(principal, legacy)['total'], '1050.00')
+            with self.assertRaisesRegex(ValueError, 'origin required'):
+                strict.promote(principal, legacy)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_quotation_tenants WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 0)
+            self.assertTrue(compatible.promote(principal, legacy)['created'])
+            current, _ = strict.submit(principal, 'current.txt', content + b'\n# second synthetic source\n')
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            paused = ScopedIntake(self.connect, store, origin_policy='promotion_disabled')
+            self.assertEqual(paused.result(principal, current)['total'], '1050.00')
+            with self.assertRaisesRegex(ValueError, 'promotion is disabled'):
+                paused.promote(principal, current)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 1)
+            self.assertTrue(strict.promote(principal, current)['created'])
+            with self.assertRaisesRegex(ValueError, 'promotion is disabled'):
+                paused.promote(principal, current)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 2)
+
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))
@@ -597,11 +683,29 @@ class PostgresIntakeTests(unittest.TestCase):
             restored_params = dict(params, dbname=restore_name)
             restored = PostgresIntakeJobs(lambda: psycopg.connect(**restored_params))
             restored_store = LocalIntakeStore(root / 'backup-files')
-            self.assertEqual(restored.result(self.tenant, document)['total'], '945.00')
+            restored_result = restored.result(self.tenant, document)
+            self.assertEqual(restored_result['total'], '945.00')
+            self.assertEqual(restored_result['extraction_origin'], 'synthetic_text_worker_v1')
+            with psycopg.connect(**restored_params) as conn:
+                origin = conn.execute('SELECT result_origin FROM nawa_intake_jobs WHERE tenant_id=%s AND document_id=%s',
+                                      (self.tenant, document)).fetchone()[0]
+                self.assertEqual(origin, 'synthetic_text_worker_v1')
             self.assertEqual(restored_store.read_verified(document, digest), content)
             restored_review = ScopedState(lambda: psycopg.connect(**restored_params)).review_show(
                 principal('reviewer'), quotation)
             self.assertEqual(restored_review, original_review)
+            # Mutate only the restored test copy: removing the JSON marker must
+            # not bypass the independently stored origin check.
+            altered = dict(restored_result)
+            del altered['extraction_origin']
+            with psycopg.connect(**restored_params) as conn:
+                conn.execute('UPDATE nawa_intake_jobs SET result=%s::jsonb WHERE tenant_id=%s AND document_id=%s',
+                             (json.dumps(altered), self.tenant, document))
+            restored_intake = ScopedIntake(lambda: psycopg.connect(**restored_params), restored_store)
+            with self.assertRaisesRegex(ValueError, 'origin'):
+                restored_intake.promote(principal('analyst'), document)
+            self.assertEqual(ScopedState(lambda: psycopg.connect(**restored_params)).review_show(
+                principal('reviewer'), quotation), original_review)
 
     def test_explicit_intake_migration_is_idempotent_and_detects_changed_history(self):
         name = 'nawa_phase13_qa_' + uuid4().hex[:12]
@@ -614,7 +718,7 @@ class PostgresIntakeTests(unittest.TestCase):
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 2)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 3)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
@@ -653,12 +757,19 @@ class PostgresIntakeTests(unittest.TestCase):
             store = LocalIntakeStore(root / 'files')
             content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
             document, metadata = store.save('queued.txt', content)
+            legacy_document, legacy_metadata = store.save('legacy.txt', b'synthetic legacy record')
             with connect() as conn:
                 conn.execute('''INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes)
                                 VALUES (%s,%s,%s,%s,%s)''',
                              (document,tenant,metadata.filename,metadata.sha256,metadata.size))
                 conn.execute('INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state) VALUES (%s,%s,%s,%s)',
                              (uuid4(),tenant,document,'received'))
+                conn.execute('''INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes)
+                                VALUES (%s,%s,%s,%s,%s)''',
+                             (legacy_document,tenant,legacy_metadata.filename,legacy_metadata.sha256,legacy_metadata.size))
+                conn.execute('''INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state,result)
+                                VALUES (%s,%s,%s,%s,%s::jsonb)''',
+                             (uuid4(),tenant,legacy_document,'completed',json.dumps({'legacy':'unchanged'})))
             reviews = ScopedState(connect)
             quotation = reviews.add_sample(principal('analyst'), 'english_quote.txt')['id']
             reviews.review_start(principal('analyst'), quotation)
@@ -669,6 +780,9 @@ class PostgresIntakeTests(unittest.TestCase):
                 verify_intake_migrations(conn)
                 self.assertEqual(conn.execute('SELECT checksum FROM nawa_intake_schema_migrations WHERE name=%s',
                                               (original.name,)).fetchone()[0], previous_checksum)
+                legacy = conn.execute('SELECT result,result_origin FROM nawa_intake_jobs WHERE tenant_id=%s AND document_id=%s',
+                                      (tenant, legacy_document)).fetchone()
+                self.assertEqual(legacy, ({'legacy':'unchanged'}, None))
             jobs = PostgresIntakeJobs(connect)
             self.assertEqual(jobs.state(tenant, document), ('received', 0))
             self.assertIsNone(jobs.claim(tenant))
@@ -695,7 +809,8 @@ class PostgresIntakeTests(unittest.TestCase):
                 with read_only.transaction():
                     read_only.execute('SET TRANSACTION READ ONLY')
                     self.assertEqual(inspect_history(read_only)['history_status'], 'current_history')
-            conn.execute("DELETE FROM nawa_intake_schema_migrations WHERE name='002_synthetic_requeue.sql'")
+            # Construct an 001-only history regardless of later migration count.
+            conn.execute("DELETE FROM nawa_intake_schema_migrations WHERE name <> '001_synthetic_intake.sql'")
             for checksum, status in ((ORIGINAL_001,'original_001_only'),
                                      (VALIDATED_IN_001,'intermediate_validated_in_001'),
                                      (REQUEUE_IN_001,'intermediate_requeue_in_001'),
@@ -734,4 +849,3 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
-

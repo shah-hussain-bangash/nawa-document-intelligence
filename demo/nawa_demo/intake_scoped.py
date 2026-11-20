@@ -7,14 +7,22 @@ from uuid import UUID, uuid4
 from .authorization import Principal, authorized
 from .identity_repository import membership_by_key
 from .intake_postgres import IntakeRejected, PostgresIntakeJobs
+from .intake_promotion_guard import require_text_only_result
 from .intake_validation import check_document
+
+
+def validate_origin_policy(value):
+    if value not in ('legacy_compatible', 'require_recorded', 'promotion_disabled'):
+        raise ValueError('Invalid synthetic origin policy')
+    return value
 
 
 class ScopedIntake:
     """Use only principals resolved from an authenticated server-side session."""
-    def __init__(self, connect, store):
+    def __init__(self, connect, store, *, origin_policy='legacy_compatible'):
         self.connect = connect
         self.store = store
+        self.origin_policy = validate_origin_policy(origin_policy)
 
     @staticmethod
     def _require(principal, action):
@@ -109,7 +117,7 @@ class ScopedIntake:
             if metadata.sha256 != row[1].strip():
                 raise ValueError('Document integrity check failed')
             conn.execute('''UPDATE nawa_intake_jobs SET state='validated', attempts=0,
-                claim_token_hash=NULL, lease_until=NULL, result=NULL, updated_at=now()
+                claim_token_hash=NULL, lease_until=NULL, result=NULL, result_origin=NULL, updated_at=now()
                 WHERE tenant_id=%s AND document_id=%s''', (principal.tenant, document))
             actor_hash = hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
             conn.execute('''INSERT INTO nawa_intake_admin_events (tenant_id,document_id,action,actor_hash,reason)
@@ -119,17 +127,24 @@ class ScopedIntake:
     def promote(self, principal, document_id):
         """Atomically publish one completed synthetic result to tenant review."""
         self._require(principal, 'load')
+        if self.origin_policy == 'promotion_disabled':
+            raise ValueError('Synthetic promotion is disabled')
         if not isinstance(document_id, str):
             raise ValueError('Document unavailable')
         document = UUID(document_id)
         with self.connect() as conn:
             self._recheck(conn, principal, 'load')
-            row = conn.execute('''SELECT j.state,j.result,d.sha256 FROM nawa_intake_documents d
+            row = conn.execute('''SELECT j.state,j.result,d.sha256,j.result_origin FROM nawa_intake_documents d
                 JOIN nawa_intake_jobs j ON j.tenant_id=d.tenant_id AND j.document_id=d.id
                 WHERE d.tenant_id=%s AND d.id=%s FOR UPDATE OF d,j''',
                 (principal.tenant, document)).fetchone()
             if row is None or row[0] != 'completed' or not isinstance(row[1], dict):
                 raise ValueError('Completed document unavailable')
+            require_text_only_result(row[1])
+            if row[1].get('extraction_origin') != row[3]:
+                raise ValueError('Synthetic worker origin does not match stored origin')
+            if self.origin_policy == 'require_recorded' and row[3] != 'synthetic_text_worker_v1':
+                raise ValueError('Recorded synthetic worker origin required for promotion')
             # Recheck the current source before returning or creating a review
             # record; processing may have completed before the file changed.
             self.store.read_verified(document.hex, row[2].strip())
@@ -155,4 +170,3 @@ class ScopedIntake:
             conn.execute('INSERT INTO nawa_intake_promotions (tenant_id,document_id,quotation_id) VALUES (%s,%s,%s)',
                          (principal.tenant, document, item_id))
             return {'id':item_id, 'quotation':public_quote, 'created':True}
-

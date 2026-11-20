@@ -6,6 +6,7 @@ import subprocess
 import sys
 from .core import extract
 from .intake_pdf import open_pdf
+from .intake_promotion_guard import require_text_only_result
 
 
 class IncompleteArabicPDF(ValueError):
@@ -69,9 +70,11 @@ def process_one(jobs, store, tenant, *, worker='synthetic-worker', max_attempts=
             if len(encoded) > 2 * 1024 * 1024:
                 raise ValueError('Parser result too large')
             result = json.loads(encoded.decode('utf-8'))
+        require_text_only_result(result)
+        # The worker, not submitted document text, sets this marker.
+        result['extraction_origin'] = 'synthetic_text_worker_v1'
         result['document'] = filename
     except Exception:
         # Do not expose document contents or parser exception details.
         return jobs.finish(tenant, job_id, token, success=False, max_attempts=max_attempts)
     return jobs.finish(tenant, job_id, token, success=True, result=result, max_attempts=max_attempts)
-

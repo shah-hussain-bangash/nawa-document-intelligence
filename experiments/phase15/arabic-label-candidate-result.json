@@ -1,0 +1,15 @@
+{
+  "status": "human_review_required",
+  "promotable": false,
+  "field_matches": {
+    "supplier": true,
+    "currency": false,
+    "subtotal": false,
+    "vat_rate": false,
+    "vat_amount": false,
+    "total": false
+  },
+  "fields_correct": 1,
+  "source_result_sha256": "9ea8a31ecf991c426152f5fe22368da8dc9a10ce16bab285a6e3dc3472fa5301",
+  "scope": "Evaluation only: one fixed synthetic page; no automatic approval."
+}
