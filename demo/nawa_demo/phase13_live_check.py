@@ -190,6 +190,39 @@ def main():
         time.sleep(1)
     else:
         raise AssertionError('Synthetic invalid document did not reach failed state')
+    oidc.APP, oidc.ORIGIN = 'http://127.0.0.1:8766', 'http://127.0.0.1:19766'
+    status, _, result = oidc.request(other, oidc.APP + '/api/intake/submit', data=invalid_body, headers=other_headers)
+    if status != 200:
+        raise AssertionError('Tenant B failed-job fixture could not be submitted')
+    other_failed = json.loads(result)['id']
+    for _ in range(60):
+        status, _, result = oidc.request(other, oidc.APP + '/api/intake/status?id=' + other_failed)
+        if status == 200 and json.loads(result)['state'] == 'failed':
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError('Tenant B invalid document did not reach failed state')
+    status, _, _ = oidc.request(other, oidc.APP + '/api/intake/retry',
+        data=json.dumps({'id':failed_id, 'reason':'Synthetic QA retry'}).encode(), headers=other_headers)
+    if status != 400:
+        raise AssertionError('Cross-tenant retry was not denied')
+    oidc.APP, oidc.ORIGIN = app_a, origin_a
+    status, _, _ = oidc.request(analyst, oidc.APP + '/api/intake/retry',
+        data=json.dumps({'id':other_failed, 'reason':'Synthetic QA retry'}).encode(), headers=headers)
+    if status != 400:
+        raise AssertionError('Reverse cross-tenant retry was not denied')
+    status, _, result = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + failed_id)
+    if status != 200 or json.loads(result)['state'] != 'failed':
+        raise AssertionError('Tenant A job changed unexpectedly')
+    oidc.APP, oidc.ORIGIN = 'http://127.0.0.1:8766', 'http://127.0.0.1:19766'
+    status, _, result = oidc.request(other, oidc.APP + '/api/intake/status?id=' + other_failed)
+    if status != 200 or json.loads(result)['state'] != 'failed':
+        raise AssertionError('Tenant B job changed unexpectedly')
+    status, _, result = oidc.request(other, oidc.APP + '/api/intake/retry',
+        data=json.dumps({'id':other_failed, 'reason':'Synthetic QA retry'}).encode(), headers=other_headers)
+    if status != 200 or json.loads(result)['state'] != 'validated':
+        raise AssertionError('Tenant B own retry failed')
+    oidc.APP, oidc.ORIGIN = app_a, origin_a
     retry_body = json.dumps({'id':failed_id, 'reason':'Synthetic QA retry'}).encode()
     status, _, _ = oidc.request(reviewer, oidc.APP + '/api/intake/retry', data=retry_body,
                                 headers={**headers, 'X-NAWA-CSRF':review_csrf})
