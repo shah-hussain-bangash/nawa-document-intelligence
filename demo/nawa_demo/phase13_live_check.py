@@ -108,10 +108,45 @@ def main():
         time.sleep(1)
     else:
         raise AssertionError('Tenant B synthetic worker did not complete document')
+    # Each tenant may promote and review its own quotation, but cannot use
+    # the other tenant's IDs for either operation.
+    status, _, _ = oidc.request(other, oidc.APP + '/api/intake/promote',
+                                data=json.dumps({'id':document_id}).encode(), headers=other_headers)
+    if status != 400:
+        raise AssertionError('Cross-tenant promotion was not denied')
+    status, _, _ = oidc.request(other, oidc.APP + '/api/review/show',
+                                data=json.dumps({'id':quotation_id}).encode(), headers=other_headers)
+    if status != 400:
+        raise AssertionError('Cross-tenant review access was not denied')
+    status, _, listing = oidc.request(other, oidc.APP + '/api/quotations')
+    if status != 200 or quotation_id in {item['id'] for item in json.loads(listing)['quotations']}:
+        raise AssertionError('Cross-tenant quotation was listed')
+    status, _, result = oidc.request(other, oidc.APP + '/api/intake/promote',
+                                     data=json.dumps({'id':other_document}).encode(), headers=other_headers)
+    if status != 200 or not json.loads(result)['created']:
+        raise AssertionError('Tenant B own promotion failed')
+    other_quotation = json.loads(result)['id']
+    status, _, _ = oidc.request(other, oidc.APP + '/api/review/start',
+                                data=json.dumps({'id':other_quotation}).encode(), headers=other_headers)
+    if status != 200:
+        raise AssertionError('Tenant B own review could not start')
+    status, _, _ = oidc.request(other, oidc.APP + '/api/review/show',
+                                data=json.dumps({'id':other_quotation}).encode(), headers=other_headers)
+    if status != 200:
+        raise AssertionError('Tenant B own review could not be read')
     oidc.APP, oidc.ORIGIN = app_a, origin_a
     status, _, _ = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + other_document)
     if status != 404:
         raise AssertionError('Reverse cross-tenant document access was not denied')
+    for endpoint, foreign_id in (('/api/intake/promote', other_document), ('/api/review/show', other_quotation)):
+        status, _, _ = oidc.request(analyst, oidc.APP + endpoint,
+                                    data=json.dumps({'id':foreign_id}).encode(), headers=headers)
+        if status != 400:
+            raise AssertionError('Reverse cross-tenant operation was not denied')
+    status, _, _ = oidc.request(analyst, oidc.APP + '/api/review/show',
+                                data=json.dumps({'id':quotation_id}).encode(), headers=headers)
+    if status != 200:
+        raise AssertionError('Tenant A own review could not be read')
 
     review_jar, reviewer = oidc.login(users['reviewer'])
     review_csrf = next(cookie.value for cookie in review_jar if cookie.name == 'nawa_csrf')
@@ -165,4 +200,5 @@ if __name__ == '__main__':
     except Exception as exc:
         print('Synthetic Phase 13 QA failed:', type(exc).__name__, '(details withheld).')
         raise SystemExit(1) from None
+
 
