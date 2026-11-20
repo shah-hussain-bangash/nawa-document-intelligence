@@ -25,6 +25,8 @@ The following pull requests are drafts. They are based on each other, not all on
 
 Two follow-up drafts target earlier branches separately: [#9](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/9) validates synthetic identity limit settings, and [#10](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/10) reports unsafe unreferenced entries in the offline intake inventory. They are not yet included in the downstream stack. If either is adopted, update and retest affected descendants.
 
+[Integration draft #11](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/11) combines those follow-ups on #8 for testing. At [`fc0c628`](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/commit/fc0c6285a5f160f84385fde83414d7d94bd2f60d), [synthetic browser and PostgreSQL checks](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/44701065215) passed. It is a test draft, not a merged release; reconcile the changes if #9 or #10 is applied upstream so they are not duplicated.
+
 ## Review and integration order
 
 As checked on 20 November 2026, the dependency chain is **main → #2 → #3 → #4 → #5 → #7 → #8**. The documentation-only [#6](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/pull/6) targets main independently. All are drafts. Review each change against its current base and exact tested head, then rerun its checks after any base change. Merging or deploying requires a separate release decision; passing synthetic CI is not that decision.
@@ -36,6 +38,6 @@ The earlier phases 1–11 have varying evidence on main, not a single production
 1. Validate local/staging identity with an approved certificate and separate users, including access revocation. The CI-only browser test covers synthetic sign-in and logout, not company trust or staging. See the [identity review and decision checklist](NAWA_IDENTITY_REVIEW.md).
 2. Review the draft comparison fix and source-checking policies; real-world PDF support is unvalidated, and scanned documents and unretained sources remain unsupported in strict mode. Review PR dependencies and migrations and demonstrate isolated recovery. Keep existing databases and uploads unchanged during testing.
 3. Keep OCR and generated claims review-only. Create independently reviewed Arabic/English evaluation data; measure financial-field failures, retrieval authorization, stale sources and abstention before considering integration.
-4. Record an explicit trusted worker-origin design, staged deployment boundary, secret handling, privacy and recovery decisions before any production claim.
+4. Review the [worker-origin decision draft](NAWA_WORKER_ORIGIN_DECISION.md) and record the selected trust model, staged deployment boundary, secret handling, privacy and recovery decisions before any production claim.
 
 Do not publish sensitive inputs, credentials, reviewer data or personal identification in the public repository. This register does not assert that cloud deployments or all project phases are complete.
