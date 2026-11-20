@@ -85,6 +85,11 @@ class SessionStore:
                 # later reactivation revive the same unexpired session.
                 self._sessions.pop(key, None)
                 raise
+            # The membership lookup may take long enough for the session to
+            # expire after the first check but before authorization returns.
+            if record['expires'] <= self.clock():
+                self._sessions.pop(key, None)
+                raise SessionError('Session unavailable')
             if not authorized(principal, action, tenant=tenant):
                 raise SessionError('Request denied')
             return principal

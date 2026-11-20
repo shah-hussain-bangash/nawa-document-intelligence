@@ -59,6 +59,20 @@ class SessionDraftTests(unittest.TestCase):
         self.store.lookup = lookup
         self.assertEqual(self.store.authorize(token, 'view', tenant='tenant-a').role, 'analyst')
 
+    def test_session_expiring_during_membership_lookup_is_denied(self):
+        token = self.tokens['session']
+        lookup = self.store.lookup
+        def slow_lookup(subject, tenant):
+            self.clock[0] = 10
+            return lookup(subject, tenant)
+        self.store.lookup = slow_lookup
+        with self.assertRaises(SessionError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+        self.clock[0] = 0
+        self.store.lookup = lookup
+        with self.assertRaises(SessionError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+
     def test_logout_and_expiration(self):
         token = self.tokens['session']
         with self.assertRaises(SessionError):
