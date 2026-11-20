@@ -61,6 +61,7 @@ class PostgresIntakeTests(unittest.TestCase):
     def test_synthetic_stale_restore_can_revive_unobserved_session_until_restart(self):
         """Characterize an open recovery risk, not a production safety gate."""
         from nawa_demo.session_draft import SessionError
+        from nawa_demo.synthetic_recovery_coordinator import prepare_recovery
         params = psycopg.conninfo.conninfo_to_dict(DSN)
         if (params.get('host') != '127.0.0.1' or 'hostaddr' in params
                 or not params.get('dbname', '').startswith('nawa_phase13_qa_')):
@@ -88,7 +89,7 @@ class PostgresIntakeTests(unittest.TestCase):
         env = os.environ.copy()
         env['PGPASSWORD'] = params.get('password', '')
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-        created = False
+        created_names = []
         try:
             with TemporaryDirectory() as folder:
                 dump = Path(folder) / 'synthetic-stale.dump'
@@ -101,7 +102,7 @@ class PostgresIntakeTests(unittest.TestCase):
                     sessions.authorize_current(control, 'view')
                 with psycopg.connect(DSN, autocommit=True) as admin:
                     admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(restore_name)))
-                created = True
+                created_names.append(restore_name)
                 subprocess.run([pg_tool('pg_restore'), *common, '-d', restore_name, '--no-owner', str(dump)],
                                check=True, capture_output=True, env=env, creationflags=flags)
                 restored = dict(params, dbname=restore_name)
@@ -134,10 +135,41 @@ class PostgresIntakeTests(unittest.TestCase):
                     restarted.authorize_current(old, 'view')
                 fresh = restarted.issue(identity, self.tenant)['session']
                 self.assertEqual(restarted.authorize_current(fresh, 'view').role, 'analyst')
-        finally:
-            if created:
+                # Exercise coordinator ordering against a second newly restored
+                # disposable database. Quiesce/drain are test callbacks, not a
+                # real traffic or in-flight request barrier.
+                active_connection[0] = self.connect
+                prior_tokens = [store.issue(identity, self.tenant)['session'] for store in (sessions, other_sessions)]
+                coordinated_name = 'nawa_phase13_qa_restore_' + uuid4().hex[:12]
                 with psycopg.connect(DSN, autocommit=True) as admin:
-                    admin.execute(psycopg.sql.SQL('DROP DATABASE {}').format(psycopg.sql.Identifier(restore_name)))
+                    admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(coordinated_name)))
+                created_names.append(coordinated_name)
+                coordinated = dict(params, dbname=coordinated_name)
+                def restore():
+                    subprocess.run([pg_tool('pg_restore'), *common, '-d', coordinated_name, '--no-owner', str(dump)],
+                                   check=True, capture_output=True, env=env, creationflags=flags)
+                    active_connection[0] = lambda: psycopg.connect(**coordinated)
+                    return True
+                def verify():
+                    with active_connection[0]() as conn:
+                        return membership_by_key(conn, identity_key=identity, tenant=self.tenant) is not None
+                outcome = prepare_recovery([sessions, other_sessions], quiesce=lambda:True, drain=lambda:True,
+                                           restore=restore, verify=verify)
+                self.assertEqual(outcome, {'status':'ready_for_manual_resume', 'completed_pause_calls':2})
+                for store, token in zip((sessions, other_sessions), prior_tokens):
+                    with self.assertRaises(SessionError):
+                        store.authorize_current(token, 'view')
+                    with self.assertRaises(SessionError):
+                        store.issue(identity, self.tenant)
+                    store.end_recovery()
+                    with self.assertRaises(SessionError):
+                        store.authorize_current(token, 'view')
+                    new = store.issue(identity, self.tenant)['session']
+                    self.assertEqual(store.authorize_current(new, 'view').role, 'analyst')
+        finally:
+            with psycopg.connect(DSN, autocommit=True) as admin:
+                for name in created_names:
+                    admin.execute(psycopg.sql.SQL('DROP DATABASE {}').format(psycopg.sql.Identifier(name)))
 
     def test_old_principal_rejected_after_unobserved_membership_cycle(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
