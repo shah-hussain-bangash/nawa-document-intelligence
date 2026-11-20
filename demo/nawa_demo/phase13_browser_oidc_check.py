@@ -107,6 +107,22 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked correction')
     reviewer_page.locator('#review').get_by_role('button', name='Approve', exact=True).click()
     reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
+    reviewer_page.reload(wait_until='domcontentloaded')
+    reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
+    # Compare the approved correction with a second synthetic quotation.
+    analyst_page.locator('#sample').select_option('arabic_quote.txt')
+    analyst_page.locator('#loadSample').click()
+    analyst_page.get_by_role('checkbox', name='Compare arabic_quote.txt').wait_for(state='visible', timeout=15000)
+    analyst_page.get_by_role('checkbox', name='Compare ' + filename).check()
+    analyst_page.get_by_role('checkbox', name='Compare arabic_quote.txt').check()
+    analyst_page.locator('#compareBtn').click()
+    analyst_page.locator('#comparison').get_by_text(
+        'Example English Supplies — AED 1050.00 — Valid · approved review revision 3', exact=True
+    ).wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#comparison').get_by_text(
+        'Lowest valid total: شركة المثال للتوريدات', exact=True
+    ).wait_for(state='visible', timeout=15000)
 
 
 def main():

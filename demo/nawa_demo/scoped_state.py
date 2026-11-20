@@ -14,7 +14,7 @@ from .authorization import Principal, authorized
 from .core import extract
 from .dashboard import ALLOWED_SAMPLES, SAMPLES, DashboardState, _public_quote
 from .identity_repository import membership_by_key
-from .review import begin, correct, decide, inspect
+from .review import FIELDS, begin, correct, decide, inspect
 
 
 class AccessDenied(ValueError):
@@ -105,12 +105,35 @@ class ScopedState:
             raise ValueError('Select at least two distinct quotations')
         with self._connect() as conn:
             self._recheck(conn, principal, 'compare')
-            quotes = [self._quote(conn, principal, item_id) for item_id in ids]
-        valid = [q for q in quotes if all(q['checks'].values())]
+            quotes = [self._comparison_quote(conn, principal, item_id) for item_id in ids]
+        valid = [q for q in quotes if q['comparison']['eligible'] and all(q['checks'].values())]
         ranked = sorted(valid, key=lambda q: (Decimal(q['total']), q['supplier'].casefold()))
-        return {'quotations': [{**_public_quote(q), 'id': item_id} for item_id, q in zip(ids, quotes)],
+        return {'quotations': [{**_public_quote(q), 'id': item_id, 'comparison':q['comparison']}
+                               for item_id, q in zip(ids, quotes)],
                 'lowest_valid_total': ranked[0]['supplier'] if ranked else None,
-                'note': 'Synthetic AED price-only comparison, not a purchasing recommendation'}
+                'note': ('Synthetic AED price-only comparison, not a purchasing recommendation. '
+                         'Approved reviews use reviewed values; source evidence is original and '
+                         'correction excerpts are reviewer assertions.')}
+
+    def _comparison_quote(self, conn, principal, item_id):
+        """Use an approved, source-bound review; never rank pending corrections."""
+        quote = self._quote(conn, principal, item_id)
+        row = conn.execute('SELECT revision, ledger FROM nawa_reviews WHERE quotation_id = %s FOR SHARE',
+                           (item_id,)).fetchone()
+        if row is None:
+            return {**quote, 'comparison':{'basis':'original_unreviewed', 'eligible':True, 'review_revision':None}}
+        state = inspect(row[1])
+        initial = row[1]['events'][0]['data']
+        if (state['revision'] != row[0] or state['document'] != quote['document'] or
+                initial['fields'] != {field:quote[field] for field in FIELDS} or
+                state['source_evidence'] != quote['evidence']):
+            raise ValueError('Review does not match its source quotation')
+        if state['status'] != 'approved':
+            return {**quote, 'comparison':{'basis':state['status'], 'eligible':False,
+                                           'review_revision':state['revision']}}
+        return {**quote, **state['fields'],
+                'checks':{key:state['checks'][key] for key in ('vat_matches_rate', 'total_matches_components')},
+                'comparison':{'basis':'approved_review', 'eligible':True, 'review_revision':state['revision']}}
 
     def review_start(self, principal, item_id):
         self._require(principal, 'review_start')
