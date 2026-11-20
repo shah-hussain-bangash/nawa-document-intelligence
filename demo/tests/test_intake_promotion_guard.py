@@ -7,6 +7,7 @@ from nawa_demo.core import extract
 from nawa_demo.intake_promotion_guard import require_text_only_result
 from nawa_demo.intake_scoped import ScopedIntake
 from nawa_demo.intake_runtime import build_synthetic_intake
+from nawa_demo.authorization import Principal
 
 SAMPLES = Path(__file__).resolve().parents[1] / 'samples'
 
@@ -124,6 +125,22 @@ class PromotionGuardTests(unittest.TestCase):
         service = ScopedIntake(lambda: context, MagicMock(), origin_policy='require_recorded')
         with patch.object(service, '_require'), patch.object(service, '_recheck'):
             self.assertTrue(service.promote(MagicMock(tenant='synthetic'), uuid4().hex)['created'])
+
+    def test_disabled_promotion_rejects_authorized_user_before_database_or_source(self):
+        connect = MagicMock(side_effect=AssertionError('Must not connect'))
+        store = MagicMock()
+        service = ScopedIntake(connect, store, origin_policy='promotion_disabled')
+        with self.assertRaisesRegex(ValueError, 'promotion is disabled'):
+            service.promote(Principal('test-subject', 'test-tenant', 'analyst'), uuid4().hex)
+        connect.assert_not_called()
+        store.read_verified.assert_not_called()
+
+    def test_disabled_promotion_still_enforces_role_before_policy(self):
+        connect = MagicMock(side_effect=AssertionError('Must not connect'))
+        service = ScopedIntake(connect, MagicMock(), origin_policy='promotion_disabled')
+        with self.assertRaises(PermissionError):
+            service.promote(Principal('test-subject', 'test-tenant', 'viewer'), uuid4().hex)
+        connect.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()

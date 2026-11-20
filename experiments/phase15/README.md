@@ -361,6 +361,17 @@ an HTTP request. The isolated Phase 13 QA Compose configuration selects
 This checks recorded markers, not authenticated worker identity, and cannot
 protect against a database writer changing both stored values.
 
+The draft also supports `NAWA_SYNTHETIC_ORIGIN_POLICY=promotion_disabled` for
+a synthetic service started in that mode. Authorized promotion requests are
+rejected before reading the source or connecting to the database, including
+requests for previously promoted records. Existing quotation records and
+intake results are not deleted; authorized result reads remain available. The
+setting is loaded at startup, not a live per-request switch, and does not stop
+workers, change already-running processes, protect direct database access, or
+authenticate worker identity. The default and existing QA configuration are
+unchanged. This is an opt-in containment option, not a resolution of the
+trusted-origin finding or a production control.
+
 `synthetic_worker_receipt.py` explores an HMAC receipt bound to a synthetic
 tenant, document ID, job ID, source hash, result hash, origin and key ID. Tests
 reject changes to those values, a wrong key and cross-job or cross-tenant

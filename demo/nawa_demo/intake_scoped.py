@@ -12,7 +12,7 @@ from .intake_validation import check_document
 
 
 def validate_origin_policy(value):
-    if value not in ('legacy_compatible', 'require_recorded'):
+    if value not in ('legacy_compatible', 'require_recorded', 'promotion_disabled'):
         raise ValueError('Invalid synthetic origin policy')
     return value
 
@@ -127,6 +127,8 @@ class ScopedIntake:
     def promote(self, principal, document_id):
         """Atomically publish one completed synthetic result to tenant review."""
         self._require(principal, 'load')
+        if self.origin_policy == 'promotion_disabled':
+            raise ValueError('Synthetic promotion is disabled')
         if not isinstance(document_id, str):
             raise ValueError('Document unavailable')
         document = UUID(document_id)

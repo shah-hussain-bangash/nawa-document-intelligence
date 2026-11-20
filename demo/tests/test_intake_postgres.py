@@ -499,7 +499,19 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertTrue(compatible.promote(principal, legacy)['created'])
             current, _ = strict.submit(principal, 'current.txt', content + b'\n# second synthetic source\n')
             self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            paused = ScopedIntake(self.connect, store, origin_policy='promotion_disabled')
+            self.assertEqual(paused.result(principal, current)['total'], '1050.00')
+            with self.assertRaisesRegex(ValueError, 'promotion is disabled'):
+                paused.promote(principal, current)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 1)
             self.assertTrue(strict.promote(principal, current)['created'])
+            with self.assertRaisesRegex(ValueError, 'promotion is disabled'):
+                paused.promote(principal, current)
+            with self.connect() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_promotions WHERE tenant_id=%s',
+                                              (self.tenant,)).fetchone()[0], 2)
 
     def test_promotion_refuses_changed_source_before_and_after_creation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
