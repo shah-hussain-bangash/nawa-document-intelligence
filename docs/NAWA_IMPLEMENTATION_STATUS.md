@@ -31,7 +31,7 @@ The earlier phases 1–11 have varying evidence on main, not a single production
 
 ## Priority open work
 
-1. Validate local/staging identity with an approved certificate and separate users, including access revocation. The CI-only browser test covers synthetic sign-in and logout, not company trust or staging.
+1. Validate local/staging identity with an approved certificate and separate users, including access revocation. The CI-only browser test covers synthetic sign-in and logout, not company trust or staging. See the [identity review and decision checklist](NAWA_IDENTITY_REVIEW.md).
 2. Review the draft comparison fix and source-checking policies; real-world PDF support is unvalidated, and scanned documents and unretained sources remain unsupported in strict mode. Review PR dependencies and migrations and demonstrate isolated recovery. Keep existing databases and uploads unchanged during testing.
 3. Keep OCR and generated claims review-only. Create independently reviewed Arabic/English evaluation data; measure financial-field failures, retrieval authorization, stale sources and abstention before considering integration.
 4. Record an explicit trusted worker-origin design, staged deployment boundary, secret handling, privacy and recovery decisions before any production claim.
