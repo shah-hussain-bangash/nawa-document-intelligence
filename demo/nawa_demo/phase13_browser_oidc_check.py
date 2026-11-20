@@ -4,6 +4,7 @@ The CI runner trusts its freshly generated test CA in an ephemeral NSS store.
 No user-system trust store, real identity provider or real records are used.
 """
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -87,6 +88,50 @@ def browser_tenant_isolation(browser, analyst_page, other_user):
             result = browser_api(page, '/api/review/show', {'id':ids[index]})
             if result['status'] != 200 or result['body'].get('revision') != 1:
                 raise AssertionError('Browser own-tenant review changed unexpectedly')
+        # Give both browser sessions a completed, retained source so the
+        # correction payload is valid when used by its own tenant.
+        sources, reviews = [], []
+        for index, page in enumerate(pages):
+            name = f'browser-tenant-{index}-{uuid4().hex}.txt'
+            sample = Path('demo/samples/english_quote.txt').read_bytes()
+            sample += ('\n# browser-tenant-' + uuid4().hex + '\n').encode()
+            result = browser_api(page, '/api/intake/submit',
+                                 {'filename':name, 'content_base64':base64.b64encode(sample).decode('ascii')})
+            if result['status'] != 200:
+                raise AssertionError('Browser tenant synthetic upload failed')
+            document = result['body']['id']
+            for _ in range(120):
+                result = browser_api(page, '/api/intake/status?id=' + document)
+                if result['status'] == 200 and result['body'].get('state') == 'completed':
+                    break
+                page.wait_for_timeout(500)
+            else:
+                raise AssertionError('Browser tenant synthetic worker did not complete')
+            result = browser_api(page, '/api/intake/promote', {'id':document})
+            if result['status'] != 200 or not result['body'].get('created'):
+                raise AssertionError('Browser tenant own promotion failed')
+            review_id = result['body']['id']
+            if browser_api(page, '/api/review/start', {'id':review_id})['status'] != 200:
+                raise AssertionError('Browser tenant own intake review failed')
+            sources.append(name)
+            reviews.append(review_id)
+        for index, page in enumerate(pages):
+            other_index = 1 - index
+            correction = {'id':reviews[other_index], 'field':'total', 'value':'1050',
+                          'reason':'Synthetic format correction', 'source':sources[other_index],
+                          'line':6, 'quote':'Grand Total: 1050.00', 'expected_revision':1}
+            if browser_api(page, '/api/review/correct', correction)['status'] != 400:
+                raise AssertionError('Browser cross-tenant correction was not denied')
+        for index, page in enumerate(pages):
+            result = browser_api(page, '/api/review/show', {'id':reviews[index]})
+            if result['status'] != 200 or result['body'].get('revision') != 1:
+                raise AssertionError('Browser tenant review changed after denial')
+            correction = {'id':reviews[index], 'field':'total', 'value':'1050',
+                          'reason':'Synthetic format correction', 'source':sources[index],
+                          'line':6, 'quote':'Grand Total: 1050.00', 'expected_revision':1}
+            result = browser_api(page, '/api/review/correct', correction)
+            if result['status'] != 200 or result['body'].get('revision') != 2:
+                raise AssertionError('Browser tenant own correction failed')
     finally:
         other.close()
 
@@ -303,7 +348,7 @@ def main():
                 analyst.close()
         finally:
             browser.close()
-    print('PASS: trusted synthetic browser sign-in, two-tenant read isolation, TXT and PDF review, roles and logout replay checks.')
+    print('PASS: trusted synthetic browser sign-in, two-tenant read and correction isolation, TXT and PDF review, roles and logout replay checks.')
 
 
 if __name__ == '__main__':
