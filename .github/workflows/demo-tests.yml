@@ -216,4 +216,27 @@ jobs:
           NAWA_PHASE13_CI_QA: '1'
           PYTHONPATH: demo
         run: python -m nawa_demo.phase13_browser_live_check
+      - name: Verify browser rejects the untrusted synthetic identity certificate
+        env:
+          NAWA_PHASE13_CI_QA: '1'
+          PYTHONPATH: demo
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libnss3-tools
+          python -m nawa_demo.phase13_browser_oidc_check --expect-untrusted
+      - name: Trust synthetic CA only on the disposable CI runner
+        run: |
+          set -eu
+          test "$GITHUB_ACTIONS" = true
+          nawa_nss_dir="$HOME/.pki/nssdb"
+          mkdir -p "$nawa_nss_dir"
+          if [ ! -f "$nawa_nss_dir/cert9.db" ]; then
+            certutil -d "sql:$nawa_nss_dir" -N --empty-password
+          fi
+          certutil -d "sql:$nawa_nss_dir" -A -t 'C,,' -n 'NAWA synthetic CI CA' -i .data/phase13-identity/ca.pem
+      - name: Verify browser-driven synthetic sign-in and logout
+        env:
+          NAWA_PHASE13_CI_QA: '1'
+          PYTHONPATH: demo
+        run: python -m nawa_demo.phase13_browser_oidc_check
 
