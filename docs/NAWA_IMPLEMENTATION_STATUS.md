@@ -4,6 +4,8 @@ Checked 20 November 2026. This register identifies synthetic development evidenc
 
 ## Main branch
 
+For an interview-oriented explanation grounded in these results, see the [synthetic case study](NAWA_SYNTHETIC_CASE_STUDY.md).
+
 | Area | Evidence at main `823565f7c44c15b07719b91670fe8bbfb8d96521` | Boundary |
 | --- | --- | --- |
 | Text comparison | [Core source](../demo/nawa_demo/core.py), [samples](../demo/samples/) and [tests](../demo/tests/test_core.py). On Windows, eight core tests and both English/Arabic and invalid-VAT CLI examples were run on 20 November 2026 against the files at this revision. | Synthetic fixed-format text; price ranking is not an award decision. |
