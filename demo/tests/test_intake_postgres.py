@@ -58,6 +58,65 @@ def make_principal(connect, identity_key, tenant, role):
 
 @unittest.skipUnless(DSN and psycopg, 'isolated PostgreSQL test not configured')
 class PostgresIntakeTests(unittest.TestCase):
+    def test_synthetic_stale_restore_can_revive_unobserved_session_until_restart(self):
+        """Characterize an open recovery risk, not a production safety gate."""
+        from nawa_demo.session_draft import SessionError
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        if (params.get('host') != '127.0.0.1' or 'hostaddr' in params
+                or not params.get('dbname', '').startswith('nawa_phase13_qa_')):
+            raise ValueError('Disposable localhost QA database required')
+        issuer, subject = 'https://synthetic-restore', uuid4().hex
+        identity = json.dumps([issuer, subject], separators=(',', ':'))
+        with self.connect() as conn:
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, subject, self.tenant, 'analyst'))
+        active_connection = [self.connect]
+        def lookup(key, tenant):
+            with active_connection[0]() as conn:
+                return membership_by_key(conn, identity_key=key, tenant=tenant)
+        sessions = SessionStore(lookup)
+        old = sessions.issue(identity, self.tenant)['session']
+        control = sessions.issue(identity, self.tenant)['session']
+        restore_name = 'nawa_phase13_qa_restore_' + uuid4().hex[:12]
+        pg_bin = Path(r'C:\Program Files\PostgreSQL\18\bin')
+        def pg_tool(name):
+            return shutil.which(name) or str(pg_bin / (name + '.exe'))
+        common = ['-h', params['host'], '-p', params.get('port', '5432'), '-U', params['user']]
+        env = os.environ.copy()
+        env['PGPASSWORD'] = params.get('password', '')
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        created = False
+        try:
+            with TemporaryDirectory() as folder:
+                dump = Path(folder) / 'synthetic-stale.dump'
+                subprocess.run([pg_tool('pg_dump'), *common, '-Fc', '-f', str(dump), params['dbname']],
+                               check=True, capture_output=True, env=env, creationflags=flags)
+                with self.connect() as conn:
+                    conn.execute('UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s', (issuer, subject))
+                    conn.execute('UPDATE nawa_memberships SET active=true WHERE issuer=%s AND subject=%s', (issuer, subject))
+                with self.assertRaises(SessionError):
+                    sessions.authorize_current(control, 'view')
+                with psycopg.connect(DSN, autocommit=True) as admin:
+                    admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(restore_name)))
+                created = True
+                subprocess.run([pg_tool('pg_restore'), *common, '-d', restore_name, '--no-owner', str(dump)],
+                               check=True, capture_output=True, env=env, creationflags=flags)
+                restored = dict(params, dbname=restore_name)
+                active_connection[0] = lambda: psycopg.connect(**restored)
+                # The old snapshot lacks the later change. This illustrates the
+                # unresolved replay risk; it is not an acceptable safety claim.
+                self.assertEqual(sessions.authorize_current(old, 'view').role, 'analyst')
+                restarted = SessionStore(lookup)
+                with self.assertRaises(SessionError):
+                    restarted.authorize_current(old, 'view')
+                fresh = restarted.issue(identity, self.tenant)['session']
+                self.assertEqual(restarted.authorize_current(fresh, 'view').role, 'analyst')
+        finally:
+            if created:
+                with psycopg.connect(DSN, autocommit=True) as admin:
+                    admin.execute(psycopg.sql.SQL('DROP DATABASE {}').format(psycopg.sql.Identifier(restore_name)))
+
     def test_old_principal_rejected_after_unobserved_membership_cycle(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))
