@@ -10,9 +10,89 @@ from nawa_demo.authorization import Principal
 from nawa_demo.dashboard import DashboardState
 from nawa_demo.protected_api import make_protected_handler
 from nawa_demo.session_draft import SessionStore
+from nawa_demo.synthetic_recovery_coordinator import prepare_recovery
+from nawa_demo.synthetic_request_gate import GateClosed, SyntheticRequestGate
 
 
 class RecoveryInFlightTests(unittest.TestCase):
+    def test_enrolled_http_work_drains_before_synthetic_restore(self):
+        entered, release, restore_called, gate_closed = (threading.Event() for _ in range(4))
+        principal = Principal('synthetic-user', 'synthetic-tenant', 'analyst')
+        sessions = SessionStore(lambda *_: principal)
+        token = sessions.issue(principal.subject, principal.tenant)['session']
+        gate = SyntheticRequestGate()
+
+        class BlockingScoped:
+            def list_items(self, actor):
+                entered.set()
+                if not release.wait(5):
+                    raise TimeoutError('test request was not released')
+                return [{'id': 'synthetic'}]
+
+        Base = make_protected_handler(BlockingScoped(), sessions, DashboardState())
+        class TestOnlyGatedHandler(Base):
+            def do_GET(self):
+                try:
+                    with gate.operation():
+                        return super().do_GET()
+                except GateClosed:
+                    return self._json({'error': 'Synthetic recovery in progress'}, 503)
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), TestOnlyGatedHandler)
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        url = 'http://127.0.0.1:%s/api/quotations' % server.server_port
+        result, recovery = [], []
+        def request():
+            try:
+                with urlopen(Request(url, headers={'Cookie': 'nawa_session=' + token}), timeout=5) as response:
+                    result.append(response.status)
+            except Exception as error:
+                result.append(error)
+        def close_gate():
+            result = gate.close()
+            gate_closed.set()
+            return result
+        def restore():
+            restore_called.set()
+            return True
+        def coordinate():
+            recovery.append(prepare_recovery([sessions], quiesce=close_gate, drain=lambda:gate.drain(5),
+                                             restore=restore, verify=lambda:True))
+        worker = threading.Thread(target=request, daemon=True)
+        coordinator = threading.Thread(target=coordinate, daemon=True)
+        try:
+            worker.start()
+            self.assertTrue(entered.wait(5))
+            coordinator.start()
+            self.assertTrue(gate_closed.wait(5))
+            self.assertFalse(restore_called.is_set())
+            with self.assertRaises(HTTPError) as rejected:
+                urlopen(Request(url, headers={'Cookie': 'nawa_session=' + token}), timeout=5)
+            self.assertEqual(rejected.exception.code, 503)
+            rejected.exception.close()
+            self.assertFalse(restore_called.is_set())
+            release.set()
+            worker.join(5)
+            coordinator.join(5)
+            self.assertFalse(worker.is_alive())
+            self.assertFalse(coordinator.is_alive())
+            self.assertEqual(result, [200])
+            self.assertTrue(restore_called.is_set())
+            self.assertEqual(recovery, [{'status': 'ready_for_manual_resume', 'completed_pause_calls': 1}])
+            with self.assertRaises(HTTPError) as still_closed:
+                urlopen(Request(url, headers={'Cookie': 'nawa_session=' + token}), timeout=5)
+            self.assertEqual(still_closed.exception.code, 503)
+            still_closed.exception.close()
+        finally:
+            release.set()
+            worker.join(5)
+            if coordinator.ident is not None:
+                coordinator.join(5)
+            server.shutdown()
+            server.server_close()
+            server_thread.join(5)
+
     def test_authorized_request_can_finish_after_local_pause(self):
         entered = threading.Event()
         release = threading.Event()
