@@ -12,9 +12,10 @@ from uuid import uuid4
 
 from .authorization import Principal, authorized
 from .core import extract
+from .correction_source_check import load_intake_text, verify_line
 from .dashboard import ALLOWED_SAMPLES, SAMPLES, DashboardState, _public_quote
 from .identity_repository import membership_by_key
-from .review import begin, correct, decide, inspect
+from .review import FIELDS, begin, correct, decide, inspect
 
 
 class AccessDenied(ValueError):
@@ -25,9 +26,19 @@ class ReviewNotInitialized(ValueError):
     pass
 
 
+def validate_correction_source_policy(value):
+    if value not in ('legacy_asserted', 'require_intake_txt', 'require_intake_fixture', 'require_intake_text_layer'):
+        raise ValueError('Invalid synthetic correction source policy')
+    return value
+
+
 class ScopedState:
-    def __init__(self, connect):
+    def __init__(self, connect, *, correction_source_policy='legacy_asserted', correction_source_store=None):
         self._connect = connect
+        self.correction_source_policy = validate_correction_source_policy(correction_source_policy)
+        if self.correction_source_policy != 'legacy_asserted' and correction_source_store is None:
+            raise ValueError('Synthetic correction source store required')
+        self.correction_source_store = correction_source_store
 
     @staticmethod
     def _require(principal, action):
@@ -105,12 +116,49 @@ class ScopedState:
             raise ValueError('Select at least two distinct quotations')
         with self._connect() as conn:
             self._recheck(conn, principal, 'compare')
-            quotes = [self._quote(conn, principal, item_id) for item_id in ids]
-        valid = [q for q in quotes if all(q['checks'].values())]
+            quotes = [self._comparison_quote(conn, principal, item_id) for item_id in ids]
+        valid = [q for q in quotes if q['comparison']['eligible'] and all(q['checks'].values())]
         ranked = sorted(valid, key=lambda q: (Decimal(q['total']), q['supplier'].casefold()))
-        return {'quotations': [{**_public_quote(q), 'id': item_id} for item_id, q in zip(ids, quotes)],
+        return {'quotations': [{**_public_quote(q), 'id': item_id, 'comparison':q['comparison']}
+                               for item_id, q in zip(ids, quotes)],
                 'lowest_valid_total': ranked[0]['supplier'] if ranked else None,
-                'note': 'Synthetic AED price-only comparison, not a purchasing recommendation'}
+                'note': ('Synthetic AED price-only comparison, not a purchasing recommendation. '
+                         'Approved reviews use reviewed values; source evidence is original and '
+                         'correction excerpts are reviewer assertions.')}
+
+    def _comparison_quote(self, conn, principal, item_id):
+        """Use an approved, source-bound review; never rank pending corrections."""
+        quote = self._quote(conn, principal, item_id)
+        row = conn.execute('SELECT revision, ledger FROM nawa_reviews WHERE quotation_id = %s FOR SHARE',
+                           (item_id,)).fetchone()
+        if row is None:
+            return {**quote, 'comparison':{'basis':'original_unreviewed', 'eligible':True, 'review_revision':None}}
+        state = inspect(row[1])
+        initial = row[1]['events'][0]['data']
+        if (state['revision'] != row[0] or state['document'] != quote['document'] or
+                initial['fields'] != {field:quote[field] for field in FIELDS} or
+                state['source_evidence'] != quote['evidence']):
+            raise ValueError('Review does not match its source quotation')
+        if state['status'] != 'approved':
+            return {**quote, 'comparison':{'basis':state['status'], 'eligible':False,
+                                           'review_revision':state['revision']}}
+        source_checks = self._verify_corrections(conn, principal, item_id, quote, row[1])
+        comparison = {'basis':'approved_review', 'eligible':True, 'review_revision':state['revision']}
+        if source_checks:
+            comparison['source_checks'] = source_checks
+        return {**quote, **state['fields'],
+                'checks':{key:state['checks'][key] for key in ('vat_matches_rate', 'total_matches_components')},
+                'comparison':comparison}
+
+    def _verify_corrections(self, conn, principal, item_id, quote, ledger):
+        corrections = [event['data']['evidence'] for event in ledger['events'] if event['type'] == 'correction']
+        if self.correction_source_policy != 'legacy_asserted' and corrections:
+            filename, lines = load_intake_text(conn, principal, item_id, quote, self.correction_source_store,
+                allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture',
+                allow_strict_text_layer=self.correction_source_policy == 'require_intake_text_layer')
+            return [verify_line(evidence['source'], evidence['line'], evidence['quote'], filename, lines)
+                    for evidence in corrections]
+        return []
 
     def review_start(self, principal, item_id):
         self._require(principal, 'review_start')
@@ -142,7 +190,7 @@ class ScopedState:
         item_id = payload.get('id')
         with self._connect() as conn:
             self._recheck(conn, principal, action)
-            self._quote(conn, principal, item_id, lock=True)
+            original = self._quote(conn, principal, item_id, lock=True)
             row = conn.execute('SELECT revision, ledger FROM nawa_reviews WHERE quotation_id = %s FOR UPDATE',
                                (item_id,)).fetchone()
             if row is None:
@@ -150,15 +198,26 @@ class ScopedState:
             if inspect(row[1])['revision'] != row[0]:
                 raise ValueError('Review revision mismatch')
             actor = 'oidc:' + hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+            source_checks = []
             if action == 'decide':
+                if payload.get('decision') == 'approve':
+                    source_checks = self._verify_corrections(conn, principal, item_id, original, row[1])
                 updated = decide(row[1], actor=actor, decision=payload.get('decision'),
                                  reason=payload.get('reason'), expected_revision=payload.get('expected_revision'))
             else:
+                if self.correction_source_policy != 'legacy_asserted':
+                    filename, lines = load_intake_text(conn, principal, item_id, original,
+                        self.correction_source_store,
+                        allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture',
+                        allow_strict_text_layer=self.correction_source_policy == 'require_intake_text_layer')
+                    source_checks = [verify_line(payload.get('source'), payload.get('line'), payload.get('quote'), filename, lines)]
                 updated = correct(row[1], actor=actor, field=payload.get('field'),
                                   value=payload.get('value'), reason=payload.get('reason'),
                                   source=payload.get('source'), line=payload.get('line'),
                                   quote=payload.get('quote'), expected_revision=payload.get('expected_revision'))
             result = inspect(updated)
+            if source_checks:
+                result['source_checks'] = source_checks
             conn.execute('UPDATE nawa_reviews SET revision = %s, ledger = %s::jsonb, updated_at = now() WHERE quotation_id = %s',
                          (result['revision'], json.dumps(updated, ensure_ascii=False), item_id))
         return result

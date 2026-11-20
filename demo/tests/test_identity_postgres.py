@@ -166,6 +166,55 @@ class IdentityPostgresTests(unittest.TestCase):
         with self.assertRaises(AccessDenied):
             state.list_items(reviewer)
 
+    def test_comparison_uses_only_approved_correction_and_preserves_source(self):
+        import base64
+        from pathlib import Path
+        from nawa_demo.migrate import migrate
+        from nawa_demo.scoped_state import ScopedState
+        from nawa_demo.identity_repository import membership
+        with self.connect() as conn:
+            migrate(conn)
+            conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s), (%s)', ('red', 'blue'))
+            for subject, tenant, role in [('analyst', 'red', 'analyst'), ('reviewer', 'red', 'reviewer'),
+                                          ('outsider', 'blue', 'reviewer')]:
+                conn.execute('INSERT INTO nawa_identities (issuer, subject) VALUES (%s,%s)', ('https://id.example', subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             ('https://id.example', subject, tenant, role))
+            analyst = membership(conn, issuer='https://id.example', subject='analyst', tenant='red')
+            reviewer = membership(conn, issuer='https://id.example', subject='reviewer', tenant='red')
+            outsider = membership(conn, issuer='https://id.example', subject='outsider', tenant='blue')
+        state = ScopedState(self.connect)
+        data = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+        self.assertIn(b'Grand Total: 1050.00', data)
+        data = data.replace(b'Grand Total: 1050.00', b'Grand Total: 1051.00')
+        first = state.add_upload(analyst, 'synthetic-correction.txt', base64.b64encode(data).decode('ascii'))
+        second = state.add_sample(analyst, 'arabic_quote.txt')
+        ids = [first['id'], second['id']]
+        before = state.compare(analyst, ids)['quotations'][0]
+        self.assertEqual(before['total'], '1051.00')
+        self.assertFalse(before['checks']['total_matches_components'])
+        state.review_start(analyst, first['id'])
+        state.review_correction(analyst, {'id':first['id'], 'field':'total', 'value':'1050.00',
+            'reason':'Synthetic arithmetic correction', 'source':'synthetic-correction.txt',
+            'line':3, 'quote':'Subtotal: 1000.00', 'expected_revision':1})
+        pending = state.compare(analyst, ids)['quotations'][0]
+        self.assertFalse(pending['comparison']['eligible'])
+        self.assertEqual(pending['total'], '1051.00')
+        state.review_decision(reviewer, {'id':first['id'], 'decision':'approve',
+                                         'reason':'Synthetic reviewer check', 'expected_revision':2})
+        approved = state.compare(analyst, ids)['quotations'][0]
+        self.assertEqual(approved['total'], '1050.00')
+        self.assertTrue(approved['checks']['total_matches_components'])
+        self.assertEqual(approved['comparison'], {'basis':'approved_review', 'eligible':True, 'review_revision':3})
+        self.assertEqual(approved['evidence']['total']['source_text'], 'Grand Total: 1051.00')
+        self.assertEqual(state.get_quote(analyst, first['id'])['total'], '1051.00')
+        with self.assertRaisesRegex(ValueError, 'Quotation not found'):
+            state.compare(outsider, ids)
+        with self.connect() as conn:
+            conn.execute('UPDATE nawa_reviews SET revision=99 WHERE quotation_id=%s', (first['id'],))
+        with self.assertRaisesRegex(ValueError, 'source quotation'):
+            state.compare(analyst, ids)
+
 
 if __name__ == '__main__':
     unittest.main()

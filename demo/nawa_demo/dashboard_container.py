@@ -23,6 +23,11 @@ def serve():
         raise ValueError('NAWA_INTAKE must be off or synthetic')
     if intake_mode == 'synthetic' and (auth_mode != 'oidc' or mode != 'postgres'):
         raise ValueError('Synthetic intake requires OIDC and PostgreSQL')
+    from .scoped_state import validate_correction_source_policy
+    correction_policy = validate_correction_source_policy(
+        os.environ.get('NAWA_SYNTHETIC_CORRECTION_SOURCE', 'legacy_asserted'))
+    if correction_policy != 'legacy_asserted' and intake_mode != 'synthetic':
+        raise ValueError('Verified synthetic corrections require synthetic intake')
     origin_policy = None
     if intake_mode == 'synthetic':
         from .intake_scoped import validate_origin_policy
@@ -83,7 +88,9 @@ def serve():
         if intake_mode == 'synthetic':
             from .intake_runtime import build_synthetic_intake
             intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'), origin_policy=origin_policy)
-        handler = make_protected_handler(ScopedState(connect), sessions, state, flow=flow,
+        scoped = ScopedState(connect, correction_source_policy=correction_policy,
+                             correction_source_store=intake.store if intake is not None else None)
+        handler = make_protected_handler(scoped, sessions, state, flow=flow,
                                          allowed_origin=origin, intake=intake)
     else:
         raise ValueError('NAWA_AUTH must be demo or oidc')

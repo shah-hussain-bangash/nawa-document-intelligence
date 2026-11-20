@@ -98,6 +98,10 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     analyst_page.get_by_placeholder('Corrected value').fill('1050.00')
     analyst_page.get_by_placeholder('Reason for correction').fill('Synthetic arithmetic correction')
     analyst_page.get_by_placeholder('Evidence line number').fill('3')
+    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('Forged synthetic source line')
+    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
+    analyst_page.get_by_text('Invalid or unavailable request', exact=True).wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
     analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('Subtotal: 1000.00')
     analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
@@ -105,6 +109,66 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
     reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked correction')
+    reviewer_page.locator('#review').get_by_role('button', name='Approve', exact=True).click()
+    reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
+    reviewer_page.reload(wait_until='domcontentloaded')
+    reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
+    # Compare the approved correction with a second synthetic quotation.
+    analyst_page.locator('#sample').select_option('arabic_quote.txt')
+    analyst_page.locator('#loadSample').click()
+    analyst_page.get_by_role('checkbox', name='Compare arabic_quote.txt').wait_for(state='visible', timeout=15000)
+    analyst_page.get_by_role('checkbox', name='Compare ' + filename).check()
+    analyst_page.get_by_role('checkbox', name='Compare arabic_quote.txt').check()
+    analyst_page.locator('#compareBtn').click()
+    analyst_page.locator('#comparison').get_by_text(
+        'Example English Supplies — AED 1050.00 — Valid · approved review revision 3', exact=True
+    ).wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#comparison').get_by_text(
+        'Lowest valid total: شركة المثال للتوريدات', exact=True
+    ).wait_for(state='visible', timeout=15000)
+
+
+def synthetic_pdf_review_journey(analyst_page, reviewer_page, *, filename, global_line, page, sample_name=None, sample_bytes=None):
+    """Exercise a synthetic PDF source check in the browser."""
+    sample = sample_bytes if sample_bytes is not None else (Path('demo/samples/pdf') / sample_name).read_bytes()
+    analyst_page.locator('#intakeFiles').set_input_files({'name':filename, 'mimeType':'application/pdf', 'buffer':sample})
+    analyst_page.locator('#intakeSubmit').click()
+    result = analyst_page.locator('#intakeResults .row').filter(has_text=filename).first
+    result.wait_for(state='visible', timeout=15000)
+    match = re.search(r'ID: ([0-9a-f]{32})', result.inner_text())
+    if not match:
+        raise AssertionError('Synthetic PDF intake did not return a document ID')
+    document_id = match.group(1)
+    analyst_page.locator('#intakeRefresh').click()
+    row = analyst_page.locator('#intakeJobs .row').filter(has_text=document_id)
+    row.wait_for(state='visible', timeout=15000)
+    row.get_by_role('button', name='Use document').click()
+    for _ in range(60):
+        analyst_page.locator('#intakeCheck').click()
+        analyst_page.wait_for_timeout(500)
+        if 'completed' in analyst_page.locator('#intakeStatus').inner_text():
+            break
+        time.sleep(0.5)
+    else:
+        raise AssertionError('Synthetic PDF intake did not complete')
+    analyst_page.locator('#intakePromote').click()
+    analyst_page.locator('#items').get_by_text(filename).wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
+    analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#review select').select_option('total')
+    analyst_page.get_by_placeholder('Corrected value').fill('945')
+    analyst_page.get_by_placeholder('Reason for correction').fill('Synthetic format correction')
+    analyst_page.get_by_placeholder('Evidence line number').fill(str(global_line))
+    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('Grand Total: 945.00')
+    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
+    analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    analyst_page.get_by_text(f'Correction recorded, revision 2 · retained PDF text matched: page {page}, line 6',
+                             exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.reload(wait_until='domcontentloaded')
+    reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked formatting')
     reviewer_page.locator('#review').get_by_role('button', name='Approve', exact=True).click()
     reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
 
@@ -140,6 +204,33 @@ def main():
                 if status != 403:
                     raise AssertionError('Synthetic reviewer upload permission was not denied')
                 synthetic_review_journey(analyst_page, reviewer_page)
+                synthetic_pdf_review_journey(analyst_page, reviewer_page,
+                    sample_name='arabic_text_supplier.pdf', filename='browser-synthetic-arabic.pdf', global_line=6, page=1)
+                synthetic_pdf_review_journey(analyst_page, reviewer_page,
+                    sample_name='second_page_supplier.pdf', filename='browser-synthetic-multipage.pdf', global_line=7, page=2)
+                analyst_page.get_by_role('checkbox', name='Compare browser-synthetic-multipage.pdf').check()
+                analyst_page.get_by_role('checkbox', name='Compare arabic_quote.txt').check()
+                analyst_page.locator('#compareBtn').click()
+                analyst_page.locator('#comparison').get_by_text(
+                    'Example Page Two Supplies — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
+                    exact=True).wait_for(state='visible', timeout=15000)
+                import pymupdf
+                document = pymupdf.open()
+                document.new_page().insert_text((50, 60), 'Synthetic cover')
+                sheet = document.new_page()
+                for index, line in enumerate(('Supplier: Browser New Supplier', 'Currency: AED',
+                        'Subtotal: 900.00', 'VAT Rate: 5', 'VAT Amount: 45.00', 'Grand Total: 945.00')):
+                    sheet.insert_text((50, 60 + index * 25), line)
+                generated_pdf = document.tobytes()
+                document.close()
+                synthetic_pdf_review_journey(analyst_page, reviewer_page,
+                    sample_bytes=generated_pdf, filename='browser-new-synthetic.pdf', global_line=7, page=2)
+                analyst_page.get_by_role('checkbox', name='Compare browser-new-synthetic.pdf').check()
+                analyst_page.get_by_role('checkbox', name='Compare arabic_quote.txt').check()
+                analyst_page.locator('#compareBtn').click()
+                analyst_page.locator('#comparison').get_by_text(
+                    'Browser New Supplier — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
+                    exact=True).wait_for(state='visible', timeout=15000)
                 # Logout invalidates the server-side session, including a replayed cookie.
                 old = next(cookie for cookie in analyst.cookies() if cookie['name'] == 'nawa_session')
                 status = analyst_page.evaluate('''async () => {
@@ -165,7 +256,7 @@ def main():
                 analyst.close()
         finally:
             browser.close()
-    print('PASS: trusted synthetic browser sign-in, intake, correction, approval, roles and logout replay checks.')
+    print('PASS: trusted synthetic browser sign-in, TXT and PDF review, roles and logout replay checks.')
 
 
 if __name__ == '__main__':
