@@ -59,6 +59,16 @@ class SessionDraftTests(unittest.TestCase):
         fresh = self.store.issue('issuer|subject', 'tenant-a')['session']
         self.assertEqual(self.store.authorize(fresh, 'view', tenant='tenant-a').role, 'analyst')
 
+    def test_identity_or_tenant_generation_change_invalidates_session(self):
+        for field in ('identity_generation', 'tenant_generation'):
+            with self.subTest(field=field):
+                self.members[('issuer|subject','tenant-a')] = Principal('issuer|subject', 'tenant-a', 'analyst')
+                token = self.store.issue('issuer|subject', 'tenant-a')['session']
+                self.members[('issuer|subject','tenant-a')] = Principal(
+                    'issuer|subject', 'tenant-a', 'analyst', **{field:2})
+                with self.assertRaises(SessionError):
+                    self.store.authorize(token, 'view', tenant='tenant-a')
+
     def test_transient_membership_lookup_error_does_not_revoke_session(self):
         token = self.tokens['session']
         lookup = self.store.lookup

@@ -41,7 +41,8 @@ class SessionStore:
         if (not isinstance(principal, Principal) or principal.active is not True
                 or principal.subject != subject or principal.tenant != tenant
                 or not isinstance(principal.role, str) or principal.role not in PERMISSIONS
-                or type(principal.membership_generation) is not int or principal.membership_generation < 0):
+                or any(type(generation) is not int or generation < 0 for generation in
+                       (principal.membership_generation, principal.identity_generation, principal.tenant_generation))):
             raise SessionError('Session unavailable')
         return principal
 
@@ -63,7 +64,8 @@ class SessionStore:
             csrf = secrets.token_urlsafe(32)
             self._sessions[_hash(session)] = {'subject': subject, 'tenant': tenant,
                                                'csrf_hash': _hash(csrf), 'expires': now + duration,
-                                               'membership_generation': principal.membership_generation}
+                                               'generations': (principal.membership_generation,
+                                                               principal.identity_generation, principal.tenant_generation)}
             return {'session': session, 'csrf': csrf, 'max_age': duration}
 
     def authorize(self, session, action, *, tenant, csrf=None):
@@ -87,7 +89,7 @@ class SessionStore:
                 # later reactivation revive the same unexpired session.
                 self._sessions.pop(key, None)
                 raise
-            if principal.membership_generation != record['membership_generation']:
+            if (principal.membership_generation, principal.identity_generation, principal.tenant_generation) != record['generations']:
                 self._sessions.pop(key, None)
                 raise SessionError('Session unavailable')
             # The membership lookup may take long enough for the session to

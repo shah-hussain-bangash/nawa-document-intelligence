@@ -19,6 +19,8 @@ class Principal:
     role: str
     active: bool = True
     membership_generation: int = 0
+    identity_generation: int = 0
+    tenant_generation: int = 0
 
 
 def authorized(principal, action, *, tenant):

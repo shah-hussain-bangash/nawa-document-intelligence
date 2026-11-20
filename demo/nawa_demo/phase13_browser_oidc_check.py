@@ -59,23 +59,31 @@ def browser_api(page, path, payload=None):
     }''', {'path':path, 'payload':payload})
 
 
-def set_synthetic_membership(subject, active):
-    """Change only the disposable CI fixture membership, never a real user."""
+def set_synthetic_membership(subject, active, *, component='membership'):
+    """Change only disposable CI fixture state, never a real user."""
     require_ci()
+    if component not in ('membership', 'identity'):
+        raise ValueError('Invalid synthetic fixture component')
     code = '''import os, sys, psycopg
 if (os.environ.get('NAWA_INTAKE') != 'synthetic' or os.environ.get('NAWA_AUTH') != 'oidc'
         or not os.environ.get('POSTGRES_DB','').startswith('nawa_phase13_qa_')):
     raise SystemExit(1)
 with psycopg.connect(host=os.environ['POSTGRES_HOST'], dbname=os.environ['POSTGRES_DB'],
         user=os.environ['POSTGRES_USER'], password=os.environ['POSTGRES_PASSWORD'], connect_timeout=5) as conn:
-    result = conn.execute('UPDATE nawa_memberships SET active=%s WHERE issuer=%s AND subject=%s AND tenant_id=%s',
-                          (sys.argv[2] == 'active', sys.argv[3], sys.argv[1], 'tenant-a'))
+    if sys.argv[4] == 'membership':
+        result = conn.execute('UPDATE nawa_memberships SET active=%s WHERE issuer=%s AND subject=%s AND tenant_id=%s',
+                              (sys.argv[2] == 'active', sys.argv[3], sys.argv[1], 'tenant-a'))
+    elif sys.argv[4] == 'identity':
+        result = conn.execute('UPDATE nawa_identities SET active=%s WHERE issuer=%s AND subject=%s',
+                              (sys.argv[2] == 'active', sys.argv[3], sys.argv[1]))
+    else:
+        raise ValueError('Invalid synthetic fixture component')
     if result.rowcount != 1:
         raise ValueError('Synthetic membership unavailable')
 '''
     subprocess.run(['docker', 'compose', '-p', 'nawa-phase13-ci', '-f', 'compose.phase13-qa.yaml',
                     'exec', '-T', 'nawa', 'python', '-c', code, subject,
-                    'active' if active else 'inactive', ISSUER],
+                    'active' if active else 'inactive', ISSUER, component],
                    check=True, capture_output=True, timeout=30)
 
 
@@ -190,8 +198,21 @@ def browser_tenant_isolation(browser, analyst_page, reviewer_page, reviewer_user
         if browser_api(fresh_page, '/api/quotations')['status'] != 200:
             fresh_reviewer.close()
             raise AssertionError('Browser fresh synthetic session did not recover')
+        # The local identity flag changes without an intervening request.
+        # This is not an identity-provider account disablement test.
+        try:
+            set_synthetic_membership(reviewer_user['subject'], False, component='identity')
+        finally:
+            set_synthetic_membership(reviewer_user['subject'], True, component='identity')
+        if browser_api(fresh_page, '/api/quotations')['status'] != 403:
+            raise AssertionError('Browser session survived an unseen local identity change')
+        newest_reviewer, newest_page = login(browser, reviewer_user)
+        if browser_api(newest_page, '/api/quotations')['status'] != 200:
+            newest_reviewer.close()
+            raise AssertionError('Browser identity reauthentication failed')
+        fresh_reviewer.close()
         reviewer_page.context.close()
-        return fresh_reviewer, fresh_page
+        return newest_reviewer, newest_page
     finally:
         other.close()
 
