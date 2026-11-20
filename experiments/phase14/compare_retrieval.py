@@ -31,13 +31,22 @@ def embed(texts):
 
 
 def cosine(a, b):
-    if not a or len(a) != len(b) or not all(math.isfinite(x) for x in a + b):
+    if not isinstance(a, (list, tuple)) or not isinstance(b, (list, tuple)) or not a or len(a) != len(b):
         raise ValueError('Invalid embedding')
-    na = math.sqrt(sum(x*x for x in a))
-    nb = math.sqrt(sum(x*x for x in b))
-    if not na or not nb:
-        raise ValueError('Zero embedding')
-    return sum(x*y for x, y in zip(a, b)) / (na * nb)
+    def unit(values):
+        try:
+            if any(type(x) not in (int, float) or not math.isfinite(x) for x in values):
+                raise ValueError('Invalid embedding')
+            scale = max(abs(x) for x in values)
+            if not scale:
+                raise ValueError('Zero embedding')
+            scaled = [x / scale for x in values]
+            norm = math.sqrt(sum(x*x for x in scaled))
+            return [x / norm for x in scaled]
+        except OverflowError as exc:
+            raise ValueError('Invalid embedding') from exc
+    ua, ub = unit(a), unit(b)
+    return math.fsum(x*y for x, y in zip(ua, ub))
 
 
 def rrf(*rankings, k=60):
@@ -116,4 +125,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

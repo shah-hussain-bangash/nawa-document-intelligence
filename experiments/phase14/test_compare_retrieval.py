@@ -27,7 +27,17 @@ class ComparisonTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rrf(['a', 'a'])
 
+    def test_cosine_handles_extreme_finite_values_without_nan(self):
+        for n in (1e308, 1e-300):
+            with self.subTest(magnitude=n):
+                self.assertAlmostEqual(cosine([n, n], [n, n]), 1.0)
+                self.assertAlmostEqual(cosine([n, 0], [0, n]), 0.0)
+
+    def test_cosine_rejects_invalid_embedding_values(self):
+        for invalid in ([True], [float('nan')], [float('inf')], ['1'], [10**400]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                cosine(invalid, [1.0])
+
 
 if __name__ == '__main__':
     unittest.main()
-

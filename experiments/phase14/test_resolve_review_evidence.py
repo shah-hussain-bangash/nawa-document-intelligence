@@ -54,7 +54,27 @@ class ResolveReviewEvidenceTests(unittest.TestCase):
         self.assertEqual(result['evidence'][0]['untrusted_normalized_text'],'Untrusted source line')
         self.assertNotIn('untrusted_source_text',result['evidence'][0])
 
+    def test_rejects_invalid_metadata_even_when_snapshot_agrees(self):
+        for field, value, provenance_field in (('source_document_id', '', 'document_id'),
+                ('source_sha256', 'bad-hash', 'source_sha256'), ('page_line', True, 'page_line'),
+                ('page_line', 0, 'page_line')):
+            with self.subTest(field=field, value=value):
+                review = deepcopy(self.review)
+                snapshot = deepcopy(self.snapshot)
+                review['evidence'][0][field] = value
+                snapshot['provenance']['p'][provenance_field] = value
+                self.assertEqual(resolve_for_review(review,tenant='a',principal='analyst',
+                                                   load_snapshot=lambda:snapshot), {'status':'unavailable'})
+
+    def test_boolean_page_cannot_equal_integer_page_one(self):
+        snapshot = deepcopy(self.snapshot)
+        snapshot['passages'] = [replace(self.passage, page=1)]
+        review = retrieve_for_review('source',tenant='a',principal='analyst',
+                                     load_snapshot=lambda:snapshot,embed_fn=lambda texts:[[1.0] for _ in texts])
+        review['evidence'][0]['page'] = True
+        self.assertEqual(resolve_for_review(review,tenant='a',principal='analyst',
+                                            load_snapshot=lambda:snapshot), {'status':'unavailable'})
+
 
 if __name__ == '__main__':
     unittest.main()
-
