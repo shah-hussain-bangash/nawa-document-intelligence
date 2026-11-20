@@ -134,6 +134,18 @@ def main():
                                 data=json.dumps({'id':other_quotation}).encode(), headers=other_headers)
     if status != 200:
         raise AssertionError('Tenant B own review could not be read')
+    correction = {'id':quotation_id, 'field':'total', 'value':'1050',
+                  'reason':'Synthetic format correction', 'source':'synthetic.txt',
+                  'line':6, 'quote':'Grand Total: 1050.00', 'expected_revision':1}
+    status, _, _ = oidc.request(other, oidc.APP + '/api/review/correct',
+                                data=json.dumps(correction).encode(), headers=other_headers)
+    if status != 400:
+        raise AssertionError('Cross-tenant review change was not denied')
+    own_correction = dict(correction, id=other_quotation)
+    status, _, result = oidc.request(other, oidc.APP + '/api/review/correct',
+                                     data=json.dumps(own_correction).encode(), headers=other_headers)
+    if status != 200 or json.loads(result)['revision'] != 2:
+        raise AssertionError('Tenant B own correction failed')
     oidc.APP, oidc.ORIGIN = app_a, origin_a
     status, _, _ = oidc.request(analyst, oidc.APP + '/api/intake/status?id=' + other_document)
     if status != 404:
@@ -143,10 +155,20 @@ def main():
                                     data=json.dumps({'id':foreign_id}).encode(), headers=headers)
         if status != 400:
             raise AssertionError('Reverse cross-tenant operation was not denied')
-    status, _, _ = oidc.request(analyst, oidc.APP + '/api/review/show',
-                                data=json.dumps({'id':quotation_id}).encode(), headers=headers)
-    if status != 200:
-        raise AssertionError('Tenant A own review could not be read')
+    status, _, _ = oidc.request(analyst, oidc.APP + '/api/review/correct',
+        data=json.dumps(dict(correction, id=other_quotation, expected_revision=2)).encode(), headers=headers)
+    if status != 400:
+        raise AssertionError('Reverse cross-tenant review change was not denied')
+    status, _, result = oidc.request(analyst, oidc.APP + '/api/review/show',
+                                     data=json.dumps({'id':quotation_id}).encode(), headers=headers)
+    if status != 200 or json.loads(result)['revision'] != 1:
+        raise AssertionError('Tenant A review changed unexpectedly')
+    oidc.APP, oidc.ORIGIN = 'http://127.0.0.1:8766', 'http://127.0.0.1:19766'
+    status, _, result = oidc.request(other, oidc.APP + '/api/review/show',
+                                     data=json.dumps({'id':other_quotation}).encode(), headers=other_headers)
+    if status != 200 or json.loads(result)['revision'] != 2:
+        raise AssertionError('Tenant B review changed unexpectedly')
+    oidc.APP, oidc.ORIGIN = app_a, origin_a
 
     review_jar, reviewer = oidc.login(users['reviewer'])
     review_csrf = next(cookie.value for cookie in review_jar if cookie.name == 'nawa_csrf')
