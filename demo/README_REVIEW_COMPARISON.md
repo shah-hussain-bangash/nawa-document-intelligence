@@ -29,13 +29,20 @@ unsupported PDF, or unretained sources fail closed. Existing records are not
 backfilled or deleted. The default and running portal remain unchanged.
 
 For the disposable QA stack, `require_intake_fixture` extends the same check
-to one exact, hash-pinned, single-page synthetic Arabic/English PDF fixture.
-Its text layer is re-extracted in a resource-limited subprocess with OCR off.
-The cited global line and excerpt must exactly match the raw extracted line;
-Arabic PDF text can be visually reordered or encoded as presentation forms,
-so this is not a visual page or semantic verification. Any other PDF hash,
-scanned PDF, multi-page PDF, missing source or changed file is rejected in this
-mode. This narrow case does not add general PDF correction verification.
+to two exact hash-pinned synthetic PDFs: a single-page Arabic/English fixture
+and a two-page English fixture. Their text layers are re-extracted in a
+resource-limited subprocess with OCR off, using the fixture's extraction
+method. The cited global line and excerpt must exactly match the raw extracted
+line. The correction and approval responses, and an approved comparison,
+return the checked page and page-local line; the UI shows those locations.
+The correction form uses the global extracted-line number shown in the field
+details. For Arabic, the UI also shows raw extracted text when it differs from
+the normalized display; a reviewer must use that exact raw text for the check.
+Checks are recomputed, not stored as a durable attestation. Arabic PDF text can
+be visually reordered or encoded as presentation forms, so this is not a
+visual page or semantic verification. Other PDF hashes, scanned PDFs, missing
+sources and changed files are rejected. This narrow fixture support does not
+provide general PDF correction verification.
 
 This check establishes only that a cited line matched the retained source at
 the time of the check. It does not prove that the correction follows from that

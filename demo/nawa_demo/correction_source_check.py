@@ -6,13 +6,16 @@ import subprocess
 import sys
 import tempfile
 
-PDF_FIXTURE_SHA256 = 'efe191b915a9ba0f205017f9c7911d72422ddb047c9a7ef48c3e728a47499b68'
+PDF_FIXTURE_SHA256 = frozenset({
+    'efe191b915a9ba0f205017f9c7911d72422ddb047c9a7ef48c3e728a47499b68',
+    '3bbebac92722b82770c31725806efb6148f2b317b0a3af7348145a2f336d95d6',
+})
 MAX_LINE_JSON = 2 * 1024 * 1024
 
 
 def fixture_pdf_lines(content):
-    """Re-extract one pinned synthetic fixture in a limited subprocess."""
-    if not isinstance(content, bytes) or hashlib.sha256(content).hexdigest() != PDF_FIXTURE_SHA256:
+    """Re-extract pinned synthetic fixtures in a limited subprocess."""
+    if not isinstance(content, bytes) or hashlib.sha256(content).hexdigest() not in PDF_FIXTURE_SHA256:
         raise ValueError('Unsupported synthetic PDF correction source')
     try:
         with tempfile.TemporaryFile() as output:
@@ -23,7 +26,10 @@ def fixture_pdf_lines(content):
         if len(raw) > MAX_LINE_JSON:
             raise ValueError('Synthetic PDF text exceeds limit')
         lines = json.loads(raw.decode('utf-8'))
-        if not isinstance(lines, list) or not lines or not all(isinstance(line, str) for line in lines):
+        if (not isinstance(lines, list) or not lines or not all(
+                isinstance(line, dict) and set(line) == {'text', 'page', 'page_line'}
+                and isinstance(line['text'], str) and type(line['page']) is int and 1 <= line['page'] <= 2
+                and type(line['page_line']) is int and line['page_line'] >= 1 for line in lines)):
             raise ValueError('Invalid synthetic PDF lines')
         return lines
     except (OSError, ValueError, UnicodeError, subprocess.SubprocessError):
@@ -59,5 +65,12 @@ def verify_line(source, line, excerpt, filename, lines):
     """Require an exact original line; this does not prove the corrected value."""
     if (not isinstance(source, str) or source != filename or type(line) is not int
             or line < 1 or line > len(lines) or not isinstance(excerpt, str)
-            or not excerpt.strip() or excerpt != lines[line - 1]):
+            or not excerpt.strip()):
         raise ValueError('Synthetic correction evidence does not match source')
+    entry = lines[line - 1]
+    text = entry['text'] if isinstance(entry, dict) else entry
+    if excerpt != text:
+        raise ValueError('Synthetic correction evidence does not match source')
+    if isinstance(entry, dict):
+        return {'kind':'pdf_text_layer', 'global_line':line, 'page':entry['page'], 'page_line':entry['page_line']}
+    return {'kind':'txt_line', 'line':line}

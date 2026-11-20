@@ -21,7 +21,8 @@ class CorrectionSourceCheckTests(unittest.TestCase):
 
     def test_exact_line_uses_tenant_scoped_digest_verified_source(self):
         filename, lines = load_intake_text(self.conn, self.principal, 'q1', self.quote, self.store)
-        verify_line('synthetic.txt', 2, 'Subtotal: 1000.00', filename, lines)
+        self.assertEqual(verify_line('synthetic.txt', 2, 'Subtotal: 1000.00', filename, lines),
+                         {'kind':'txt_line', 'line':2})
         self.assertEqual(self.conn.execute.call_args.args[1], ('tenant-a', 'q1'))
         self.store.read_verified.assert_called_once_with(self.document.hex, 'a' * 64)
 
@@ -68,15 +69,27 @@ class CorrectionSourceCheckTests(unittest.TestCase):
         self.store.read_verified.return_value = source.read_bytes()
         filename, lines = load_intake_text(self.conn, self.principal, 'q1', {'document':'synthetic.pdf'},
                                            self.store, allow_fixture_pdf=True)
-        self.assertEqual(lines[5], 'Grand Total: 945.00')
-        verify_line(filename, 6, 'Grand Total: 945.00', filename, lines)
-        self.assertNotEqual(lines[2], 'المجموع الفرعي: ٩٠٠٫٠٠')
+        self.assertEqual(lines[5]['text'], 'Grand Total: 945.00')
+        self.assertEqual(verify_line(filename, 6, 'Grand Total: 945.00', filename, lines),
+                         {'kind':'pdf_text_layer', 'global_line':6, 'page':1, 'page_line':6})
+        self.assertNotEqual(lines[2]['text'], 'المجموع الفرعي: ٩٠٠٫٠٠')
         with self.assertRaises(ValueError):
             verify_line(filename, 3, 'المجموع الفرعي: ٩٠٠٫٠٠', filename, lines)
         self.store.read_verified.return_value = source.read_bytes() + b'altered'
         with self.assertRaises(ValueError):
             load_intake_text(self.conn, self.principal, 'q1', {'document':'synthetic.pdf'},
                              self.store, allow_fixture_pdf=True)
+
+    def test_pinned_multipage_pdf_resolves_global_line_to_page(self):
+        source = Path(__file__).resolve().parents[1] / 'samples/pdf/second_page_supplier.pdf'
+        self.conn.execute.return_value.fetchone.return_value = (self.document, 'synthetic.pdf', 'a' * 64)
+        self.store.read_verified.return_value = source.read_bytes()
+        filename, lines = load_intake_text(self.conn, self.principal, 'q1', {'document':'synthetic.pdf'},
+                                           self.store, allow_fixture_pdf=True)
+        self.assertEqual(verify_line(filename, 7, 'Grand Total: 945.00', filename, lines),
+                         {'kind':'pdf_text_layer', 'global_line':7, 'page':2, 'page_line':6})
+        with self.assertRaises(ValueError):
+            verify_line(filename, 6, 'Grand Total: 945.00', filename, lines)
 
     def test_pdf_timeout_is_rejected_without_exposing_error_details(self):
         from nawa_demo.correction_source_check import fixture_pdf_lines

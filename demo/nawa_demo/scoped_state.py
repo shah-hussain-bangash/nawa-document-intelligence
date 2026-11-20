@@ -142,18 +142,22 @@ class ScopedState:
         if state['status'] != 'approved':
             return {**quote, 'comparison':{'basis':state['status'], 'eligible':False,
                                            'review_revision':state['revision']}}
-        self._verify_corrections(conn, principal, item_id, quote, row[1])
+        source_checks = self._verify_corrections(conn, principal, item_id, quote, row[1])
+        comparison = {'basis':'approved_review', 'eligible':True, 'review_revision':state['revision']}
+        if source_checks:
+            comparison['source_checks'] = source_checks
         return {**quote, **state['fields'],
                 'checks':{key:state['checks'][key] for key in ('vat_matches_rate', 'total_matches_components')},
-                'comparison':{'basis':'approved_review', 'eligible':True, 'review_revision':state['revision']}}
+                'comparison':comparison}
 
     def _verify_corrections(self, conn, principal, item_id, quote, ledger):
         corrections = [event['data']['evidence'] for event in ledger['events'] if event['type'] == 'correction']
         if self.correction_source_policy != 'legacy_asserted' and corrections:
             filename, lines = load_intake_text(conn, principal, item_id, quote, self.correction_source_store,
                 allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture')
-            for evidence in corrections:
-                verify_line(evidence['source'], evidence['line'], evidence['quote'], filename, lines)
+            return [verify_line(evidence['source'], evidence['line'], evidence['quote'], filename, lines)
+                    for evidence in corrections]
+        return []
 
     def review_start(self, principal, item_id):
         self._require(principal, 'review_start')
@@ -193,9 +197,10 @@ class ScopedState:
             if inspect(row[1])['revision'] != row[0]:
                 raise ValueError('Review revision mismatch')
             actor = 'oidc:' + hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+            source_checks = []
             if action == 'decide':
                 if payload.get('decision') == 'approve':
-                    self._verify_corrections(conn, principal, item_id, original, row[1])
+                    source_checks = self._verify_corrections(conn, principal, item_id, original, row[1])
                 updated = decide(row[1], actor=actor, decision=payload.get('decision'),
                                  reason=payload.get('reason'), expected_revision=payload.get('expected_revision'))
             else:
@@ -203,12 +208,14 @@ class ScopedState:
                     filename, lines = load_intake_text(conn, principal, item_id, original,
                         self.correction_source_store,
                         allow_fixture_pdf=self.correction_source_policy == 'require_intake_fixture')
-                    verify_line(payload.get('source'), payload.get('line'), payload.get('quote'), filename, lines)
+                    source_checks = [verify_line(payload.get('source'), payload.get('line'), payload.get('quote'), filename, lines)]
                 updated = correct(row[1], actor=actor, field=payload.get('field'),
                                   value=payload.get('value'), reason=payload.get('reason'),
                                   source=payload.get('source'), line=payload.get('line'),
                                   quote=payload.get('quote'), expected_revision=payload.get('expected_revision'))
             result = inspect(updated)
+            if source_checks:
+                result['source_checks'] = source_checks
             conn.execute('UPDATE nawa_reviews SET revision = %s, ledger = %s::jsonb, updated_at = now() WHERE quotation_id = %s',
                          (result['revision'], json.dumps(updated, ensure_ascii=False), item_id))
         return result
