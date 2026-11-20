@@ -186,8 +186,14 @@ def browser_tenant_isolation(browser, analyst_page, reviewer_page, reviewer_user
                 raise AssertionError('Browser unrelated analyst session was affected')
         finally:
             set_synthetic_membership(reviewer_user['subject'], True)
-        if browser_api(reviewer_page, '/api/quotations')['status'] != 200:
-            raise AssertionError('Browser restored synthetic membership did not recover')
+        if browser_api(reviewer_page, '/api/quotations')['status'] != 403:
+            raise AssertionError('Browser revoked session was revived')
+        fresh_reviewer, fresh_page = login(browser, reviewer_user)
+        if browser_api(fresh_page, '/api/quotations')['status'] != 200:
+            fresh_reviewer.close()
+            raise AssertionError('Browser fresh synthetic session did not recover')
+        reviewer_page.context.close()
+        return fresh_reviewer, fresh_page
     finally:
         other.close()
 
@@ -378,7 +384,8 @@ def main():
                 analyst_page.locator('#comparison').get_by_text(
                     'Browser New Supplier — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
                     exact=True).wait_for(state='visible', timeout=15000)
-                browser_tenant_isolation(browser, analyst_page, reviewer_page, users['reviewer'], users['outsider'])
+                reviewer, reviewer_page = browser_tenant_isolation(
+                    browser, analyst_page, reviewer_page, users['reviewer'], users['outsider'])
                 # Logout invalidates the server-side session, including a replayed cookie.
                 old = next(cookie for cookie in analyst.cookies() if cookie['name'] == 'nawa_session')
                 status = analyst_page.evaluate('''async () => {

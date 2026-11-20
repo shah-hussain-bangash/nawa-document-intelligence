@@ -39,6 +39,26 @@ class SessionDraftTests(unittest.TestCase):
         with self.assertRaises(SessionError):
             self.store.authorize(token, 'view', tenant='tenant-a')
 
+    def test_observed_membership_revocation_does_not_revive_old_session(self):
+        token = self.tokens['session']
+        del self.members[('issuer|subject','tenant-a')]
+        with self.assertRaises(SessionError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+        self.members[('issuer|subject','tenant-a')] = Principal('issuer|subject','tenant-a','analyst')
+        with self.assertRaises(SessionError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+        fresh = self.store.issue('issuer|subject', 'tenant-a')['session']
+        self.assertEqual(self.store.authorize(fresh, 'view', tenant='tenant-a').role, 'analyst')
+
+    def test_transient_membership_lookup_error_does_not_revoke_session(self):
+        token = self.tokens['session']
+        lookup = self.store.lookup
+        self.store.lookup = lambda *_: (_ for _ in ()).throw(OSError('synthetic outage'))
+        with self.assertRaises(OSError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+        self.store.lookup = lookup
+        self.assertEqual(self.store.authorize(token, 'view', tenant='tenant-a').role, 'analyst')
+
     def test_logout_and_expiration(self):
         token = self.tokens['session']
         with self.assertRaises(SessionError):

@@ -78,7 +78,13 @@ class SessionStore:
                     raise SessionError('Request denied')
                 if not secrets.compare_digest(record['csrf_hash'], _hash(csrf)):
                     raise SessionError('Request denied')
-            principal = self._membership(record['subject'], record['tenant'])
+            try:
+                principal = self._membership(record['subject'], record['tenant'])
+            except SessionError:
+                # Once a session observes an invalid membership, do not let a
+                # later reactivation revive the same unexpired session.
+                self._sessions.pop(key, None)
+                raise
             if not authorized(principal, action, tenant=tenant):
                 raise SessionError('Request denied')
             return principal
