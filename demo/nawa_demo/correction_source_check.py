@@ -9,6 +9,7 @@ import tempfile
 PDF_FIXTURE_SHA256 = frozenset({
     'efe191b915a9ba0f205017f9c7911d72422ddb047c9a7ef48c3e728a47499b68',
     '3bbebac92722b82770c31725806efb6148f2b317b0a3af7348145a2f336d95d6',
+    '1b95cabe02ceca5f7e9f71216c3f9b1ef6e8e41a546faea053641ab7a71fad03',
 })
 MAX_LINE_JSON = 2 * 1024 * 1024
 

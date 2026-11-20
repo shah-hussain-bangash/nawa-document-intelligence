@@ -6,7 +6,10 @@ import sys
 from .intake_limits import apply_parser_limits
 
 ARABIC_SHA256 = 'efe191b915a9ba0f205017f9c7911d72422ddb047c9a7ef48c3e728a47499b68'
-MULTIPAGE_SHA256 = '3bbebac92722b82770c31725806efb6148f2b317b0a3af7348145a2f336d95d6'
+MULTIPAGE_SHA256 = frozenset({
+    '3bbebac92722b82770c31725806efb6148f2b317b0a3af7348145a2f336d95d6',
+    '1b95cabe02ceca5f7e9f71216c3f9b1ef6e8e41a546faea053641ab7a71fad03',
+})
 MAX_PDF = 4 * 1024 * 1024
 MAX_TEXT = 1024 * 1024
 
@@ -15,7 +18,7 @@ def main():
     apply_parser_limits()
     content = sys.stdin.buffer.read(MAX_PDF + 1)
     digest = hashlib.sha256(content).hexdigest()
-    if len(content) > MAX_PDF or digest not in (ARABIC_SHA256, MULTIPAGE_SHA256):
+    if len(content) > MAX_PDF or (digest != ARABIC_SHA256 and digest not in MULTIPAGE_SHA256):
         raise ValueError('Unsupported synthetic PDF fixture')
     if digest == ARABIC_SHA256:
         import pymupdf
