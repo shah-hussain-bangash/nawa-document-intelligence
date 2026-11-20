@@ -50,6 +50,15 @@ class SessionDraftTests(unittest.TestCase):
         fresh = self.store.issue('issuer|subject', 'tenant-a')['session']
         self.assertEqual(self.store.authorize(fresh, 'view', tenant='tenant-a').role, 'analyst')
 
+    def test_membership_change_between_requests_invalidates_session(self):
+        token = self.tokens['session']
+        self.members[('issuer|subject','tenant-a')] = Principal(
+            'issuer|subject', 'tenant-a', 'analyst', membership_generation=2)
+        with self.assertRaises(SessionError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+        fresh = self.store.issue('issuer|subject', 'tenant-a')['session']
+        self.assertEqual(self.store.authorize(fresh, 'view', tenant='tenant-a').role, 'analyst')
+
     def test_transient_membership_lookup_error_does_not_revoke_session(self):
         token = self.tokens['session']
         lookup = self.store.lookup
@@ -112,3 +121,4 @@ class SessionDraftTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

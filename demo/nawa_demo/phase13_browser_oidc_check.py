@@ -176,18 +176,16 @@ def browser_tenant_isolation(browser, analyst_page, reviewer_page, reviewer_user
         result = browser_api(other_page, '/api/review/show', {'id':reviews[1]})
         if result['status'] != 200 or result['body'].get('status') != 'pending_review' or result['body'].get('revision') != 2:
             raise AssertionError('Browser other-tenant review changed unexpectedly')
-        # Revoke only the disposable reviewer's local membership. This does
-        # not test provider-side account revocation or a real identity system.
+        # Change the disposable membership twice without an intervening
+        # request from the reviewer. This does not test provider revocation.
         try:
             set_synthetic_membership(reviewer_user['subject'], False)
-            if browser_api(reviewer_page, '/api/quotations')['status'] != 403:
-                raise AssertionError('Browser revoked reviewer retained access')
-            if any(browser_api(page, '/api/quotations')['status'] != 200 for page in pages):
-                raise AssertionError('Browser unrelated analyst session was affected')
         finally:
             set_synthetic_membership(reviewer_user['subject'], True)
         if browser_api(reviewer_page, '/api/quotations')['status'] != 403:
-            raise AssertionError('Browser revoked session was revived')
+            raise AssertionError('Browser session survived an unseen membership change')
+        if any(browser_api(page, '/api/quotations')['status'] != 200 for page in pages):
+            raise AssertionError('Browser unrelated analyst session was affected')
         fresh_reviewer, fresh_page = login(browser, reviewer_user)
         if browser_api(fresh_page, '/api/quotations')['status'] != 200:
             fresh_reviewer.close()
@@ -424,4 +422,5 @@ if __name__ == '__main__':
     except Exception as exc:
         print('Synthetic browser OIDC check failed:', type(exc).__name__, '(details withheld).')
         raise SystemExit(1) from None
+
 

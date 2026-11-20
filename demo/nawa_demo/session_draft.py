@@ -40,7 +40,8 @@ class SessionStore:
         principal = self.lookup(subject, tenant)
         if (not isinstance(principal, Principal) or principal.active is not True
                 or principal.subject != subject or principal.tenant != tenant
-                or not isinstance(principal.role, str) or principal.role not in PERMISSIONS):
+                or not isinstance(principal.role, str) or principal.role not in PERMISSIONS
+                or type(principal.membership_generation) is not int or principal.membership_generation < 0):
             raise SessionError('Session unavailable')
         return principal
 
@@ -52,7 +53,7 @@ class SessionStore:
         duration = int(min(self.ttl, max_age if max_age is not None else self.ttl))
         if duration < 1:
             raise SessionError('Session unavailable')
-        self._membership(subject, tenant)
+        principal = self._membership(subject, tenant)
         with self._lock:
             now = self.clock()
             self._sessions = {key: value for key, value in self._sessions.items() if value['expires'] > now}
@@ -61,7 +62,8 @@ class SessionStore:
             session = secrets.token_urlsafe(32)
             csrf = secrets.token_urlsafe(32)
             self._sessions[_hash(session)] = {'subject': subject, 'tenant': tenant,
-                                               'csrf_hash': _hash(csrf), 'expires': now + duration}
+                                               'csrf_hash': _hash(csrf), 'expires': now + duration,
+                                               'membership_generation': principal.membership_generation}
             return {'session': session, 'csrf': csrf, 'max_age': duration}
 
     def authorize(self, session, action, *, tenant, csrf=None):
@@ -85,6 +87,9 @@ class SessionStore:
                 # later reactivation revive the same unexpired session.
                 self._sessions.pop(key, None)
                 raise
+            if principal.membership_generation != record['membership_generation']:
+                self._sessions.pop(key, None)
+                raise SessionError('Session unavailable')
             # The membership lookup may take long enough for the session to
             # expire after the first check but before authorization returns.
             if record['expires'] <= self.clock():
@@ -121,3 +126,4 @@ class SessionStore:
                 raise SessionError('Session unavailable')
             tenant = record['tenant']
         return self.authorize(session, action, tenant=tenant, csrf=csrf)
+

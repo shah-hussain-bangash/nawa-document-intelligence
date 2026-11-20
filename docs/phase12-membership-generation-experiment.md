@@ -1,0 +1,7 @@
+# Synthetic membership-generation experiment
+
+This integration draft adds a database-assigned membership generation and binds a process-local session to the generation returned by the server-side membership lookup. Changing a membership's active state or role, or deleting and recreating the membership, assigns a new generation. On the next protected request, a mismatched generation invalidates the old session; a newly authenticated session can use the current generation.
+
+Migration `005_membership_generation.sql` is new and leaves previous migration files and their checksums unchanged. The tests apply it only to disposable synthetic databases, including an upgrade from the prior schema. No migration of existing NAWA workspaces, uploads or databases is authorized or performed by this experiment.
+
+This is not a production revocation guarantee. Changes to identity or tenant active flags are still checked at request time and can be missed if reversed between requests. Provider-side disablement and account sessions are not synchronized. A database restore can rewind sequence state; privileged database users can alter triggers or data. A request can still race with a change after its last authorization check, sessions remain process-local, and database permissions, distributed invalidation, backup consistency and independent security review remain open. The browser test uses a disposable CI-only certificate and synthetic identities.
