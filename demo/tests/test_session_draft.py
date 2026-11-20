@@ -1,5 +1,7 @@
 """Session primitives only; these tests do not establish HTTP security."""
 import unittest
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from nawa_demo.authorization import Principal
 from nawa_demo.authorization import PERMISSIONS
@@ -91,6 +93,43 @@ class SessionDraftTests(unittest.TestCase):
         self.store.lookup = lookup
         with self.assertRaises(SessionError):
             self.store.authorize(token, 'view', tenant='tenant-a')
+
+    def test_recovery_blocks_sessions_and_requires_fresh_login(self):
+        token = self.tokens['session']
+        self.store.begin_recovery()
+        with self.assertRaises(SessionError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+        with self.assertRaises(SessionError):
+            self.store.issue('issuer|subject', 'tenant-a')
+        with self.assertRaises(SessionError):
+            self.store.begin_recovery()
+        self.store.end_recovery()
+        with self.assertRaises(SessionError):
+            self.store.authorize(token, 'view', tenant='tenant-a')
+        fresh = self.store.issue('issuer|subject', 'tenant-a')['session']
+        self.assertEqual(self.store.authorize(fresh, 'view', tenant='tenant-a').role, 'analyst')
+        with self.assertRaises(SessionError):
+            self.store.end_recovery()
+
+    def test_issuance_in_flight_before_recovery_cannot_resume_afterwards(self):
+        started, release = threading.Event(), threading.Event()
+        original = self.store.lookup
+        def slow_lookup(subject, tenant):
+            started.set()
+            if not release.wait(5):
+                raise RuntimeError('Synthetic test timed out')
+            return original(subject, tenant)
+        self.store.lookup = slow_lookup
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(self.store.issue, 'issuer|subject', 'tenant-a')
+            try:
+                self.assertTrue(started.wait(5))
+                self.store.begin_recovery()
+                self.store.end_recovery()
+            finally:
+                release.set()
+            with self.assertRaises(SessionError):
+                future.result(timeout=5)
 
     def test_logout_and_expiration(self):
         token = self.tokens['session']

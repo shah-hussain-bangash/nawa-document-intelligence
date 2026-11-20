@@ -35,6 +35,28 @@ class SessionStore:
         self.lookup, self.ttl, self.limit, self.clock = membership_lookup, ttl, limit, clock
         self._sessions = {}
         self._lock = threading.Lock()
+        self._recovering = False
+        self._recovery_epoch = 0
+
+    def begin_recovery(self):
+        """Block issuance and discard sessions in this process only.
+
+        The caller must first quiesce and drain protected operations. This is
+        not exposed as an HTTP endpoint and is not a distributed barrier.
+        """
+        with self._lock:
+            if self._recovering:
+                raise SessionError('Recovery already active')
+            self._recovering = True
+            self._recovery_epoch += 1
+            self._sessions.clear()
+
+    def end_recovery(self):
+        """Allow fresh local sessions after externally coordinated recovery."""
+        with self._lock:
+            if not self._recovering:
+                raise SessionError('Recovery is not active')
+            self._recovering = False
 
     def _membership(self, subject, tenant):
         principal = self.lookup(subject, tenant)
@@ -54,8 +76,14 @@ class SessionStore:
         duration = int(min(self.ttl, max_age if max_age is not None else self.ttl))
         if duration < 1:
             raise SessionError('Session unavailable')
+        with self._lock:
+            if self._recovering:
+                raise SessionError('Session unavailable')
+            recovery_epoch = self._recovery_epoch
         principal = self._membership(subject, tenant)
         with self._lock:
+            if self._recovering or recovery_epoch != self._recovery_epoch:
+                raise SessionError('Session unavailable')
             now = self.clock()
             self._sessions = {key: value for key, value in self._sessions.items() if value['expires'] > now}
             if len(self._sessions) >= self.limit:
@@ -72,6 +100,8 @@ class SessionStore:
         if not isinstance(session, str) or not session or not isinstance(action, str):
             raise SessionError('Session unavailable')
         with self._lock:
+            if self._recovering:
+                raise SessionError('Session unavailable')
             key = _hash(session)
             record = self._sessions.get(key)
             if not record or record['expires'] <= self.clock():

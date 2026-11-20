@@ -76,7 +76,9 @@ class PostgresIntakeTests(unittest.TestCase):
             with active_connection[0]() as conn:
                 return membership_by_key(conn, identity_key=key, tenant=tenant)
         sessions = SessionStore(lookup)
+        other_sessions = SessionStore(lookup)
         old = sessions.issue(identity, self.tenant)['session']
+        other_old = other_sessions.issue(identity, self.tenant)['session']
         control = sessions.issue(identity, self.tenant)['session']
         restore_name = 'nawa_phase13_qa_restore_' + uuid4().hex[:12]
         pg_bin = Path(r'C:\Program Files\PostgreSQL\18\bin')
@@ -107,6 +109,26 @@ class PostgresIntakeTests(unittest.TestCase):
                 # The old snapshot lacks the later change. This illustrates the
                 # unresolved replay risk; it is not an acceptable safety claim.
                 self.assertEqual(sessions.authorize_current(old, 'view').role, 'analyst')
+                self.assertEqual(other_sessions.authorize_current(other_old, 'view').role, 'analyst')
+                # Model a second restore after pausing the first process.
+                active_connection[0] = self.connect
+                sessions.begin_recovery()
+                active_connection[0] = lambda: psycopg.connect(**restored)
+                with self.assertRaises(SessionError):
+                    sessions.authorize_current(old, 'view')
+                with self.assertRaises(SessionError):
+                    sessions.issue(identity, self.tenant)
+                # Pausing one process does not pause another process.
+                self.assertEqual(other_sessions.authorize_current(other_old, 'view').role, 'analyst')
+                other_sessions.begin_recovery()
+                with self.assertRaises(SessionError):
+                    other_sessions.authorize_current(other_old, 'view')
+                sessions.end_recovery()
+                other_sessions.end_recovery()
+                with self.assertRaises(SessionError):
+                    sessions.authorize_current(old, 'view')
+                with self.assertRaises(SessionError):
+                    other_sessions.authorize_current(other_old, 'view')
                 restarted = SessionStore(lookup)
                 with self.assertRaises(SessionError):
                     restarted.authorize_current(old, 'view')
