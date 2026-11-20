@@ -11,7 +11,7 @@ from nawa_demo.dashboard import DashboardState
 from nawa_demo.protected_api import make_protected_handler
 from nawa_demo.session_draft import SessionStore
 from nawa_demo.synthetic_recovery_coordinator import prepare_recovery
-from nawa_demo.synthetic_request_gate import GateClosed, SyntheticRequestGate
+from nawa_demo.synthetic_request_gate import SyntheticRequestGate
 
 
 class RecoveryInFlightTests(unittest.TestCase):
@@ -29,16 +29,8 @@ class RecoveryInFlightTests(unittest.TestCase):
                     raise TimeoutError('test request was not released')
                 return [{'id': 'synthetic'}]
 
-        Base = make_protected_handler(BlockingScoped(), sessions, DashboardState())
-        class TestOnlyGatedHandler(Base):
-            def do_GET(self):
-                try:
-                    with gate.operation():
-                        return super().do_GET()
-                except GateClosed:
-                    return self._json({'error': 'Synthetic recovery in progress'}, 503)
-
-        server = ThreadingHTTPServer(('127.0.0.1', 0), TestOnlyGatedHandler)
+        handler = make_protected_handler(BlockingScoped(), sessions, DashboardState(), synthetic_request_gate=gate)
+        server = ThreadingHTTPServer(('127.0.0.1', 0), handler)
         server_thread = threading.Thread(target=server.serve_forever, daemon=True)
         server_thread.start()
         url = 'http://127.0.0.1:%s/api/quotations' % server.server_port
@@ -71,6 +63,10 @@ class RecoveryInFlightTests(unittest.TestCase):
                 urlopen(Request(url, headers={'Cookie': 'nawa_session=' + token}), timeout=5)
             self.assertEqual(rejected.exception.code, 503)
             rejected.exception.close()
+            with self.assertRaises(HTTPError) as rejected_post:
+                urlopen(Request(url, data=b'{}', headers={'Content-Type': 'application/json'}), timeout=5)
+            self.assertEqual(rejected_post.exception.code, 503)
+            rejected_post.exception.close()
             self.assertFalse(restore_called.is_set())
             release.set()
             worker.join(5)
@@ -84,6 +80,15 @@ class RecoveryInFlightTests(unittest.TestCase):
                 urlopen(Request(url, headers={'Cookie': 'nawa_session=' + token}), timeout=5)
             self.assertEqual(still_closed.exception.code, 503)
             still_closed.exception.close()
+            sessions.end_recovery()
+            gate.resume()
+            with self.assertRaises(HTTPError) as stale:
+                urlopen(Request(url, headers={'Cookie': 'nawa_session=' + token}), timeout=5)
+            self.assertEqual(stale.exception.code, 403)
+            stale.exception.close()
+            fresh = sessions.issue(principal.subject, principal.tenant)['session']
+            with urlopen(Request(url, headers={'Cookie': 'nawa_session=' + fresh}), timeout=5) as response:
+                self.assertEqual(response.status, 200)
         finally:
             release.set()
             worker.join(5)

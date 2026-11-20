@@ -14,10 +14,14 @@ from .dashboard import MAX_BODY, make_handler
 from .session_draft import SessionError
 from .scoped_state import AccessDenied, ReviewNotInitialized
 from .intake_postgres import IntakeRejected
+from .synthetic_request_gate import GateClosed, SyntheticRequestGate
 
 
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
-                           allowed_origin='http://127.0.0.1:8765', intake=None):
+                           allowed_origin='http://127.0.0.1:8765', intake=None,
+                           synthetic_request_gate=None):
+    if synthetic_request_gate is not None and not isinstance(synthetic_request_gate, SyntheticRequestGate):
+        raise ValueError('Invalid synthetic request gate')
     Base = make_handler(health_state)
 
     class Handler(Base):
@@ -272,5 +276,29 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
             except Exception:
                 return self._json({'error': 'Quotation storage unavailable'}, 503)
 
-    return Handler
+    if synthetic_request_gate is None:
+        return Handler
 
+    class SyntheticGatedHandler(Handler):
+        """Opt-in single-process QA handler; not a recovery service."""
+        def _gated(self, method):
+            operation = synthetic_request_gate.operation()
+            try:
+                operation.__enter__()
+            except GateClosed:
+                # A rejected POST may have an unread body. Close the connection
+                # so it cannot be interpreted as another HTTP request.
+                self.close_connection = True
+                return self._json({'error': 'Synthetic recovery in progress'}, 503)
+            try:
+                return method()
+            finally:
+                operation.__exit__(None, None, None)
+
+        def do_GET(self):
+            return self._gated(super().do_GET)
+
+        def do_POST(self):
+            return self._gated(super().do_POST)
+
+    return SyntheticGatedHandler
