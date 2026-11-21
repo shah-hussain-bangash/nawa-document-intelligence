@@ -16,6 +16,7 @@ from .scoped_state import AccessDenied, ReviewNotInitialized
 from .intake_postgres import IntakeRejected
 from .synthetic_request_gate import GateClosed, SyntheticRequestGate
 from .synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
+from .grounded_qa import format_review_handoff
 
 
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
@@ -159,7 +160,8 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
 
         def do_POST(self):
             path = urlsplit(self.path).path
-            if path in ('/api/synthetic-evidence/search', '/api/synthetic-evidence/source') and synthetic_retrieval is not None:
+            if path in ('/api/synthetic-evidence/search', '/api/synthetic-evidence/source',
+                        '/api/synthetic-evidence/review') and synthetic_retrieval is not None:
                 try:
                     if (urlsplit(self.path).query or self.headers.get_content_type() != 'application/json'
                             or self.headers.get('Transfer-Encoding')):
@@ -181,7 +183,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                             raise ValueError('Invalid request')
                         return dict(pairs)
                     payload = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_pairs)
-                    field = 'q' if path.endswith('/search') else 'id'
+                    field = 'id' if path.endswith('/source') else 'q'
                     if not isinstance(payload, dict) or set(payload) != {field}:
                         raise ValueError('Invalid request')
                     value = payload[field]
@@ -190,7 +192,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                     if field == 'q':
                         hits = synthetic_retrieval.search(principal.subject, principal.tenant, value,
                                                           expected_principal=principal)
-                        return self._json({'passages':hits})
+                        return self._json(format_review_handoff(hits) if path.endswith('/review') else {'passages':hits})
                     passage = synthetic_retrieval.resolve(principal.subject, principal.tenant, value,
                                                           expected_principal=principal)
                     return self._json({'passage':{'passage_id':passage.passage_id, 'document_id':passage.document_id,

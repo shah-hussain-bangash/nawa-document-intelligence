@@ -570,18 +570,26 @@ class PostgresIntakeTests(unittest.TestCase):
                         return error.code, json.load(error)
             search = '/api/synthetic-evidence/search'
             source_path = '/api/synthetic-evidence/source'
+            review_path = '/api/synthetic-evidence/review'
             query, identifier = {'q':'Grand Total'}, {'id':second + ':v2'}
             try:
                 self.assertEqual(evidence_request(search, query)[0], 403)
                 self.assertEqual(evidence_request(search, query, owner_token)[1]['passages'][0]['document_id'], second)
                 self.assertEqual(evidence_request(source_path, identifier, owner_token)[1]['passage']['document_id'], second)
+                handoff = evidence_request(review_path, query, owner_token)[1]
+                self.assertEqual((handoff['status'], handoff['answer'], handoff['citations']),
+                                 ('requires_human_review', None, []))
+                self.assertEqual(handoff['evidence'][0]['document_id'], second)
                 self.assertEqual(evidence_request(search, query, viewer_token)[1]['passages'], [])
+                self.assertEqual(evidence_request(review_path, query, viewer_token)[1]['evidence'], [])
                 self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 503)
                 self.assertEqual(evidence_request(source_path, identifier, other_token)[0], 503)
                 self.assertTrue(source.set_access(reviewers[0], second, viewer_key, True, 'http grant'))
                 self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 200)
+                self.assertEqual(evidence_request(review_path, query, viewer_token)[1]['evidence'][0]['document_id'], second)
                 self.assertTrue(source.set_access(reviewers[0], second, viewer_key, False, 'http revoke'))
                 self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 503)
+                self.assertEqual(evidence_request(review_path, query, viewer_token)[1]['evidence'], [])
             finally:
                 http_server.shutdown()
                 http_server.server_close()

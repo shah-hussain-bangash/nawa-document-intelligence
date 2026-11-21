@@ -7,7 +7,7 @@ import subprocess
 import sys
 import unittest
 
-from nawa_demo.grounded_qa import prepare_human_review
+from nawa_demo.grounded_qa import format_review_handoff, prepare_human_review
 from nawa_demo.retrieval import BM25Index, Passage
 
 
@@ -66,6 +66,8 @@ class ReviewHandoffTests(unittest.TestCase):
                 prepare_human_review(index, 'vat', top_k=limit)
         with self.assertRaises(TypeError):
             prepare_human_review(None, 'vat')
+        with self.assertRaises(ValueError):
+            format_review_handoff([{'text':'missing metadata'}])
 
     def test_cli_review_mode_returns_no_answer(self):
         demo = Path(__file__).resolve().parents[1]

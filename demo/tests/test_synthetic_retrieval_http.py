@@ -63,12 +63,23 @@ class SyntheticRetrievalHttpTests(unittest.TestCase):
         self.assertNotIn('allowed_principals', result['passages'][0])
         self.assertEqual(self.request(search, {'q':'shared'}, self.tokens[('bob','a')])[1]['passages'], [])
         self.assertEqual(self.request(search, {'q':'shared'}, self.tokens[('eve','b')])[1]['passages'][0]['document_id'], 'doc-b')
+        review = '/api/synthetic-evidence/review'
+        self.assertEqual(self.request(review, {'q':'shared'})[0], 403)
+        status, handoff, _ = self.request(review, {'q':'shared'}, self.tokens[('alice','a')])
+        self.assertEqual((status, handoff['status'], handoff['answer'], handoff['citations']),
+                         (200, 'requires_human_review', None, []))
+        self.assertEqual([e['document_id'] for e in handoff['evidence']], ['doc-a'])
+        self.assertEqual(handoff['evidence'][0]['untrusted_source_text'], 'alpha shared')
+        self.assertEqual(self.request(review, {'q':'shared'}, self.tokens[('bob','a')])[1]['evidence'], [])
+        self.assertEqual(self.request(review, {'q':'shared'}, self.tokens[('eve','b')])[1]['evidence'][0]['document_id'], 'doc-b')
+        self.assertEqual(self.request(review, {'q':'shared'}, self.tokens[('alice','a')], {'X-NAWA-CSRF':'bad'})[0], 403)
         own = '/api/synthetic-evidence/source'
         self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('alice','a')])[1]['passage']['text'], 'alpha shared')
         self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('bob','a')])[0], 503)
         self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('eve','b')])[0], 503)
         self.docs.pop(0)
         self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('alice','a')])[0], 503)
+        self.assertEqual(self.request(review, {'q':'shared'}, self.tokens[('alice','a')])[1]['evidence'], [])
 
     def test_invalid_parameters_and_membership_revocation(self):
         token = self.tokens[('alice','a')]

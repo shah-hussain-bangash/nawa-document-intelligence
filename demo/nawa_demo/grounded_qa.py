@@ -34,21 +34,20 @@ def _sentences(text: str) -> list[str]:
     return [part.strip() for part in re.split(r'(?<=[.!?؟])\s+', text.strip()) if part.strip()]
 
 
-def prepare_human_review(index: BM25Index, question: str, *, top_k: int = 5) -> dict:
-    """Return untrusted source previews for a reviewer, never an answer.
+def format_review_handoff(hits: list[dict]) -> dict:
+    """Format caller-supplied results as untrusted previews, never answers.
 
-    This offline fixture uses a snapshot index. The caller must establish
-    identity, current access and source integrity outside this function.
+    This formatter does not establish access, source integrity or freshness.
+    Callers must obtain and check results through an appropriate boundary.
     """
-    if not isinstance(index, BM25Index):
-        raise TypeError('Expected a permission-filtered BM25Index')
-    if not isinstance(question, str) or not question.strip() or len(question) > 500:
-        raise ValueError('A nonempty question of at most 500 characters is required')
-    if type(top_k) is not int or not 1 <= top_k <= 5:
-        raise ValueError('top_k must be from 1 to 5')
-    hits = index.search(question, k=top_k)
+    if not isinstance(hits, list) or len(hits) > 5:
+        raise ValueError('At most five search results are supported')
     evidence = []
     for hit in hits:
+        fields = ('passage_id','document_id','version','source','method','text')
+        if (not isinstance(hit, dict) or any(not isinstance(hit.get(k), str) or not hit[k] for k in fields)
+                or type(hit.get('page')) is not int or hit['page'] < 1):
+            raise ValueError('Invalid search result')
         text = hit['text']
         evidence.append({'passage_id':hit['passage_id'], 'document_id':hit['document_id'],
             'version':hit['version'], 'page':hit['page'], 'source':hit['source'], 'method':hit['method'],
@@ -56,7 +55,21 @@ def prepare_human_review(index: BM25Index, question: str, *, top_k: int = 5) -> 
             'passage_text_sha256':hashlib.sha256(text.encode('utf-8')).hexdigest()})
     return {'status':'requires_human_review' if evidence else 'insufficient_evidence',
             'answer':None, 'citations':[], 'evidence':evidence,
-            'note':'Untrusted source previews only; access and source freshness are not rechecked.'}
+            'note':'Untrusted source previews only; confirm current access and original-source integrity.'}
+
+
+def prepare_human_review(index: BM25Index, question: str, *, top_k: int = 5) -> dict:
+    """Return untrusted previews from a static synthetic index, never answers.
+
+    The caller must establish identity, current access and source integrity.
+    """
+    if not isinstance(index, BM25Index):
+        raise TypeError('Expected a permission-filtered BM25Index')
+    if not isinstance(question, str) or not question.strip() or len(question) > 500:
+        raise ValueError('A nonempty question of at most 500 characters is required')
+    if type(top_k) is not int or not 1 <= top_k <= 5:
+        raise ValueError('top_k must be from 1 to 5')
+    return format_review_handoff(index.search(question, k=top_k))
 
 
 def ask(index: BM25Index, question: str, *, top_k: int = 5, min_coverage: float = 1.0) -> dict:

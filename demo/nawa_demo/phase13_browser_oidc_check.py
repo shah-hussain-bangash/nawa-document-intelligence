@@ -398,9 +398,13 @@ def synthetic_evidence_journey(browser, analyst_page, reviewer_page, users, docu
         raise AssertionError('Synthetic evidence version setup failed')
     search = '/api/synthetic-evidence/search'
     lookup = '/api/synthetic-evidence/source'
+    review_handoff = '/api/synthetic-evidence/review'
     passage_id = document_id + ':v1'
     if browser_api(analyst_page, search, {'q':'المجموع'}) != {'status':200, 'body':{'passages':[]}}:
         raise AssertionError('Synthetic evidence was available without a grant')
+    result = browser_api(analyst_page, review_handoff, {'q':'المجموع'})
+    if result['status'] != 200 or result['body'].get('evidence') or result['body'].get('answer') is not None:
+        raise AssertionError('Ungranted review handoff was not empty')
     set_ci_evidence_grant(document_id, users['reviewer']['subject'], users['analyst']['subject'], True)
     result = browser_api(analyst_page, search, {'q':'المجموع'})
     if (result['status'] != 200 or len(result['body'].get('passages', [])) != 1
@@ -409,12 +413,23 @@ def synthetic_evidence_journey(browser, analyst_page, reviewer_page, users, docu
     result = browser_api(analyst_page, lookup, {'id':passage_id})
     if result['status'] != 200 or 'المجموع الفرعي' not in result['body'].get('passage', {}).get('text', ''):
         raise AssertionError('Granted synthetic source lookup failed')
+    result = browser_api(analyst_page, review_handoff, {'q':'المجموع'})
+    if (result['status'] != 200 or result['body'].get('status') != 'requires_human_review'
+            or result['body'].get('answer') is not None or result['body'].get('citations') != []
+            or len(result['body'].get('evidence', [])) != 1
+            or result['body']['evidence'][0].get('document_id') != document_id
+            or 'المجموع الفرعي' not in result['body']['evidence'][0].get('untrusted_source_text', '')):
+        raise AssertionError('Synthetic review handoff failed')
+    if browser_api(reviewer_page, review_handoff, {'q':'المجموع'})['body'].get('evidence'):
+        raise AssertionError('Ungranted reviewer received handoff evidence')
     if browser_api(reviewer_page, lookup, {'id':passage_id})['status'] != 503:
         raise AssertionError('Ungranted same-tenant reviewer accessed evidence')
     other, other_page = login(browser, users['outsider'], app='http://127.0.0.1:19766', tenant='tenant-b', role='analyst')
     try:
         if browser_api(other_page, lookup, {'id':passage_id})['status'] != 503:
             raise AssertionError('Cross-tenant browser evidence access was not denied')
+        if browser_api(other_page, review_handoff, {'q':'المجموع'})['body'].get('evidence'):
+            raise AssertionError('Cross-tenant review handoff leaked evidence')
     finally:
         other.close()
     status = analyst_page.evaluate('''async () => {
@@ -427,6 +442,8 @@ def synthetic_evidence_journey(browser, analyst_page, reviewer_page, users, docu
     set_ci_evidence_grant(document_id, users['reviewer']['subject'], users['analyst']['subject'], False)
     if browser_api(analyst_page, lookup, {'id':passage_id})['status'] != 503:
         raise AssertionError('Revoked synthetic evidence grant still allowed access')
+    if browser_api(analyst_page, review_handoff, {'q':'المجموع'})['body'].get('evidence'):
+        raise AssertionError('Revoked synthetic review handoff still returned evidence')
     print('PASS: synthetic OIDC browser evidence grant, tenant denial, CSRF and revocation checks.')
 
 
