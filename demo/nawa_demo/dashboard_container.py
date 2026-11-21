@@ -98,13 +98,17 @@ def serve():
         scoped = ScopedState(connect, correction_source_policy=correction_policy,
                              correction_source_store=intake.store if intake is not None else None)
         retrieval = None
+        review_queue = None
         if evidence_mode == 'ci':
             from .synthetic_live_retrieval import SyntheticLiveRetrieval
             from .synthetic_postgres_passages import SyntheticPostgresPassages
+            from .synthetic_review_queue import SyntheticReviewQueue
             evidence = SyntheticPostgresPassages(connect, intake.store)
             retrieval = SyntheticLiveRetrieval(evidence.principal, evidence.passages)
+            review_queue = SyntheticReviewQueue(retrieval)
         handler = make_protected_handler(scoped, sessions, state, flow=flow,
-                                         allowed_origin=origin, intake=intake, synthetic_retrieval=retrieval)
+                                         allowed_origin=origin, intake=intake, synthetic_retrieval=retrieval,
+                                         synthetic_review_queue=review_queue)
     else:
         raise ValueError('NAWA_AUTH must be demo or oidc')
     with HTTPServer(('0.0.0.0', bind_port), handler) as server:

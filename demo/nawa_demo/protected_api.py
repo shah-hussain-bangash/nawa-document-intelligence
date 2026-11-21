@@ -17,15 +17,20 @@ from .intake_postgres import IntakeRejected
 from .synthetic_request_gate import GateClosed, SyntheticRequestGate
 from .synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
 from .grounded_qa import format_review_handoff
+from .synthetic_review_queue import SyntheticReviewQueue
 
 
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
                            allowed_origin='http://127.0.0.1:8765', intake=None,
-                           synthetic_request_gate=None, synthetic_retrieval=None):
+                           synthetic_request_gate=None, synthetic_retrieval=None, synthetic_review_queue=None):
     if synthetic_request_gate is not None and not isinstance(synthetic_request_gate, SyntheticRequestGate):
         raise ValueError('Invalid synthetic request gate')
     if synthetic_retrieval is not None and not isinstance(synthetic_retrieval, SyntheticLiveRetrieval):
         raise ValueError('Invalid synthetic retrieval')
+    if (synthetic_review_queue is not None and
+            (not isinstance(synthetic_review_queue, SyntheticReviewQueue)
+             or not synthetic_review_queue.uses_retrieval(synthetic_retrieval))):
+        raise ValueError('Invalid synthetic review queue')
     Base = make_handler(health_state)
 
     class Handler(Base):
@@ -160,8 +165,10 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
 
         def do_POST(self):
             path = urlsplit(self.path).path
-            if path in ('/api/synthetic-evidence/search', '/api/synthetic-evidence/source',
-                        '/api/synthetic-evidence/review') and synthetic_retrieval is not None:
+            evidence_path = path in ('/api/synthetic-evidence/search', '/api/synthetic-evidence/source',
+                                     '/api/synthetic-evidence/review') and synthetic_retrieval is not None
+            task_path = path in ('/api/synthetic-review/create', '/api/synthetic-review/show') and synthetic_review_queue is not None
+            if evidence_path or task_path:
                 try:
                     if (urlsplit(self.path).query or self.headers.get_content_type() != 'application/json'
                             or self.headers.get('Transfer-Encoding')):
@@ -177,12 +184,20 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                         raise ValueError('Invalid request')
                     if self.headers.get('Origin') != allowed_origin:
                         raise SessionError('Request denied')
-                    principal = self._principal('view', require_csrf=True)
+                    principal = self._principal('review_start' if path.endswith('/create') else 'view', require_csrf=True)
                     def unique_pairs(pairs):
                         if len({key for key, _ in pairs}) != len(pairs):
                             raise ValueError('Invalid request')
                         return dict(pairs)
                     payload = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_pairs)
+                    if task_path:
+                        fields = {'request_key','question','passage_id'} if path.endswith('/create') else {'id'}
+                        if not isinstance(payload, dict) or set(payload) != fields:
+                            raise ValueError('Invalid request')
+                        if path.endswith('/create'):
+                            return self._json(synthetic_review_queue.create(principal, payload['request_key'],
+                                                                           payload['question'], payload['passage_id']))
+                        return self._json(synthetic_review_queue.get(principal, payload['id']))
                     field = 'id' if path.endswith('/source') else 'q'
                     if not isinstance(payload, dict) or set(payload) != {field}:
                         raise ValueError('Invalid request')

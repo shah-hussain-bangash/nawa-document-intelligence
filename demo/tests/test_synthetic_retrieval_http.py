@@ -2,6 +2,7 @@
 import json
 import threading
 import unittest
+from dataclasses import replace
 from http.server import HTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -12,22 +13,26 @@ from nawa_demo.protected_api import make_protected_handler
 from nawa_demo.retrieval import Passage
 from nawa_demo.session_draft import SessionStore
 from nawa_demo.synthetic_live_retrieval import SyntheticLiveRetrieval
+from nawa_demo.synthetic_review_queue import SyntheticReviewQueue
 
 
 class SyntheticRetrievalHttpTests(unittest.TestCase):
     def setUp(self):
         self.members = {('alice','a'):Principal('alice','a','analyst'),
                         ('bob','a'):Principal('bob','a','viewer'),
+                        ('reviewer','a'):Principal('reviewer','a','reviewer'),
                         ('eve','b'):Principal('eve','b','viewer')}
         self.docs = [Passage.from_dict({'passage_id':'a-v1','document_id':'doc-a','version':'1',
-            'tenant_id':'a','page':1,'text':'alpha shared','allowed_principals':['alice'],'source':'a.txt'}),
+            'tenant_id':'a','page':1,'text':'alpha shared','allowed_principals':['alice','reviewer'],'source':'a.txt'}),
             Passage.from_dict({'passage_id':'b-v1','document_id':'doc-b','version':'1',
             'tenant_id':'b','page':1,'text':'beta shared','allowed_principals':['eve'],'source':'b.txt'})]
         lookup = lambda s,t:self.members.get((s,t))
         self.sessions = SessionStore(lookup)
         self.tokens = {key:self.sessions.issue(*key) for key in self.members}
         self.retrieval = SyntheticLiveRetrieval(lookup, lambda p:list(self.docs))
-        handler = make_protected_handler(None, self.sessions, DashboardState(), synthetic_retrieval=self.retrieval)
+        self.queue = SyntheticReviewQueue(self.retrieval)
+        handler = make_protected_handler(None, self.sessions, DashboardState(), synthetic_retrieval=self.retrieval,
+                                         synthetic_review_queue=self.queue)
         self.server = HTTPServer(('127.0.0.1', 0), handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -94,6 +99,28 @@ class SyntheticRetrievalHttpTests(unittest.TestCase):
         self.assertEqual(self.request(path + '?q=shared')[0], 404)
         self.members.pop(('alice','a'))
         self.assertEqual(self.request(path, {'q':'shared'}, token)[0], 403)
+
+    def test_review_request_is_idempotent_scoped_and_rechecked(self):
+        create, show = '/api/synthetic-review/create', '/api/synthetic-review/show'
+        payload = {'request_key':'a' * 32, 'question':'Review this source', 'passage_id':'a-v1'}
+        alice, reviewer = self.tokens[('alice','a')], self.tokens[('reviewer','a')]
+        self.assertEqual(self.request(create, payload)[0], 403)
+        self.assertEqual(self.request(create, payload, alice, {'X-NAWA-CSRF':'bad'})[0], 403)
+        self.assertEqual(self.request(create, payload, self.tokens[('bob','a')])[0], 403)
+        self.assertEqual(self.request(create, {**payload,'actor':'forged'}, alice)[0], 400)
+        status, first, _ = self.request(create, payload, alice)
+        self.assertEqual((status,first['status'],first['created'],first['answer']), (200,'pending_review',True,None))
+        retry = self.request(create, payload, alice)[1]
+        self.assertEqual((retry['id'],retry['created']), (first['id'],False))
+        self.assertEqual(self.request(create, {**payload,'question':'Different'}, alice)[0], 400)
+        self.assertEqual(self.request(show, {'id':first['id']}, reviewer)[0], 200)
+        self.assertEqual(self.request(show, {'id':first['id']}, self.tokens[('bob','a')])[0], 400)
+        self.assertEqual(self.request(show, {'id':first['id']}, self.tokens[('eve','b')])[0], 400)
+        self.docs[0] = replace(self.docs[0], allowed_principals=('reviewer',))
+        self.assertEqual(self.request(show, {'id':first['id']}, alice)[0], 400)
+        self.assertEqual(self.request(show, {'id':first['id']}, reviewer)[0], 200)
+        self.docs[0] = replace(self.docs[0], allowed_principals=('alice',))
+        self.assertEqual(self.request(show, {'id':first['id']}, reviewer)[0], 400)
 
 
 if __name__ == '__main__':

@@ -412,6 +412,7 @@ class PostgresIntakeTests(unittest.TestCase):
     def test_synthetic_retrieval_uses_approved_latest_verified_tenant_source(self):
         from nawa_demo.synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
         from nawa_demo.synthetic_postgres_passages import SyntheticPostgresPassages
+        from nawa_demo.synthetic_review_queue import SyntheticReviewQueue
         issuer = 'https://synthetic-retrieval'
         users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
         reviewer_users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
@@ -553,7 +554,10 @@ class PostgresIntakeTests(unittest.TestCase):
             owner_token = http_sessions.issue(keys[0], self.tenant)
             viewer_token = http_sessions.issue(viewer_key, self.tenant)
             other_token = http_sessions.issue(keys[1], self.other)
-            handler = make_protected_handler(None, http_sessions, DashboardState(), synthetic_retrieval=retrieval)
+            reviewer_token = http_sessions.issue(reviewer_keys[0], self.tenant)
+            queue = SyntheticReviewQueue(retrieval)
+            handler = make_protected_handler(None, http_sessions, DashboardState(), synthetic_retrieval=retrieval,
+                                             synthetic_review_queue=queue)
             http_server = HTTPServer(('127.0.0.1', 0), handler)
             http_thread = threading.Thread(target=http_server.serve_forever, daemon=True)
             http_thread.start()
@@ -584,6 +588,19 @@ class PostgresIntakeTests(unittest.TestCase):
                 self.assertEqual(evidence_request(review_path, query, viewer_token)[1]['evidence'], [])
                 self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 503)
                 self.assertEqual(evidence_request(source_path, identifier, other_token)[0], 503)
+                task_request = {'request_key':uuid4().hex, 'question':'Review synthetic evidence',
+                                'passage_id':second + ':v2'}
+                created = evidence_request('/api/synthetic-review/create', task_request, owner_token)
+                self.assertEqual((created[0],created[1]['status'],created[1]['created']), (200,'pending_review',True))
+                task_id = created[1]['id']
+                retry = evidence_request('/api/synthetic-review/create', task_request, owner_token)
+                self.assertEqual((retry[1]['id'],retry[1]['created']), (task_id,False))
+                self.assertEqual(evidence_request('/api/synthetic-review/show', {'id':task_id}, reviewer_token)[0], 400)
+                self.assertTrue(source.set_access(reviewers[0], second, reviewer_keys[0], True, 'reviewer access'))
+                self.assertEqual(evidence_request('/api/synthetic-review/show', {'id':task_id}, reviewer_token)[0], 200)
+                self.assertTrue(source.set_access(reviewers[0], second, reviewer_keys[0], False, 'reviewer access revoked'))
+                self.assertEqual(evidence_request('/api/synthetic-review/show', {'id':task_id}, reviewer_token)[0], 400)
+                self.assertEqual(evidence_request('/api/synthetic-review/show', {'id':task_id}, other_token)[0], 400)
                 self.assertTrue(source.set_access(reviewers[0], second, viewer_key, True, 'http grant'))
                 self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 200)
                 self.assertEqual(evidence_request(review_path, query, viewer_token)[1]['evidence'][0]['document_id'], second)

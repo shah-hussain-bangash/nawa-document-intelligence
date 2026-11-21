@@ -424,12 +424,34 @@ def synthetic_evidence_journey(browser, analyst_page, reviewer_page, users, docu
         raise AssertionError('Ungranted reviewer received handoff evidence')
     if browser_api(reviewer_page, lookup, {'id':passage_id})['status'] != 503:
         raise AssertionError('Ungranted same-tenant reviewer accessed evidence')
+    create, show = '/api/synthetic-review/create', '/api/synthetic-review/show'
+    request = {'request_key':uuid4().hex, 'question':'Review synthetic Arabic quotation', 'passage_id':passage_id}
+    first = browser_api(analyst_page, create, request)
+    if (first['status'] != 200 or first['body'].get('status') != 'pending_review'
+            or first['body'].get('created') is not True or first['body'].get('answer') is not None):
+        raise AssertionError('Synthetic review request was not created')
+    task_id = first['body'].get('id')
+    retry = browser_api(analyst_page, create, request)
+    if retry['status'] != 200 or retry['body'].get('id') != task_id or retry['body'].get('created') is not False:
+        raise AssertionError('Synthetic review request retry was not idempotent')
+    if browser_api(reviewer_page, create, request)['status'] != 403:
+        raise AssertionError('Reviewer was able to create an analyst request')
+    if browser_api(reviewer_page, show, {'id':task_id})['status'] != 400:
+        raise AssertionError('Ungranted reviewer could open the request')
+    set_ci_evidence_grant(document_id, users['reviewer']['subject'], users['reviewer']['subject'], True)
+    if browser_api(reviewer_page, show, {'id':task_id})['status'] != 200:
+        raise AssertionError('Granted reviewer could not open the request')
+    set_ci_evidence_grant(document_id, users['reviewer']['subject'], users['reviewer']['subject'], False)
+    if browser_api(reviewer_page, show, {'id':task_id})['status'] != 400:
+        raise AssertionError('Revoked reviewer could still open the request')
     other, other_page = login(browser, users['outsider'], app='http://127.0.0.1:19766', tenant='tenant-b', role='analyst')
     try:
         if browser_api(other_page, lookup, {'id':passage_id})['status'] != 503:
             raise AssertionError('Cross-tenant browser evidence access was not denied')
         if browser_api(other_page, review_handoff, {'q':'المجموع'})['body'].get('evidence'):
             raise AssertionError('Cross-tenant review handoff leaked evidence')
+        if browser_api(other_page, show, {'id':task_id})['status'] != 400:
+            raise AssertionError('Cross-tenant review request was accessible')
     finally:
         other.close()
     status = analyst_page.evaluate('''async () => {
@@ -444,6 +466,9 @@ def synthetic_evidence_journey(browser, analyst_page, reviewer_page, users, docu
         raise AssertionError('Revoked synthetic evidence grant still allowed access')
     if browser_api(analyst_page, review_handoff, {'q':'المجموع'})['body'].get('evidence'):
         raise AssertionError('Revoked synthetic review handoff still returned evidence')
+    if browser_api(analyst_page, show, {'id':task_id})['status'] != 400:
+        raise AssertionError('Request owner retained access after evidence revocation')
+    print('PASS: synthetic browser review request retry, role, tenant and revocation checks.')
     print('PASS: synthetic OIDC browser evidence grant, tenant denial, CSRF and revocation checks.')
 
 

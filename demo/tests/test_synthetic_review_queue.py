@@ -37,6 +37,8 @@ class SyntheticReviewQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.get(self.analyst,result['id'])['question'], 'Check synthetic source')
         self.assertEqual(self.queue.get(self.reviewer,result['id'])['id'], result['id'])
         with self.assertRaises(ReviewRequestUnavailable):
+            SyntheticReviewQueue(self.retrieval).get(self.analyst, result['id'])
+        with self.assertRaises(ReviewRequestUnavailable):
             self.queue.get(self.viewer, result['id'])
         with self.assertRaises(ReviewRequestUnavailable):
             self.queue.get(self.other, result['id'])

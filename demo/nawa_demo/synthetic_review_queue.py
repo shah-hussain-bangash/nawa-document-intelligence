@@ -22,6 +22,9 @@ class SyntheticReviewQueue:
         self._lock = threading.Lock()
         self._tasks, self._requests = {}, {}
 
+    def uses_retrieval(self, retrieval):
+        return self._retrieval is retrieval
+
     @staticmethod
     def _require(principal, action):
         if (not isinstance(principal, Principal) or not authorized(principal, action, tenant=principal.tenant)):
