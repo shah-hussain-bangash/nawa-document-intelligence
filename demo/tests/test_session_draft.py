@@ -160,6 +160,20 @@ class SessionDraftTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SessionStore(lambda s, t: None, ttl=301)
 
+    def test_identity_deadline_is_rechecked_after_slow_membership_lookup(self):
+        lookup = self.store.lookup
+        def slow_lookup(subject, tenant):
+            self.clock[0] = 4
+            return lookup(subject, tenant)
+        self.store.lookup = slow_lookup
+        tokens = self.store.issue('issuer|subject', 'tenant-a', deadline=7)
+        self.assertEqual(tokens['max_age'], 3)
+        self.clock[0] = 7
+        with self.assertRaises(SessionError):
+            self.store.authorize(tokens['session'], 'view', tenant='tenant-a')
+        with self.assertRaises(SessionError):
+            self.store.issue('issuer|subject', 'tenant-a', deadline=4)
+
     def test_new_permission_requires_csrf_by_default(self):
         token, csrf = self.tokens['session'], self.tokens['csrf']
         with patch.dict(PERMISSIONS, {'analyst': PERMISSIONS['analyst'] | {'future_action'}}):

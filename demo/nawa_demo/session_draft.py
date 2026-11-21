@@ -68,13 +68,12 @@ class SessionStore:
             raise SessionError('Session unavailable')
         return principal
 
-    def issue(self, subject, tenant, *, max_age=None):
+    def issue(self, subject, tenant, *, max_age=None, deadline=None):
         if not all(isinstance(x, str) and x.strip() for x in (subject, tenant)):
             raise SessionError('Session unavailable')
         if max_age is not None and (type(max_age) not in (int, float) or not math.isfinite(max_age) or max_age < 1):
             raise SessionError('Session unavailable')
-        duration = int(min(self.ttl, max_age if max_age is not None else self.ttl))
-        if duration < 1:
+        if deadline is not None and (type(deadline) not in (int, float) or not math.isfinite(deadline)):
             raise SessionError('Session unavailable')
         with self._lock:
             if self._recovering:
@@ -85,6 +84,10 @@ class SessionStore:
             if self._recovering or recovery_epoch != self._recovery_epoch:
                 raise SessionError('Session unavailable')
             now = self.clock()
+            duration = int(min(self.ttl, max_age if max_age is not None else self.ttl,
+                               deadline - now if deadline is not None else self.ttl))
+            if duration < 1:
+                raise SessionError('Session unavailable')
             self._sessions = {key: value for key, value in self._sessions.items() if value['expires'] > now}
             if len(self._sessions) >= self.limit:
                 raise SessionError('Session unavailable')
