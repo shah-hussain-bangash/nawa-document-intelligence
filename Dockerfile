@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app/demo
 COPY demo/requirements-pdf.txt /tmp/nawa-requirements.txt
 RUN python -m pip install --no-cache-dir -r /tmp/nawa-requirements.txt \
-    && python -m pip install --no-cache-dir 'psycopg[binary]>=3.2,<4' \
+    && python -m pip install --no-cache-dir 'psycopg[binary]>=3.2,<4' 'PyJWT[crypto]>=2.10,<3' \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin nawa
 
 COPY demo/ /app/demo/

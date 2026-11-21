@@ -1,0 +1,55 @@
+# Isolated synthetic OIDC QA only. Not suitable for real data or production.
+# App and Keycloak share one network namespace so their verified issuer URL is
+# the same localhost address. Both published ports bind to host loopback only.
+services:
+  db:
+    image: postgres:17
+    env_file: .data/phase12-identity/db.env
+    volumes:
+      - qa12_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  identity:
+    image: quay.io/keycloak/keycloak:26.4.7
+    command: ["start-dev", "--http-enabled=false", "--https-port=18443", "--hostname=https://localhost:18443", "--https-certificate-file=/opt/keycloak/conf/server.crt", "--https-certificate-key-file=/opt/keycloak/conf/server.key", "--import-realm"]
+    ports:
+      - "127.0.0.1:18443:18443"
+      - "127.0.0.1:18765:8765"
+    volumes:
+      - ./.data/phase12-identity/server.crt:/opt/keycloak/conf/server.crt:ro
+      - ./.data/phase12-identity/server.key:/opt/keycloak/conf/server.key:ro
+      - ./.data/phase12-identity/import:/opt/keycloak/data/import:ro
+  nawa:
+    image: nawa-phase12-test
+    network_mode: service:identity
+    env_file: .data/phase12-identity/db.env
+    environment:
+      NAWA_STORAGE: postgres
+      POSTGRES_HOST: db
+      NAWA_AUTH: oidc
+      NAWA_TENANT_ID: tenant-a
+      NAWA_WEB_ORIGIN: http://127.0.0.1:18765
+      OIDC_ISSUER: https://localhost:18443/realms/nawa-phase12
+      OIDC_CLIENT_ID: nawa-phase12
+      OIDC_CA_FILE: /identity/ca.pem
+    volumes:
+      - ./.data/phase12-identity/ca.pem:/identity/ca.pem:ro
+      - ./.data/phase12-identity/fixture.json:/identity/fixture.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      identity:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+volumes:
+  qa12_database:
