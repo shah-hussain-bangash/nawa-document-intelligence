@@ -46,6 +46,14 @@ class Phase6Tests(unittest.TestCase):
         self.assertEqual(r['status'], 'insufficient_evidence')
         self.assertEqual(p.calls, 0)
 
+    def test_missing_payment_date_abstains_before_provider_call(self):
+        for question in ('reviewer VAT payment', 'شركة المثال موعد دفع الضريبة'):
+            with self.subTest(question=question):
+                p = FixedProvider({'answer':'unsafe', 'citations':[]})
+                result = ask_rag(self.idx(), question, provider=p)
+                self.assertEqual(result['status'], 'insufficient_evidence')
+                self.assertEqual(p.calls, 0)
+
     def test_restricted_abstains_without_provider_call(self):
         p = FixedProvider({'answer': 'Falcon Robotics', 'citations': []})
         r = ask_rag(self.idx(), 'Falcon Robotics confidential inspection', provider=p)

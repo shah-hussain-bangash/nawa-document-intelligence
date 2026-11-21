@@ -2,7 +2,7 @@
 import unittest
 from pathlib import Path
 from nawa_demo.grounded_qa import ask
-from nawa_demo.retrieval import BM25Index, read_corpus
+from nawa_demo.retrieval import BM25Index, Passage, read_corpus
 
 CORPUS = Path(__file__).resolve().parents[1] / 'samples/retrieval/passages.json'
 
@@ -38,6 +38,30 @@ class GroundedQATests(unittest.TestCase):
         self.assertEqual(r['status'], 'insufficient_evidence')
         self.assertIsNone(r['answer'])
         self.assertEqual(r['citations'], [])
+
+    def test_missing_payment_date_abstains_despite_partial_overlap(self):
+        for question in ('VAT payment due date', 'reviewer VAT payment', 'reviewer VAT deadline',
+                         'موعد دفع الضريبة', 'شركة المثال موعد دفع الضريبة', 'شركة المثال دفع الضريبة'):
+            with self.subTest(question=question):
+                result = ask(self.idx(), question)
+                self.assertEqual(result['status'], 'insufficient_evidence')
+                self.assertIsNone(result['answer'])
+                self.assertEqual(result['citations'], [])
+
+    def test_lower_threshold_is_an_explicit_less_conservative_override(self):
+        result = ask(self.idx(), 'reviewer VAT payment', min_coverage=0.60)
+        self.assertEqual(result['status'], 'answered')
+        self.assertNotIn('payment', result['answer'].casefold())
+
+    def test_full_lexical_coverage_does_not_prove_semantic_support(self):
+        passage = Passage.from_dict({'passage_id':'negated','document_id':'doc','version':'1',
+            'tenant_id':'t','page':1,'text':'Reviewer VAT deadline is not specified.',
+            'allowed_principals':['p'],'source':'synthetic.txt','method':'synthetic'})
+        result = ask(BM25Index([passage], tenant_id='t', principal_id='p'), 'reviewer VAT deadline')
+        # This intentionally records an open limitation: matching every word
+        # cannot determine whether the quoted text answers the question.
+        self.assertEqual(result['status'], 'answered')
+        self.assertIn('not specified', result['answer'])
 
     def test_unauthorized_information_not_exposed(self):
         r = ask(self.idx(), 'Falcon Robotics confidential inspection')

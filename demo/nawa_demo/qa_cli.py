@@ -13,7 +13,8 @@ def main():
     parser.add_argument('--principal', required=True, help='Trusted principal ID (CLI simulation only)')
     parser.add_argument('--question', required=True)
     parser.add_argument('--top-k', type=int, default=5)
-    parser.add_argument('--min-coverage', type=float, default=0.60)
+    parser.add_argument('--min-coverage', type=float, default=1.0,
+                        help='Lexical threshold; lowering it can admit unsupported answers')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     try:

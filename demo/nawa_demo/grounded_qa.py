@@ -16,10 +16,12 @@ def _sentences(text: str) -> list[str]:
     return [part.strip() for part in re.split(r'(?<=[.!?؟])\s+', text.strip()) if part.strip()]
 
 
-def ask(index: BM25Index, question: str, *, top_k: int = 5, min_coverage: float = 0.60) -> dict:
+def ask(index: BM25Index, question: str, *, top_k: int = 5, min_coverage: float = 1.0) -> dict:
     """Return a verbatim sentence and citation, or abstain for insufficient lexical support.
 
-    min_coverage is a transparent lexical gate, not a probability/confidence score.
+    The default requires every non-stopword query token to appear in the
+    selected text. This is lexical matching, not semantic support. Lowering
+    min_coverage makes the experiment less conservative.
     """
     if not isinstance(question, str) or not question.strip():
         raise ValueError('Nonempty question required')
