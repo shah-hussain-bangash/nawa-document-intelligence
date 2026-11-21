@@ -468,10 +468,33 @@ class PostgresIntakeTests(unittest.TestCase):
                 retrieval.resolve(keys[0], self.tenant, first + ':v1')
             approve(0, second_quote)
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+            original_second = (Path(folder) / second).read_bytes()
             (Path(folder) / second).write_bytes(b'tampered')
             with self.assertRaises(EvidenceUnavailable):
                 retrieval.search(keys[0], self.tenant, 'Grand Total')
             self.assertEqual(retrieval.search(keys[1], self.other, 'Grand Total')[0]['document_id'], other)
+            (Path(folder) / second).write_bytes(original_second)
+            with self.assertRaises(ValueError):
+                source.withdraw(principals[0], second, 'synthetic withdrawal')
+            with self.connect() as conn:
+                conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                             (issuer, users[0][0], self.tenant))
+            reviewer = make_principal(self.connect, keys[0], self.tenant, 'reviewer')
+            with self.assertRaises(ValueError):
+                source.withdraw(reviewer, other, 'other tenant source')
+            self.assertTrue(source.withdraw(reviewer, second, 'synthetic withdrawal'))
+            self.assertFalse(source.withdraw(reviewer, second, 'repeated withdrawal'))
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
+            with self.assertRaises(EvidenceUnavailable):
+                retrieval.resolve(keys[0], self.tenant, second + ':v2')
+            # A withdrawn newest version must not revive the approved older one.
+            with self.assertRaises(EvidenceUnavailable):
+                retrieval.resolve(keys[0], self.tenant, first + ':v1')
+            self.assertEqual(retrieval.search(keys[1], self.other, 'Grand Total')[0]['document_id'], other)
+            with self.connect() as conn:
+                withdrawn = conn.execute('''SELECT actor_hash,reason FROM nawa_synthetic_withdrawals
+                    WHERE tenant_id=%s AND document_id=%s''', (self.tenant, second)).fetchone()
+            self.assertEqual(withdrawn, (hashlib.sha256(keys[0].encode()).hexdigest(), 'synthetic withdrawal'))
             with self.connect() as conn:
                 conn.execute('UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s',
                              (issuer, users[0][0], self.tenant))

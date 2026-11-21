@@ -27,7 +27,7 @@ def verify_intake_migrations(connection):
         cur.execute("""SELECT to_regclass('nawa_intake_schema_migrations'),
             to_regclass('nawa_intake_documents'), to_regclass('nawa_intake_jobs'),
             to_regclass('nawa_intake_versions'), to_regclass('nawa_intake_promotions'),
-            to_regclass('nawa_intake_admin_events')""")
+            to_regclass('nawa_intake_admin_events'), to_regclass('nawa_synthetic_withdrawals')""")
         row = cur.fetchone()
         if not row or any(value is None for value in row):
             raise ValueError('Synthetic intake schema is not installed')
@@ -76,4 +76,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
