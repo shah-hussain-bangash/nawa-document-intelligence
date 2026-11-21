@@ -149,6 +149,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      NAWA_SYNTHETIC_EVIDENCE: ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

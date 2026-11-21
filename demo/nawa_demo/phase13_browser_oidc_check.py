@@ -87,6 +87,33 @@ with psycopg.connect(host=os.environ['POSTGRES_HOST'], dbname=os.environ['POSTGR
                    check=True, capture_output=True, timeout=30)
 
 
+def set_ci_evidence_grant(document_id, reviewer_subject, target_subject, enabled):
+    """Manage only the disposable browser fixture; no grant endpoint exists."""
+    require_ci()
+    code = '''import json, os, sys, psycopg
+from nawa_demo.identity_repository import membership_by_key
+from nawa_demo.intake_store import LocalIntakeStore
+from nawa_demo.synthetic_postgres_passages import SyntheticPostgresPassages
+if (os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('NAWA_SYNTHETIC_EVIDENCE') != 'ci'
+        or os.environ.get('POSTGRES_DB') != 'nawa_phase13_qa_demo' or os.environ.get('NAWA_INTAKE_DIR') != '/intake'):
+    raise SystemExit(1)
+def connect():
+    return psycopg.connect(host=os.environ['POSTGRES_HOST'], dbname=os.environ['POSTGRES_DB'],
+        user=os.environ['POSTGRES_USER'], password=os.environ['POSTGRES_PASSWORD'], connect_timeout=5)
+reviewer = json.dumps([sys.argv[1],sys.argv[3]], separators=(',',':'))
+target = json.dumps([sys.argv[1],sys.argv[4]], separators=(',',':'))
+with connect() as conn:
+    principal = membership_by_key(conn, identity_key=reviewer, tenant='tenant-a')
+source = SyntheticPostgresPassages(connect, LocalIntakeStore('/intake'))
+if not source.set_access(principal, sys.argv[2], target, sys.argv[5] == 'grant', 'synthetic browser fixture'):
+    raise ValueError('Synthetic grant was not changed')
+'''
+    subprocess.run(['docker', 'compose', '-p', 'nawa-phase13-ci', '-f', 'compose.phase13-qa.yaml',
+                    'exec', '-T', 'nawa', 'python', '-c', code, ISSUER, document_id,
+                    reviewer_subject, target_subject, 'grant' if enabled else 'revoke'],
+                   check=True, capture_output=True, timeout=30)
+
+
 def browser_tenant_isolation(browser, analyst_page, reviewer_page, reviewer_user, other_user):
     """Check two independently authenticated synthetic browser contexts."""
     other, other_page = login(browser, other_user, app='http://127.0.0.1:19766', tenant='tenant-b', role='analyst')
@@ -361,6 +388,46 @@ def synthetic_arabic_text_journey(analyst_page, reviewer_page):
     analyst_page.locator('#comparison').get_by_text(
         'Example English Supplies — AED 1050.00 — Valid · approved review revision 3', exact=True
     ).wait_for(state='visible', timeout=15000)
+    return document_id
+
+
+def synthetic_evidence_journey(browser, analyst_page, reviewer_page, users, document_id):
+    """Verify synthetic evidence with actual OIDC browser sessions."""
+    result = browser_api(analyst_page, '/api/intake/version', {'id':document_id, 'expected_previous':0})
+    if result['status'] != 200 or result['body'].get('version') != 1:
+        raise AssertionError('Synthetic evidence version setup failed')
+    search = '/api/synthetic-evidence/search'
+    lookup = '/api/synthetic-evidence/source'
+    passage_id = document_id + ':v1'
+    if browser_api(analyst_page, search, {'q':'المجموع'}) != {'status':200, 'body':{'passages':[]}}:
+        raise AssertionError('Synthetic evidence was available without a grant')
+    set_ci_evidence_grant(document_id, users['reviewer']['subject'], users['analyst']['subject'], True)
+    result = browser_api(analyst_page, search, {'q':'المجموع'})
+    if (result['status'] != 200 or len(result['body'].get('passages', [])) != 1
+            or result['body']['passages'][0].get('document_id') != document_id):
+        raise AssertionError('Granted synthetic evidence search failed')
+    result = browser_api(analyst_page, lookup, {'id':passage_id})
+    if result['status'] != 200 or 'المجموع الفرعي' not in result['body'].get('passage', {}).get('text', ''):
+        raise AssertionError('Granted synthetic source lookup failed')
+    if browser_api(reviewer_page, lookup, {'id':passage_id})['status'] != 503:
+        raise AssertionError('Ungranted same-tenant reviewer accessed evidence')
+    other, other_page = login(browser, users['outsider'], app='http://127.0.0.1:19766', tenant='tenant-b', role='analyst')
+    try:
+        if browser_api(other_page, lookup, {'id':passage_id})['status'] != 503:
+            raise AssertionError('Cross-tenant browser evidence access was not denied')
+    finally:
+        other.close()
+    status = analyst_page.evaluate('''async () => {
+        const r = await fetch('/api/synthetic-evidence/search', {method:'POST',
+            headers:{'Content-Type':'application/json'}, body:JSON.stringify({q:'المجموع'})});
+        return r.status;
+    }''')
+    if status != 403:
+        raise AssertionError('Evidence request without CSRF was not denied')
+    set_ci_evidence_grant(document_id, users['reviewer']['subject'], users['analyst']['subject'], False)
+    if browser_api(analyst_page, lookup, {'id':passage_id})['status'] != 503:
+        raise AssertionError('Revoked synthetic evidence grant still allowed access')
+    print('PASS: synthetic OIDC browser evidence grant, tenant denial, CSRF and revocation checks.')
 
 
 def synthetic_pdf_review_journey(analyst_page, reviewer_page, *, filename, global_line, page, sample_name=None, sample_bytes=None):
@@ -438,7 +505,8 @@ def main():
                 if status != 403:
                     raise AssertionError('Synthetic reviewer upload permission was not denied')
                 synthetic_review_journey(analyst_page, reviewer_page)
-                synthetic_arabic_text_journey(analyst_page, reviewer_page)
+                arabic_document = synthetic_arabic_text_journey(analyst_page, reviewer_page)
+                synthetic_evidence_journey(browser, analyst_page, reviewer_page, users, arabic_document)
                 synthetic_pdf_review_journey(analyst_page, reviewer_page,
                     sample_name='arabic_text_supplier.pdf', filename='browser-synthetic-arabic.pdf', global_line=6, page=1)
                 synthetic_pdf_review_journey(analyst_page, reviewer_page,
