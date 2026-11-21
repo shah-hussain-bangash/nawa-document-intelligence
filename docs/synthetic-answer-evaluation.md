@@ -11,3 +11,11 @@ This 12-case hand-authored fixture exercises the offline extractive function onl
 One local run reported six false answers among the eight abstention-labeled cases, two false abstentions among the four answerable cases, and no wrong expected excerpts among the answered positive cases. In particular, the current fixed-phrase rule catches the included "not specified" examples but labels unknown, pending, conflicting and instruction-like examples as answered. The instruction-like case tests output labeling only; it does not show that an instruction was executed. Paraphrases without matching tokens were withheld despite the fixture label.
 
 These results are not an estimate of production accuracy or a safety certification. They show why lexical coverage and a short phrase list cannot establish semantic support. Keep generated answers and source text subject to human review. An independently reviewed bilingual dataset, a documented adjudication process, relevant adversarial cases and evaluation of the actual deployed pipeline remain open.
+
+The offline CLI also provides an opt-in `--review-only` handoff. For example, from `demo`:
+
+```powershell
+python -m nawa_demo.qa_cli --tenant demo-a --principal reviewer-a --question "reviewer VAT deadline" --review-only
+```
+
+This mode returns no answer or answer citations. It shows up to five explicitly untrusted passage previews, marks truncation, and records a hash of the full passage text, not of the original source file. It does not call a model. A test confirms that all 12 fixture questions return no automatic answer in this mode, including the instruction-like source case; this does not establish that reviewers will interpret the evidence correctly. This CLI uses a static synthetic index, does not recheck identity or source freshness, and is not connected to the portal. It does not fix the default extractive mode's measured semantic failures or prevent infrastructure from logging data. Do not use it with confidential documents.

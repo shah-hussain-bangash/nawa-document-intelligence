@@ -4,6 +4,7 @@ No LLM, no claim of understanding. Only verbatim source sentences are returned.
 Trusted caller must supply verified tenant/principal; CLI is a local simulation.
 """
 import re
+import hashlib
 from .retrieval import BM25Index, tokenize
 
 STOP = set(tokenize('''what which who when where why how is are was were the a an of for in on at to from do does did
@@ -31,6 +32,31 @@ def _explicit_absence(text: str) -> bool:
 def _sentences(text: str) -> list[str]:
     # Retain currency decimals / Arabic fractional numbers rather than cutting within them.
     return [part.strip() for part in re.split(r'(?<=[.!?؟])\s+', text.strip()) if part.strip()]
+
+
+def prepare_human_review(index: BM25Index, question: str, *, top_k: int = 5) -> dict:
+    """Return untrusted source previews for a reviewer, never an answer.
+
+    This offline fixture uses a snapshot index. The caller must establish
+    identity, current access and source integrity outside this function.
+    """
+    if not isinstance(index, BM25Index):
+        raise TypeError('Expected a permission-filtered BM25Index')
+    if not isinstance(question, str) or not question.strip() or len(question) > 500:
+        raise ValueError('A nonempty question of at most 500 characters is required')
+    if type(top_k) is not int or not 1 <= top_k <= 5:
+        raise ValueError('top_k must be from 1 to 5')
+    hits = index.search(question, k=top_k)
+    evidence = []
+    for hit in hits:
+        text = hit['text']
+        evidence.append({'passage_id':hit['passage_id'], 'document_id':hit['document_id'],
+            'version':hit['version'], 'page':hit['page'], 'source':hit['source'], 'method':hit['method'],
+            'untrusted_source_text':text[:4000], 'preview_truncated':len(text) > 4000,
+            'passage_text_sha256':hashlib.sha256(text.encode('utf-8')).hexdigest()})
+    return {'status':'requires_human_review' if evidence else 'insufficient_evidence',
+            'answer':None, 'citations':[], 'evidence':evidence,
+            'note':'Untrusted source previews only; access and source freshness are not rechecked.'}
 
 
 def ask(index: BM25Index, question: str, *, top_k: int = 5, min_coverage: float = 1.0) -> dict:
