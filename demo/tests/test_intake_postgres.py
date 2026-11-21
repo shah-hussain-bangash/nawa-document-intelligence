@@ -409,6 +409,75 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertEqual(self.jobs.result(self.tenant, document)['total'], '945.00')
             self.assertIsNone(self.jobs.result(self.other, document))
 
+    def test_synthetic_retrieval_uses_approved_latest_verified_tenant_source(self):
+        from nawa_demo.synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
+        from nawa_demo.synthetic_postgres_passages import SyntheticPostgresPassages
+        issuer = 'https://synthetic-retrieval'
+        users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
+        with self.connect() as conn:
+            for subject, tenant in users:
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, tenant, 'analyst'))
+        keys = [json.dumps([issuer, subject], separators=(',', ':')) for subject, _ in users]
+        principals = [make_principal(self.connect, key, tenant, 'analyst')
+                      for key, (_, tenant) in zip(keys, users)]
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            intake = ScopedIntake(self.connect, store)
+            review = ScopedState(self.connect)
+            source = SyntheticPostgresPassages(self.connect, store)
+            retrieval = SyntheticLiveRetrieval(source.principal, source.passages)
+            sample = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            families = [uuid4().hex, uuid4().hex]
+            def create(index, suffix, expected):
+                principal = principals[index]
+                data = sample + ('\n# synthetic-' + suffix + '\n').encode()
+                document, _ = intake.submit(principal, suffix + '.txt', data)
+                intake.link_version(principal, document, families[index], expected_previous=expected)
+                self.assertEqual(process_one(self.jobs, store, principal.tenant), 'completed')
+                quote = intake.promote(principal, document)['id']
+                review.review_start(principal, quote)
+                return document, quote
+            def approve(index, quote):
+                # Synthetic fixture only: provision reviewer role through the
+                # database, not through a caller-supplied role.
+                subject, tenant = users[index]
+                with self.connect() as conn:
+                    conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                                 (issuer, subject, tenant))
+                reviewer = make_principal(self.connect, keys[index], tenant, 'reviewer')
+                review.review_decision(reviewer, {'id':quote, 'decision':'approve', 'reason':'synthetic review',
+                                                  'expected_revision':1})
+                with self.connect() as conn:
+                    conn.execute("UPDATE nawa_memberships SET role='analyst' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                                 (issuer, subject, tenant))
+                principals[index] = make_principal(self.connect, keys[index], tenant, 'analyst')
+            first, first_quote = create(0, 'first', 0)
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
+            approve(0, first_quote)
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], first)
+            other, other_quote = create(1, 'other', 0)
+            approve(1, other_quote)
+            self.assertEqual(retrieval.search(keys[1], self.other, 'Grand Total')[0]['document_id'], other)
+            with self.assertRaises(EvidenceUnavailable):
+                retrieval.resolve(keys[1], self.other, first + ':v1')
+            second, second_quote = create(0, 'second', 1)
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
+            with self.assertRaises(EvidenceUnavailable):
+                retrieval.resolve(keys[0], self.tenant, first + ':v1')
+            approve(0, second_quote)
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+            (Path(folder) / second).write_bytes(b'tampered')
+            with self.assertRaises(EvidenceUnavailable):
+                retrieval.search(keys[0], self.tenant, 'Grand Total')
+            self.assertEqual(retrieval.search(keys[1], self.other, 'Grand Total')[0]['document_id'], other)
+            with self.connect() as conn:
+                conn.execute('UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s',
+                             (issuer, users[0][0], self.tenant))
+            with self.assertRaises(EvidenceUnavailable):
+                retrieval.search(keys[0], self.tenant, 'Grand Total')
+
     def test_scoped_access_rechecks_roles_tenant_and_revocation(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))
