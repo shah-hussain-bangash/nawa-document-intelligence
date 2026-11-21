@@ -412,7 +412,8 @@ class PostgresIntakeTests(unittest.TestCase):
     def test_synthetic_retrieval_uses_approved_latest_verified_tenant_source(self):
         from nawa_demo.synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
         from nawa_demo.synthetic_postgres_passages import SyntheticPostgresPassages
-        from nawa_demo.synthetic_review_queue import SyntheticReviewQueue
+        from nawa_demo.synthetic_postgres_review_queue import SyntheticPostgresReviewQueue
+        from nawa_demo.synthetic_review_queue import ReviewRequestUnavailable
         issuer = 'https://synthetic-retrieval'
         users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
         reviewer_users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
@@ -555,7 +556,7 @@ class PostgresIntakeTests(unittest.TestCase):
             viewer_token = http_sessions.issue(viewer_key, self.tenant)
             other_token = http_sessions.issue(keys[1], self.other)
             reviewer_token = http_sessions.issue(reviewer_keys[0], self.tenant)
-            queue = SyntheticReviewQueue(retrieval)
+            queue = SyntheticPostgresReviewQueue(retrieval, self.connect)
             handler = make_protected_handler(None, http_sessions, DashboardState(), synthetic_retrieval=retrieval,
                                              synthetic_review_queue=queue)
             http_server = HTTPServer(('127.0.0.1', 0), handler)
@@ -595,6 +596,42 @@ class PostgresIntakeTests(unittest.TestCase):
                 task_id = created[1]['id']
                 retry = evidence_request('/api/synthetic-review/create', task_request, owner_token)
                 self.assertEqual((retry[1]['id'],retry[1]['created']), (task_id,False))
+                fresh = SyntheticPostgresReviewQueue(retrieval, self.connect)
+                self.assertEqual(fresh.get(principals[0], task_id)['question'], 'Review synthetic evidence')
+                with self.assertRaises(ReviewRequestUnavailable):
+                    fresh.create(principals[0], task_request['request_key'], 'Different question', second + ':v2')
+                with self.connect() as conn:
+                    saved = conn.execute('SELECT question,evidence FROM nawa_synthetic_review_requests WHERE id=%s',
+                                         (task_id,)).fetchone()
+                self.assertEqual(saved[0], 'Review synthetic evidence')
+                self.assertNotIn('untrusted_source_text', saved[1])
+                child_code = '''
+import os, sys, psycopg
+from nawa_demo.intake_store import LocalIntakeStore
+from nawa_demo.synthetic_postgres_passages import SyntheticPostgresPassages
+from nawa_demo.synthetic_live_retrieval import SyntheticLiveRetrieval
+from nawa_demo.synthetic_postgres_review_queue import SyntheticPostgresReviewQueue
+dsn = os.environ['NAWA_PHASE13_TEST_DSN']
+params = psycopg.conninfo.conninfo_to_dict(dsn)
+assert params.get('host') == '127.0.0.1' and 'hostaddr' not in params
+assert params.get('dbname', '').startswith('nawa_phase13_qa_')
+def connect(): return psycopg.connect(dsn)
+source = SyntheticPostgresPassages(connect, LocalIntakeStore(sys.argv[4]))
+retrieval = SyntheticLiveRetrieval(source.principal, source.passages)
+task = SyntheticPostgresReviewQueue(retrieval, connect).get(source.principal(sys.argv[2], sys.argv[1]), sys.argv[3])
+assert task['status'] == 'pending_review' and task['question'] == 'Review synthetic evidence'
+print('Synthetic request found in a fresh process')
+'''
+                child = subprocess.run([sys.executable, '-c', child_code, self.tenant, keys[0], task_id, folder],
+                                       capture_output=True, text=True, timeout=30)
+                self.assertEqual(child.returncode, 0, child.stderr)
+                self.assertIn('Synthetic request found', child.stdout)
+                concurrent_key = uuid4().hex
+                with ThreadPoolExecutor(max_workers=4) as workers:
+                    results = list(workers.map(lambda _: fresh.create(principals[0], concurrent_key,
+                                   'Concurrent synthetic review', second + ':v2'), range(4)))
+                self.assertEqual(len({item['id'] for item in results}), 1)
+                self.assertEqual(sum(item['created'] for item in results), 1)
                 self.assertEqual(evidence_request('/api/synthetic-review/show', {'id':task_id}, reviewer_token)[0], 400)
                 self.assertTrue(source.set_access(reviewers[0], second, reviewer_keys[0], True, 'reviewer access'))
                 self.assertEqual(evidence_request('/api/synthetic-review/show', {'id':task_id}, reviewer_token)[0], 200)
@@ -623,6 +660,8 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / second).write_bytes(b'tampered')
             with self.assertRaises(EvidenceUnavailable):
                 retrieval.search(keys[0], self.tenant, 'Grand Total')
+            with self.assertRaises(ReviewRequestUnavailable):
+                queue.get(principals[0], task_id)
             self.assertEqual(retrieval.search(keys[1], self.other, 'Grand Total')[0]['document_id'], other)
             (Path(folder) / second).write_bytes(original_second)
             with self.assertRaises(ValueError):
@@ -631,6 +670,8 @@ class PostgresIntakeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 source.withdraw(reviewer, other, 'other tenant source')
             self.assertTrue(source.withdraw(reviewer, second, 'synthetic withdrawal'))
+            with self.assertRaises(ReviewRequestUnavailable):
+                queue.get(principals[0], task_id)
             self.assertFalse(source.withdraw(reviewer, second, 'repeated withdrawal'))
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
             with self.assertRaises(EvidenceUnavailable):
@@ -1273,11 +1314,12 @@ class PostgresIntakeTests(unittest.TestCase):
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 6)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 7)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_withdrawals')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_document_grants')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_grant_generation_seq')").fetchone()[0])
+            self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_review_requests')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
             with self.assertRaisesRegex(ValueError, 'history mismatch'):

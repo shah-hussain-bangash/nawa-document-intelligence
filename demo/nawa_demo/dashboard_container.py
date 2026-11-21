@@ -102,10 +102,10 @@ def serve():
         if evidence_mode == 'ci':
             from .synthetic_live_retrieval import SyntheticLiveRetrieval
             from .synthetic_postgres_passages import SyntheticPostgresPassages
-            from .synthetic_review_queue import SyntheticReviewQueue
+            from .synthetic_postgres_review_queue import SyntheticPostgresReviewQueue
             evidence = SyntheticPostgresPassages(connect, intake.store)
             retrieval = SyntheticLiveRetrieval(evidence.principal, evidence.passages)
-            review_queue = SyntheticReviewQueue(retrieval)
+            review_queue = SyntheticPostgresReviewQueue(retrieval, connect)
         handler = make_protected_handler(scoped, sessions, state, flow=flow,
                                          allowed_origin=origin, intake=intake, synthetic_retrieval=retrieval,
                                          synthetic_review_queue=review_queue)

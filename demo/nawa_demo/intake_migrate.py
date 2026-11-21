@@ -29,7 +29,7 @@ def verify_intake_migrations(connection):
             to_regclass('nawa_intake_versions'), to_regclass('nawa_intake_promotions'),
             to_regclass('nawa_intake_admin_events'), to_regclass('nawa_synthetic_withdrawals'),
             to_regclass('nawa_synthetic_document_grants'), to_regclass('nawa_synthetic_document_grant_events'),
-            to_regclass('nawa_synthetic_grant_generation_seq')""")
+            to_regclass('nawa_synthetic_grant_generation_seq'), to_regclass('nawa_synthetic_review_requests')""")
         row = cur.fetchone()
         if not row or any(value is None for value in row):
             raise ValueError('Synthetic intake schema is not installed')
