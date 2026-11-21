@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 from nawa_demo.rag import MockProvider, OpenAIProvider, ask_rag, validate_generated
-from nawa_demo.retrieval import BM25Index, read_corpus
+from nawa_demo.retrieval import BM25Index, Passage, read_corpus
 
 BASE = Path(__file__).resolve().parents[1]
 CORPUS = BASE / 'samples/retrieval/passages.json'
@@ -53,6 +53,16 @@ class Phase6Tests(unittest.TestCase):
                 result = ask_rag(self.idx(), question, provider=p)
                 self.assertEqual(result['status'], 'insufficient_evidence')
                 self.assertEqual(p.calls, 0)
+
+    def test_explicit_missing_deadline_never_calls_provider(self):
+        passage = Passage.from_dict({'passage_id':'absence','document_id':'doc','version':'1',
+            'tenant_id':'t','page':1,'text':'Reviewer VAT deadline is not specified.',
+            'allowed_principals':['p'],'source':'synthetic.txt','method':'synthetic'})
+        provider = FixedProvider({'answer':'unsafe', 'citations':[]})
+        result = ask_rag(BM25Index([passage], tenant_id='t', principal_id='p'),
+                         'reviewer VAT deadline', provider=provider)
+        self.assertEqual(result['status'], 'insufficient_evidence')
+        self.assertEqual(provider.calls, 0)
 
     def test_restricted_abstains_without_provider_call(self):
         p = FixedProvider({'answer': 'Falcon Robotics', 'citations': []})

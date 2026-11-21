@@ -10,6 +10,23 @@ STOP = set(tokenize('''what which who when where why how is are was were the a a
 please tell me show give find document documents quotation quote supplier supplies price total value amount
 كم ما هي هو في من عن على إلى لدى لي اذكر اعرض ابحث الوثيقة المستند مستند عرض عروض سعر السعر'''))
 
+# Conservative fixture-oriented patterns, not a general negation detector.
+ABSENCE_PHRASES = tuple(tuple(tokenize(phrase)) for phrase in (
+    'not specified', 'not provided', 'not available', 'not stated', 'not disclosed',
+    'غير محدد', 'غير محددة', 'غير مذكور', 'غير مذكورة', 'غير متاح', 'غير متاحة',
+    'لم يحدد', 'لم تحدد', 'لم يتم تحديد', 'لا يوجد', 'لا تتوفر'))
+
+
+def _explicit_absence(text: str) -> bool:
+    tokens = tokenize(text)
+    for phrase in ABSENCE_PHRASES:
+        if any(tuple(tokens[i:i + len(phrase)]) == phrase for i in range(len(tokens) - len(phrase) + 1)):
+            return True
+    # E.g. "no payment date specified". This bounded rule can still reject
+    # relevant text and does not understand arbitrary negation or context.
+    return any(token == 'no' and any(word in ('specified', 'provided', 'available', 'stated')
+                                     for word in tokens[i+1:i+5]) for i, token in enumerate(tokens))
+
 
 def _sentences(text: str) -> list[str]:
     # Retain currency decimals / Arabic fractional numbers rather than cutting within them.
@@ -51,7 +68,7 @@ def ask(index: BM25Index, question: str, *, top_k: int = 5, min_coverage: float 
     (coverage, matched), hit, sentence = best
     result['lexical_coverage'] = round(coverage, 4)
     # One matching token for a multi-term question is not enough evidence.
-    if coverage < min_coverage or (len(terms) > 1 and matched < 2):
+    if coverage < min_coverage or (len(terms) > 1 and matched < 2) or _explicit_absence(sentence):
         return result
     result.update({'status': 'answered', 'answer': sentence,
                    'citations': [{'passage_id': hit['passage_id'],

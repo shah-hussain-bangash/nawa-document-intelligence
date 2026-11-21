@@ -53,15 +53,35 @@ class GroundedQATests(unittest.TestCase):
         self.assertEqual(result['status'], 'answered')
         self.assertNotIn('payment', result['answer'].casefold())
 
-    def test_full_lexical_coverage_does_not_prove_semantic_support(self):
-        passage = Passage.from_dict({'passage_id':'negated','document_id':'doc','version':'1',
-            'tenant_id':'t','page':1,'text':'Reviewer VAT deadline is not specified.',
+    def test_explicit_absence_phrases_abstain_with_positive_controls(self):
+        examples = [
+            ('Reviewer VAT deadline is not specified.', 'reviewer VAT deadline', 'insufficient_evidence'),
+            ('Reviewer VAT deadline is NOT PROVIDED.', 'reviewer VAT deadline', 'insufficient_evidence'),
+            ('No reviewer VAT deadline specified.', 'reviewer VAT deadline', 'insufficient_evidence'),
+            ('موعد دفع الضريبة غير محدد.', 'موعد دفع الضريبة', 'insufficient_evidence'),
+            ('موعد دفع الضريبة لم يتم تحديد.', 'موعد دفع الضريبة', 'insufficient_evidence'),
+            ('Reviewer VAT deadline 2026-12-01.', 'reviewer VAT deadline', 'answered'),
+            ('موعد دفع الضريبة ٢٠٢٦ ١٢ ٠١.', 'موعد دفع الضريبة', 'answered'),
+        ]
+        for text, question, status in examples:
+            with self.subTest(text=text):
+                passage = Passage.from_dict({'passage_id':'fixture','document_id':'doc','version':'1',
+                    'tenant_id':'t','page':1,'text':text,'allowed_principals':['p'],
+                    'source':'synthetic.txt','method':'synthetic'})
+                result = ask(BM25Index([passage], tenant_id='t', principal_id='p'), question)
+                self.assertEqual(result['status'], status)
+                if status == 'insufficient_evidence':
+                    self.assertIsNone(result['answer'])
+                    self.assertEqual(result['citations'], [])
+
+    def test_unknown_absence_word_remains_an_open_semantic_limit(self):
+        passage = Passage.from_dict({'passage_id':'unknown','document_id':'doc','version':'1',
+            'tenant_id':'t','page':1,'text':'Reviewer VAT deadline remains unknown.',
             'allowed_principals':['p'],'source':'synthetic.txt','method':'synthetic'})
         result = ask(BM25Index([passage], tenant_id='t', principal_id='p'), 'reviewer VAT deadline')
-        # This intentionally records an open limitation: matching every word
-        # cannot determine whether the quoted text answers the question.
+        # This records an open limitation; it is not a safety success.
         self.assertEqual(result['status'], 'answered')
-        self.assertIn('not specified', result['answer'])
+        self.assertIn('unknown', result['answer'])
 
     def test_unauthorized_information_not_exposed(self):
         r = ask(self.idx(), 'Falcon Robotics confidential inspection')
