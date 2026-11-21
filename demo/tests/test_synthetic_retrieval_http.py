@@ -4,7 +4,6 @@ import threading
 import unittest
 from http.server import HTTPServer
 from urllib.error import HTTPError
-from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from nawa_demo.authorization import Principal
@@ -26,7 +25,7 @@ class SyntheticRetrievalHttpTests(unittest.TestCase):
             'tenant_id':'b','page':1,'text':'beta shared','allowed_principals':['eve'],'source':'b.txt'})]
         lookup = lambda s,t:self.members.get((s,t))
         self.sessions = SessionStore(lookup)
-        self.tokens = {key:self.sessions.issue(*key)['session'] for key in self.members}
+        self.tokens = {key:self.sessions.issue(*key) for key in self.members}
         self.retrieval = SyntheticLiveRetrieval(lookup, lambda p:list(self.docs))
         handler = make_protected_handler(None, self.sessions, DashboardState(), synthetic_retrieval=self.retrieval)
         self.server = HTTPServer(('127.0.0.1', 0), handler)
@@ -39,41 +38,51 @@ class SyntheticRetrievalHttpTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(5)
 
-    def request(self, path, token=None, headers=None):
-        values = dict(headers or {})
-        if token:
-            values['Cookie'] = 'nawa_session=' + token
+    def request(self, path, payload=None, token=None, headers=None, raw=None):
+        values = {'Origin':'http://127.0.0.1:8765', 'Content-Type':'application/json'}
+        if token is not None:
+            values['Cookie'] = 'nawa_session=' + token['session']
+            values['X-NAWA-CSRF'] = token['csrf']
+        values.update(headers or {})
+        data = raw if raw is not None else (json.dumps(payload).encode() if payload is not None else None)
         try:
-            with urlopen(Request(self.url + path, headers=values), timeout=5) as response:
+            with urlopen(Request(self.url + path, data=data, headers=values), timeout=5) as response:
                 return response.status, json.load(response), response.headers.get('Cache-Control')
         except HTTPError as error:
             with error:
                 return error.code, json.load(error), error.headers.get('Cache-Control')
 
     def test_session_scopes_search_and_source(self):
-        search = '/api/synthetic-evidence/search?' + urlencode({'q':'shared'})
-        self.assertEqual(self.request(search)[0], 403)
-        status, result, cache = self.request(search, self.tokens[('alice','a')],
+        search = '/api/synthetic-evidence/search'
+        self.assertEqual(self.request(search, {'q':'shared'})[0], 403)
+        status, result, cache = self.request(search, {'q':'shared'}, self.tokens[('alice','a')],
                                               {'X-Tenant':'b', 'X-Role':'reviewer'})
         self.assertEqual((status, cache), (200, 'no-store'))
         self.assertEqual([p['document_id'] for p in result['passages']], ['doc-a'])
         self.assertNotIn('tenant_id', result['passages'][0])
         self.assertNotIn('allowed_principals', result['passages'][0])
-        self.assertEqual(self.request(search, self.tokens[('bob','a')])[1]['passages'], [])
-        self.assertEqual(self.request(search, self.tokens[('eve','b')])[1]['passages'][0]['document_id'], 'doc-b')
-        own = '/api/synthetic-evidence/source?' + urlencode({'id':'a-v1'})
-        self.assertEqual(self.request(own, self.tokens[('alice','a')])[1]['passage']['text'], 'alpha shared')
-        self.assertEqual(self.request(own, self.tokens[('bob','a')])[0], 503)
-        self.assertEqual(self.request(own, self.tokens[('eve','b')])[0], 503)
+        self.assertEqual(self.request(search, {'q':'shared'}, self.tokens[('bob','a')])[1]['passages'], [])
+        self.assertEqual(self.request(search, {'q':'shared'}, self.tokens[('eve','b')])[1]['passages'][0]['document_id'], 'doc-b')
+        own = '/api/synthetic-evidence/source'
+        self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('alice','a')])[1]['passage']['text'], 'alpha shared')
+        self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('bob','a')])[0], 503)
+        self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('eve','b')])[0], 503)
         self.docs.pop(0)
-        self.assertEqual(self.request(own, self.tokens[('alice','a')])[0], 503)
+        self.assertEqual(self.request(own, {'id':'a-v1'}, self.tokens[('alice','a')])[0], 503)
 
     def test_invalid_parameters_and_membership_revocation(self):
         token = self.tokens[('alice','a')]
-        self.assertEqual(self.request('/api/synthetic-evidence/search?q=x&q=y', token)[0], 400)
-        self.assertEqual(self.request('/api/synthetic-evidence/search?q=x&tenant=b', token)[0], 400)
+        path = '/api/synthetic-evidence/search'
+        self.assertEqual(self.request(path, token=token, raw=b'{"q":"x","q":"y"}')[0], 400)
+        self.assertEqual(self.request(path, {'q':'x', 'tenant':'b'}, token)[0], 400)
+        self.assertEqual(self.request(path + '?q=shared', {'q':'x'}, token)[0], 400)
+        self.assertEqual(self.request(path, {'q':'shared'}, token, {'X-NAWA-CSRF':''})[0], 403)
+        self.assertEqual(self.request(path, {'q':'shared'}, token, {'X-NAWA-CSRF':'bad'})[0], 403)
+        self.assertEqual(self.request(path, {'q':'shared'}, token, {'Origin':'https://evil.example'})[0], 403)
+        self.assertEqual(self.request(path, {'q':'x' * 201}, token)[0], 400)
+        self.assertEqual(self.request(path + '?q=shared')[0], 404)
         self.members.pop(('alice','a'))
-        self.assertEqual(self.request('/api/synthetic-evidence/search?q=shared', token)[0], 403)
+        self.assertEqual(self.request(path, {'q':'shared'}, token)[0], 403)
 
 
 if __name__ == '__main__':

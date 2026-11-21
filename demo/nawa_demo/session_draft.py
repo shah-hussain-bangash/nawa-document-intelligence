@@ -96,8 +96,8 @@ class SessionStore:
                                                                principal.identity_generation, principal.tenant_generation)}
             return {'session': session, 'csrf': csrf, 'max_age': duration}
 
-    def authorize(self, session, action, *, tenant, csrf=None):
-        if not isinstance(session, str) or not session or not isinstance(action, str):
+    def authorize(self, session, action, *, tenant, csrf=None, require_csrf=False):
+        if not isinstance(session, str) or not session or not isinstance(action, str) or type(require_csrf) is not bool:
             raise SessionError('Session unavailable')
         with self._lock:
             if self._recovering:
@@ -107,7 +107,7 @@ class SessionStore:
             if not record or record['expires'] <= self.clock():
                 self._sessions.pop(key, None)
                 raise SessionError('Session unavailable')
-            if action not in READ_ACTIONS:
+            if require_csrf or action not in READ_ACTIONS:
                 if not isinstance(csrf, str) or not csrf:
                     raise SessionError('Request denied')
                 if not secrets.compare_digest(record['csrf_hash'], _hash(csrf)):
@@ -148,7 +148,7 @@ class SessionStore:
                 raise SessionError('Request denied')
             self._sessions.pop(key, None)
 
-    def authorize_current(self, session, action, *, csrf=None):
+    def authorize_current(self, session, action, *, csrf=None, require_csrf=False):
         """Use the tenant bound to the server-side session, not client input."""
         if not isinstance(session, str) or not session:
             raise SessionError('Session unavailable')
@@ -157,5 +157,5 @@ class SessionStore:
             if not record:
                 raise SessionError('Session unavailable')
             tenant = record['tenant']
-        return self.authorize(session, action, tenant=tenant, csrf=csrf)
+        return self.authorize(session, action, tenant=tenant, csrf=csrf, require_csrf=require_csrf)
 

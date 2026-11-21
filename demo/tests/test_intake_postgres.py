@@ -490,35 +490,38 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertTrue(source.set_access(reviewers[0], second, keys[0], True, 'second version grant'))
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
             http_sessions = SessionStore(source.principal)
-            owner_token = http_sessions.issue(keys[0], self.tenant)['session']
-            viewer_token = http_sessions.issue(viewer_key, self.tenant)['session']
-            other_token = http_sessions.issue(keys[1], self.other)['session']
+            owner_token = http_sessions.issue(keys[0], self.tenant)
+            viewer_token = http_sessions.issue(viewer_key, self.tenant)
+            other_token = http_sessions.issue(keys[1], self.other)
             handler = make_protected_handler(None, http_sessions, DashboardState(), synthetic_retrieval=retrieval)
             http_server = HTTPServer(('127.0.0.1', 0), handler)
             http_thread = threading.Thread(target=http_server.serve_forever, daemon=True)
             http_thread.start()
             base = 'http://127.0.0.1:%s' % http_server.server_port
-            def evidence_request(path, token=None):
-                headers = {'Cookie':'nawa_session=' + token} if token else {}
+            def evidence_request(path, payload, token=None):
+                headers = {'Origin':'http://127.0.0.1:8765', 'Content-Type':'application/json'}
+                if token:
+                    headers.update({'Cookie':'nawa_session=' + token['session'], 'X-NAWA-CSRF':token['csrf']})
                 try:
-                    with urlopen(Request(base + path, headers=headers), timeout=5) as response:
+                    with urlopen(Request(base + path, data=json.dumps(payload).encode(), headers=headers), timeout=5) as response:
                         return response.status, json.load(response)
                 except HTTPError as error:
                     with error:
                         return error.code, json.load(error)
-            search = '/api/synthetic-evidence/search?q=Grand%20Total'
-            source_path = '/api/synthetic-evidence/source?id=' + second + ':v2'
+            search = '/api/synthetic-evidence/search'
+            source_path = '/api/synthetic-evidence/source'
+            query, identifier = {'q':'Grand Total'}, {'id':second + ':v2'}
             try:
-                self.assertEqual(evidence_request(search)[0], 403)
-                self.assertEqual(evidence_request(search, owner_token)[1]['passages'][0]['document_id'], second)
-                self.assertEqual(evidence_request(source_path, owner_token)[1]['passage']['document_id'], second)
-                self.assertEqual(evidence_request(search, viewer_token)[1]['passages'], [])
-                self.assertEqual(evidence_request(source_path, viewer_token)[0], 503)
-                self.assertEqual(evidence_request(source_path, other_token)[0], 503)
+                self.assertEqual(evidence_request(search, query)[0], 403)
+                self.assertEqual(evidence_request(search, query, owner_token)[1]['passages'][0]['document_id'], second)
+                self.assertEqual(evidence_request(source_path, identifier, owner_token)[1]['passage']['document_id'], second)
+                self.assertEqual(evidence_request(search, query, viewer_token)[1]['passages'], [])
+                self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 503)
+                self.assertEqual(evidence_request(source_path, identifier, other_token)[0], 503)
                 self.assertTrue(source.set_access(reviewers[0], second, viewer_key, True, 'http grant'))
-                self.assertEqual(evidence_request(source_path, viewer_token)[0], 200)
+                self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 200)
                 self.assertTrue(source.set_access(reviewers[0], second, viewer_key, False, 'http revoke'))
-                self.assertEqual(evidence_request(source_path, viewer_token)[0], 503)
+                self.assertEqual(evidence_request(source_path, identifier, viewer_token)[0], 503)
             finally:
                 http_server.shutdown()
                 http_server.server_close()
