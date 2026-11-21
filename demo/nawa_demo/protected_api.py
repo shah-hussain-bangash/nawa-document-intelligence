@@ -15,13 +15,16 @@ from .session_draft import SessionError
 from .scoped_state import AccessDenied, ReviewNotInitialized
 from .intake_postgres import IntakeRejected
 from .synthetic_request_gate import GateClosed, SyntheticRequestGate
+from .synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
 
 
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
                            allowed_origin='http://127.0.0.1:8765', intake=None,
-                           synthetic_request_gate=None):
+                           synthetic_request_gate=None, synthetic_retrieval=None):
     if synthetic_request_gate is not None and not isinstance(synthetic_request_gate, SyntheticRequestGate):
         raise ValueError('Invalid synthetic request gate')
+    if synthetic_retrieval is not None and not isinstance(synthetic_retrieval, SyntheticLiveRetrieval):
+        raise ValueError('Invalid synthetic retrieval')
     Base = make_handler(health_state)
 
     class Handler(Base):
@@ -95,6 +98,35 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                     return self._json({'error': 'Authentication or permission required'}, 403)
                 except Exception:
                     return self._json({'error': 'Identity service unavailable'}, 503)
+            if path in ('/api/synthetic-evidence/search', '/api/synthetic-evidence/source') and synthetic_retrieval is not None:
+                try:
+                    principal = self._principal('view')
+                    query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, max_num_fields=4)
+                    field = 'q' if path.endswith('/search') else 'id'
+                    if set(query) != {field} or len(query[field]) != 1:
+                        raise ValueError('Invalid request')
+                    value = query[field][0]
+                    if not value.strip() or len(value) > 200:
+                        raise ValueError('Invalid request')
+                    if field == 'q':
+                        hits = synthetic_retrieval.search(principal.subject, principal.tenant, value,
+                                                          expected_principal=principal)
+                        return self._json({'passages':hits})
+                    passage = synthetic_retrieval.resolve(principal.subject, principal.tenant, value,
+                                                          expected_principal=principal)
+                    return self._json({'passage':{'passage_id':passage.passage_id, 'document_id':passage.document_id,
+                        'version':passage.version, 'page':passage.page, 'source':passage.source,
+                        'method':passage.method, 'text':passage.text}})
+                except (SessionError, AccessDenied):
+                    return self._json({'error': 'Authentication or permission required'}, 403)
+                except EvidenceUnavailable:
+                    # Use the same response for missing, denied and unavailable
+                    # evidence; avoid disclosing whether a document exists.
+                    return self._json({'error': 'Evidence unavailable'}, 503)
+                except (ValueError, TypeError):
+                    return self._json({'error': 'Invalid request'}, 400)
+                except Exception:
+                    return self._json({'error': 'Evidence unavailable'}, 503)
             if path == '/api/intake/documents' and intake is not None:
                 try:
                     principal = self._principal('list')

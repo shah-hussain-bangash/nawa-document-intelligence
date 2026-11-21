@@ -36,7 +36,7 @@ class SyntheticLiveRetrieval:
         except Exception:
             raise EvidenceUnavailable('Evidence unavailable') from None
 
-    def search(self, subject, tenant, query, *, k=5):
+    def search(self, subject, tenant, query, *, k=5, expected_principal=None):
         """Fail closed if the trusted snapshot changes before returning results.
 
         The loader must already exclude withdrawn, obsolete and unapproved
@@ -44,16 +44,20 @@ class SyntheticLiveRetrieval:
         changes that revert between reads, or dishonest callback responses.
         """
         before = self._snapshot(subject, tenant)
+        if expected_principal is not None and before[0] != expected_principal:
+            raise EvidenceUnavailable('Evidence unavailable')
         hits = BM25Index(list(before[1]), tenant_id=tenant, principal_id=subject).search(query, k=k)
         if self._snapshot(subject, tenant) != before:
             raise EvidenceUnavailable('Evidence unavailable')
         return hits
 
-    def resolve(self, subject, tenant, passage_id):
+    def resolve(self, subject, tenant, passage_id, *, expected_principal=None):
         """Recheck the snapshot when an earlier passage ID is opened."""
         if not isinstance(passage_id, str) or not passage_id.strip():
             raise EvidenceUnavailable('Evidence unavailable')
         before = self._snapshot(subject, tenant)
+        if expected_principal is not None and before[0] != expected_principal:
+            raise EvidenceUnavailable('Evidence unavailable')
         match = next((p for p in before[1] if p.passage_id == passage_id), None)
         if match is None or self._snapshot(subject, tenant) != before:
             raise EvidenceUnavailable('Evidence unavailable')

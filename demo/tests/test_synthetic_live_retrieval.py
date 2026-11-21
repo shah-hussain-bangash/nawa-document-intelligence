@@ -65,6 +65,14 @@ class LiveRetrievalTests(unittest.TestCase):
         with self.assertRaises(EvidenceUnavailable):
             SyntheticLiveRetrieval(resolve, lambda p:list(self.docs)).search('alice','a','shared')
 
+    def test_expected_session_principal_must_match_current_membership(self):
+        old = self.members[('alice','a')]
+        self.members[('alice','a')] = replace(old, membership_generation=1)
+        with self.assertRaises(EvidenceUnavailable):
+            self.service.search('alice','a','shared', expected_principal=old)
+        with self.assertRaises(EvidenceUnavailable):
+            self.service.resolve('alice','a','a-v1', expected_principal=old)
+
     def test_dependency_failure_does_not_reveal_details(self):
         def failed(*args):
             raise RuntimeError('internal synthetic database detail')
