@@ -19,3 +19,7 @@ Checked 20 November 2026. This is a review aid for [draft PR #2](https://github.
 5. **Integration after review:** review the exact #2 diff and checks, then update and retest dependent drafts in order. Do not assume the later stacked browser test ran against #2 alone or that a passing synthetic test resolves these decisions.
 
 The local browser certificate step was deferred; no company-approved certificate or staging validation is evidenced here. The original NAWA workspace, records and existing database volumes are outside this review.
+
+## Session deadline follow-up
+
+At integration-draft revision [`0bec81d`](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/commit/0bec81da2427e74d8fc5d2de3cac8e52ae663e80), the synthetic login flow anchors the verified identity-token deadline before session issuance and rechecks the remaining time after the membership lookup. A deliberately delayed lookup is rejected if the token deadline has passed; a separate test checks the shortened session lifetime. [Synthetic CI](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/44889693746) passed on that revision. This does not establish provider-side revocation, distributed sessions, trusted company certificates or a staging deployment.
