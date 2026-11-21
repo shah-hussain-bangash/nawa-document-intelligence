@@ -4,7 +4,7 @@ import unittest
 
 from nawa_demo.authorization import Principal
 from nawa_demo.retrieval import BM25Index, Passage
-from nawa_demo.synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
+from nawa_demo.synthetic_live_retrieval import EvidenceUnavailable, PassageSnapshot, SyntheticLiveRetrieval
 
 
 def passage(pid, tenant, version, text, principals):
@@ -53,6 +53,21 @@ class LiveRetrievalTests(unittest.TestCase):
                 self.docs[0] = passage('a-v2','a','2','shared revised',['alice'])
             return list(self.docs)
         service = SyntheticLiveRetrieval(lambda s,t:self.members.get((s,t)), changed)
+        with self.assertRaises(EvidenceUnavailable):
+            service.search('alice','a','shared')
+
+    def test_grant_change_and_restore_between_reads_fails_closed(self):
+        calls = []
+        def snapshots(principal):
+            calls.append(1)
+            return PassageSnapshot((self.docs[0],), (('a-v1', 1 if len(calls) == 1 else 3),))
+        service = SyntheticLiveRetrieval(lambda s,t:self.members.get((s,t)), snapshots)
+        with self.assertRaises(EvidenceUnavailable):
+            service.search('alice','a','shared')
+
+    def test_generation_metadata_must_match_the_authorized_snapshot(self):
+        service = SyntheticLiveRetrieval(lambda s,t:self.members.get((s,t)),
+            lambda p:PassageSnapshot((self.docs[0],), (('wrong-id', 1),)))
         with self.assertRaises(EvidenceUnavailable):
             service.search('alice','a','shared')
 

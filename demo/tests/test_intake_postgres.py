@@ -489,6 +489,17 @@ class PostgresIntakeTests(unittest.TestCase):
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
             self.assertTrue(source.set_access(reviewers[0], second, keys[0], True, 'second version grant'))
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+            calls = []
+            def changed_grant(principal):
+                calls.append(1)
+                if len(calls) == 2:
+                    self.assertTrue(source.set_access(reviewers[0], second, keys[0], False, 'synthetic revoke'))
+                    self.assertTrue(source.set_access(reviewers[0], second, keys[0], True, 'synthetic regrant'))
+                return source.passages(principal)
+            changing_retrieval = SyntheticLiveRetrieval(source.principal, changed_grant)
+            with self.assertRaises(EvidenceUnavailable):
+                changing_retrieval.search(keys[0], self.tenant, 'Grand Total')
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
             http_sessions = SessionStore(source.principal)
             owner_token = http_sessions.issue(keys[0], self.tenant)
             viewer_token = http_sessions.issue(viewer_key, self.tenant)
@@ -1188,10 +1199,11 @@ class PostgresIntakeTests(unittest.TestCase):
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 5)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 6)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_withdrawals')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_document_grants')").fetchone()[0])
+            self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_grant_generation_seq')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
             with self.assertRaisesRegex(ValueError, 'history mismatch'):

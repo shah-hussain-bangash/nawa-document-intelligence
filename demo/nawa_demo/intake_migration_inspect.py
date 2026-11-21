@@ -24,10 +24,11 @@ def inspect_history(connection):
             to_regclass('nawa_intake_documents'), to_regclass('nawa_intake_jobs'),
             to_regclass('nawa_intake_versions'), to_regclass('nawa_intake_promotions'),
             to_regclass('nawa_intake_admin_events'), to_regclass('nawa_synthetic_withdrawals'),
-            to_regclass('nawa_synthetic_document_grants'), to_regclass('nawa_synthetic_document_grant_events')""")
+            to_regclass('nawa_synthetic_document_grants'), to_regclass('nawa_synthetic_document_grant_events'),
+            to_regclass('nawa_synthetic_grant_generation_seq')""")
         row = cur.fetchone()
         presence = dict(zip(('history','documents','jobs','versions','promotions','admin_events','withdrawals',
-                             'document_grants','document_grant_events'),
+                             'document_grants','document_grant_events','grant_generation_sequence'),
                             (value is not None for value in row)))
         if not presence['history']:
             records = {}

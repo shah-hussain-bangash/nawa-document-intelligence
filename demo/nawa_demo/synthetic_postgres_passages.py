@@ -5,6 +5,7 @@ from .authorization import Principal, authorized
 from .identity_repository import membership_by_key
 from .retrieval import Passage
 from .review import inspect
+from .synthetic_live_retrieval import PassageSnapshot
 
 
 class SyntheticPostgresPassages:
@@ -28,17 +29,16 @@ class SyntheticPostgresPassages:
             current = membership_by_key(conn, identity_key=principal.subject, tenant=principal.tenant, lock=True)
             if current != principal:
                 raise ValueError('Evidence unavailable')
-            rows = conn.execute('''SELECT d.id,d.filename,d.sha256,v.version,j.result,r.revision,r.ledger
+            rows = conn.execute('''SELECT d.id,d.filename,d.sha256,v.version,j.result,r.revision,r.ledger,g.grant_generation
                 FROM nawa_intake_versions v
                 JOIN nawa_intake_documents d ON d.tenant_id=v.tenant_id AND d.id=v.document_id
                 JOIN nawa_intake_jobs j ON j.tenant_id=d.tenant_id AND j.document_id=d.id
                 JOIN nawa_intake_promotions p ON p.tenant_id=d.tenant_id AND p.document_id=d.id
                 JOIN nawa_reviews r ON r.quotation_id=p.quotation_id
+                JOIN nawa_synthetic_document_grants g ON g.tenant_id=d.tenant_id AND g.document_id=d.id
                 WHERE v.tenant_id=%s AND j.state='completed'
-                  AND EXISTS (SELECT 1 FROM nawa_synthetic_document_grants g
-                    WHERE g.tenant_id=d.tenant_id AND g.document_id=d.id AND g.subject_hash=%s
-                      AND g.active AND g.membership_generation=%s AND g.identity_generation=%s
-                      AND g.tenant_generation=%s)
+                  AND g.subject_hash=%s AND g.active AND g.membership_generation=%s
+                  AND g.identity_generation=%s AND g.tenant_generation=%s
                   AND NOT EXISTS (SELECT 1 FROM nawa_synthetic_withdrawals w
                     WHERE w.tenant_id=d.tenant_id AND w.document_id=d.id)
                   AND NOT EXISTS (SELECT 1 FROM nawa_intake_versions n
@@ -47,8 +47,8 @@ class SyntheticPostgresPassages:
                     principal.membership_generation, principal.identity_generation, principal.tenant_generation)).fetchall()
             if len(rows) > 20:
                 raise ValueError('Evidence unavailable')
-            result = []
-            for document, filename, digest, version, extracted, revision, ledger in rows:
+            result, generations = [], []
+            for document, filename, digest, version, extracted, revision, ledger, grant_generation in rows:
                 review = inspect(ledger)
                 if (review['revision'] != revision or review['document'] != filename
                         or not isinstance(extracted, dict) or review['source_evidence'] != extracted.get('evidence')):
@@ -63,7 +63,8 @@ class SyntheticPostgresPassages:
                     'document_id':document.hex, 'version':str(version), 'tenant_id':principal.tenant,
                     'page':1, 'text':text, 'allowed_principals':[principal.subject],
                     'source':filename, 'method':'synthetic'}))
-            return result
+                generations.append((result[-1].passage_id, grant_generation))
+            return PassageSnapshot(tuple(result), tuple(generations))
 
     def set_access(self, principal, document_id, target_key, enabled, reason):
         """Change a synthetic view grant using current server-side members.
