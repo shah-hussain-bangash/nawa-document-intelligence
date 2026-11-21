@@ -2,6 +2,8 @@
 
 **Enterprise Document AI • Arabic & English OCR • Evidence-Linked Extraction • RAG • Human-in-the-Loop Review**
 
+**Featured case study:** [NAWA Case Study — Arabic and English quotation intelligence](docs/07-case-study/NAWA_CASE_STUDY.md). Explore the implemented scope, bilingual financial example, architecture decisions, verified CI results, reproduced evaluation checks and enterprise delivery roadmap.
+
 NAWA is an enterprise document intelligence project designed to help procurement teams process and compare Arabic and English supplier quotations.
 
 The system combines document processing, structured information extraction, evidence-linked retrieval, deterministic financial comparisons, and human review to make procurement decisions more traceable.
@@ -250,7 +252,7 @@ See [Cloud Operations](docs/06-cloud-devops/NAWA_Cloud_Operations.pdf).
 
 ### Case study
 
-- [Bilingual Document Intelligence Case Study](docs/07-case-study/NAWA_Bilingual_Document_Intelligence_Case_Study.pdf)
+- [NAWA Case Study](docs/07-case-study/NAWA_CASE_STUDY.md)
 
 ## 11. Demonstration Workflow
 
@@ -272,13 +274,13 @@ A recorded walkthrough and reproducible setup instructions will be added after v
 |---|---|
 | Architecture and technical documentation | Available |
 | Business and software requirements | Available as drafts |
-| Source-code implementation | [Synthetic demo](demo/) available; later phases are drafts |
-| Reproducible automated test run | [Core tests](demo/tests/test_core.py) and [main CI](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038065) |
+| Source-code implementation | [Runnable synthetic demo](demo/); later phases are drafts and the full target enterprise platform is not established |
+| Reproducible automated test run | [Core tests](demo/tests/test_core.py) and [pinned hosted test run](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038065): general job 122 run with 2 skipped; separate PostgreSQL job 2 passed |
 | Bilingual OCR and extraction benchmark | Small synthetic experiments; independently reviewed evaluation pending |
 | Retrieval and citation benchmark | Synthetic experiment; independent evaluation pending |
 | Security verification report | Pending |
-| CI/CD execution evidence | [Main demo CI](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038065); [Docker smoke](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038120) |
-| Application screenshots and demo | [Local synthetic dashboard](demo/README_PHASE9.md); recorded walkthrough pending |
+| CI/CD execution evidence | [Synthetic test workflow](.github/workflows/demo-tests.yml) and [successful Docker smoke run](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038120); no cloud promotion established |
+| Application screenshots and demo | [Local synthetic dashboard guide](demo/README_PHASE9.md); current UI screenshots and recorded walkthrough remain pending |
 | Production readiness approval | Not established |
 
 This table describes evidence available through the public portfolio, not necessarily all work completed privately.
@@ -296,7 +298,7 @@ NAWA is developed around several enterprise engineering principles:
 
 ## 14. Project Limitations
 
-The repository includes runnable synthetic demos and technical documentation. Independent evaluation datasets, a verified staging deployment, and production assurance remain open.
+The repository includes runnable synthetic demos and technical documentation. Representative bilingual evaluation datasets, a verified staging deployment, current enterprise cloud deployment evidence, and production assurance remain open.
 
 Architecture specifications and production plans should be interpreted as engineering design documents unless accompanied by implementation and verification evidence.
 
