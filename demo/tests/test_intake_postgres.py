@@ -500,6 +500,55 @@ class PostgresIntakeTests(unittest.TestCase):
             with self.assertRaises(EvidenceUnavailable):
                 changing_retrieval.search(keys[0], self.tenant, 'Grand Total')
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+            # Characterize restoring a backup taken before a grant revocation.
+            # The target is a new disposable database, never the source DB.
+            params = psycopg.conninfo.conninfo_to_dict(DSN)
+            if (params.get('host') != '127.0.0.1' or 'hostaddr' in params
+                    or not params.get('dbname', '').startswith('nawa_phase13_qa_')):
+                raise ValueError('Disposable localhost QA database required')
+            restored_name = 'nawa_phase13_qa_restore_' + uuid4().hex[:12]
+            pg_bin = Path(r'C:\Program Files\PostgreSQL\18\bin')
+            def pg_tool(name):
+                return shutil.which(name) or str(pg_bin / (name + '.exe'))
+            common = ['-h', params['host'], '-p', params.get('port', '5432'), '-U', params['user']]
+            pg_env = os.environ.copy()
+            pg_env['PGPASSWORD'] = params.get('password', '')
+            flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            created_restore = False
+            try:
+                with TemporaryDirectory() as backup_dir:
+                    dump = Path(backup_dir) / 'synthetic-grants.dump'
+                    subprocess.run([pg_tool('pg_dump'), *common, '-Fc', '-f', str(dump), params['dbname']],
+                                   check=True, capture_output=True, env=pg_env, creationflags=flags)
+                    self.assertTrue(source.set_access(reviewers[0], second, keys[0], False, 'before restore'))
+                    self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
+                    with psycopg.connect(DSN, autocommit=True) as admin:
+                        admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(restored_name)))
+                    created_restore = True
+                    subprocess.run([pg_tool('pg_restore'), *common, '-d', restored_name, '--no-owner', str(dump)],
+                                   check=True, capture_output=True, env=pg_env, creationflags=flags)
+                    restored_params = dict(params, dbname=restored_name)
+                    restored_connect = lambda: psycopg.connect(**restored_params)
+                    restored_source = SyntheticPostgresPassages(restored_connect, store)
+                    restored_search = SyntheticLiveRetrieval(restored_source.principal, restored_source.passages)
+                    # Risk characterization: this old backup reintroduces access
+                    # that was revoked later; it is not a recovery safety pass.
+                    self.assertEqual(restored_search.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+                    # An explicit QA-only reset on the separate restored target
+                    # denies all restored grants until individually regranted.
+                    with restored_connect() as conn:
+                        reset = conn.execute('UPDATE nawa_synthetic_document_grants SET active=false WHERE active')
+                        self.assertGreaterEqual(reset.rowcount, 1)
+                    self.assertEqual(restored_search.search(keys[0], self.tenant, 'Grand Total'), [])
+                    self.assertEqual(restored_search.search(keys[1], self.other, 'Grand Total'), [])
+                    self.assertTrue(restored_source.set_access(reviewers[0], second, keys[0], True, 'synthetic reapproval'))
+                    self.assertEqual(restored_search.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+                    self.assertEqual(restored_search.search(keys[1], self.other, 'Grand Total'), [])
+                    self.assertTrue(source.set_access(reviewers[0], second, keys[0], True, 'restore test cleanup'))
+            finally:
+                if created_restore:
+                    with psycopg.connect(DSN, autocommit=True) as admin:
+                        admin.execute(psycopg.sql.SQL('DROP DATABASE {}').format(psycopg.sql.Identifier(restored_name)))
             http_sessions = SessionStore(source.principal)
             owner_token = http_sessions.issue(keys[0], self.tenant)
             viewer_token = http_sessions.issue(viewer_key, self.tenant)
