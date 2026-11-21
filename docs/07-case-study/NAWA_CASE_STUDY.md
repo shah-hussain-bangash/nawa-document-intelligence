@@ -21,6 +21,12 @@
 
 [Business problem](#1-business-problem-and-objectives) · [Architecture](#3-architecture-and-implementation-boundaries) · [Bilingual extraction](#4-bilingual-document-processing) · [AI and retrieval](#6-retrieval-generation-and-agentic-boundaries) · [Evidence](#9-engineering-results-and-reproducibility) · [Research](#10-evaluation-research-and-next-experiments)
 
+### Application view
+
+![NAWA local bilingual quotation comparison](assets/nawa-current-comparison.png)
+
+*Captured from the running local quotation dashboard on 21 November 2026 using the bundled synthetic English and Arabic examples. The view shows Arabic source-line evidence, deterministic VAT checks and an AED price-only comparison. Review is local and in memory; this image does not demonstrate OCR, authenticated approval or a production deployment.*
+
 ## 1. Business problem and objectives
 
 Procurement reviewers compare supplier names, currencies, subtotals, VAT and totals across documents with different languages and layouts. A scanned page introduces recognition errors; Arabic numerals and bidirectional text introduce normalization and reading-order problems. A correct-looking total can still be unsupported or inconsistent with the other fields.
