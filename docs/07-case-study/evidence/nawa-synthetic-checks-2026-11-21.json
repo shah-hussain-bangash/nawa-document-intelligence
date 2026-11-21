@@ -1,0 +1,226 @@
+{
+  "source_commit": "823565f7c44c15b07719b91670fe8bbfb8d96521",
+  "recorded_at_utc": "2026-11-21T07:54:02.334694+00:00",
+  "environment": {
+    "python": "3.14.8",
+    "platform": "Windows"
+  },
+  "scope": "Selected unchanged source modules and committed synthetic fixtures; standard-library local replay. Not a full test-suite rerun.",
+  "extraction": [
+    {
+      "document": "english_quote.txt",
+      "subtotal": "1000.00",
+      "vat_amount": "50.00",
+      "total": "1050.00",
+      "checks": {
+        "vat_matches_rate": true,
+        "total_matches_components": true
+      }
+    },
+    {
+      "document": "arabic_quote.txt",
+      "subtotal": "900.00",
+      "vat_amount": "45.00",
+      "total": "945.00",
+      "checks": {
+        "vat_matches_rate": true,
+        "total_matches_components": true
+      }
+    },
+    {
+      "document": "incorrect_vat_quote.txt",
+      "subtotal": "800.00",
+      "vat_amount": "30.00",
+      "total": "830.00",
+      "checks": {
+        "vat_matches_rate": false,
+        "total_matches_components": true
+      }
+    }
+  ],
+  "price_comparison": "شركة المثال للتوريدات",
+  "review": {
+    "financial_mismatch_approval_blocked": true,
+    "valid_quotation_status": "approved",
+    "stale_revision_blocked": true
+  },
+  "evaluation": {
+    "phase": 7,
+    "scope": "Synthetic deterministic offline evaluation; no live model",
+    "total_cases": 11,
+    "passed_cases": 11,
+    "failed_cases": 0,
+    "status_accuracy": 1.0,
+    "all_passed": true,
+    "cases": [
+      {
+        "id": "en_answer",
+        "behavior": "mock",
+        "expected_status": "answered",
+        "actual_status": "answered",
+        "pass": true,
+        "citation_ids": [
+          "en-quote-v1-p1"
+        ],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "ar_answer",
+        "behavior": "mock",
+        "expected_status": "answered",
+        "actual_status": "answered",
+        "pass": true,
+        "citation_ids": [
+          "ar-quote-v1-p1"
+        ],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "policy_answer",
+        "behavior": "mock",
+        "expected_status": "answered",
+        "actual_status": "answered",
+        "pass": true,
+        "citation_ids": [
+          "policy-v1-p2"
+        ],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "unknown_refusal",
+        "behavior": "mock",
+        "expected_status": "insufficient_evidence",
+        "actual_status": "insufficient_evidence",
+        "pass": true,
+        "citation_ids": [],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "restricted_refusal",
+        "behavior": "mock",
+        "expected_status": "insufficient_evidence",
+        "actual_status": "insufficient_evidence",
+        "pass": true,
+        "citation_ids": [],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "tenant_boundary",
+        "behavior": "mock",
+        "expected_status": "insufficient_evidence",
+        "actual_status": "insufficient_evidence",
+        "pass": true,
+        "citation_ids": [],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "admin_access",
+        "behavior": "mock",
+        "expected_status": "answered",
+        "actual_status": "answered",
+        "pass": true,
+        "citation_ids": [
+          "restricted-v1-p1"
+        ],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "invented_number",
+        "behavior": "invented_number",
+        "expected_status": "rejected_ungrounded",
+        "actual_status": "rejected_ungrounded",
+        "pass": true,
+        "citation_ids": [],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "forged_citation",
+        "behavior": "forged_citation",
+        "expected_status": "rejected_ungrounded",
+        "actual_status": "rejected_ungrounded",
+        "pass": true,
+        "citation_ids": [],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "altered_quote",
+        "behavior": "altered_quote",
+        "expected_status": "rejected_ungrounded",
+        "actual_status": "rejected_ungrounded",
+        "pass": true,
+        "citation_ids": [],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      },
+      {
+        "id": "injected_instruction",
+        "behavior": "injected_instruction",
+        "expected_status": "rejected_ungrounded",
+        "actual_status": "rejected_ungrounded",
+        "pass": true,
+        "citation_ids": [],
+        "citation_authorized": true,
+        "no_provider_call_when_required": true,
+        "abstention_integrity": true
+      }
+    ],
+    "limitations": [
+      "Exact quote and token checks do not prove semantic entailment",
+      "Prompt injection prevention against real models is not established",
+      "Self-asserted tenant/principal IDs are not authentication",
+      "No live OpenAI API calls, external benchmark or production security audit"
+    ]
+  },
+  "known_semantic_limitation": {
+    "candidate_answer": "Subtotal AED 1050.00",
+    "source_subtotal": "1000.00",
+    "source_grand_total": "1050.00",
+    "accepted_by_lexical_gate": true,
+    "interpretation": "The validator checks tokens and exact quotes, not whether the answer assigns a number to the correct field. This is a reproduced limitation, not a semantic-accuracy result."
+  },
+  "source_file_sha256": {
+    "demo/nawa_demo/__init__.py": "07ca1ee3eabc7c47c63e846921652a028fcef43422bdc75efbd623c5104fbfaf",
+    "demo/nawa_demo/core.py": "9da54f4390e91d352dfa0d8757180c73206852a9c81d54e8d301f4c661021782",
+    "demo/nawa_demo/eval_cli.py": "022bac2b94be3c0e199dc72d592a350cf0a713aa3aa24b642be9ac3109e16e81",
+    "demo/nawa_demo/evaluation.py": "4fbdd4b4425147e5434badb85016dbd9be28f0e72a91725a03484824614997be",
+    "demo/nawa_demo/grounded_qa.py": "047c7a0a829ae79f903c902b34a0be880055a77c91ebec576bb1c25628818ef6",
+    "demo/nawa_demo/rag.py": "10ca6eac02758972e6807db77479ef9ce78e6b30bad5c0fc4d47ff8fdf35cd3d",
+    "demo/nawa_demo/retrieval.py": "a569c97bda5bd48249f312f336f9835e11f34c7c06b35932cec06e5261d32543",
+    "demo/nawa_demo/review.py": "ee3fcfa55c66bec1e179a5ce1d15f6548bc8b7e7487f53fa92051c1c64631cc4",
+    "demo/samples/arabic_quote.txt": "fdf488846d40ce360f90e64e0c86825fe16112d55f25339c9ad44a64cf560ac8",
+    "demo/samples/english_quote.txt": "13c5a4d9f2695877afdc2a19b0fb803cb7acee06a24fb19d625390b73e2e9f02",
+    "demo/samples/evaluation/phase7_cases.json": "f792fa9f63082a5de48892d48b59570368ca60f5b883f464c097919c551c01b8",
+    "demo/samples/incorrect_vat_quote.txt": "123ceccb907cdf30025c3bfbf1f2dc8df84a22104b6368660039f9c162de1a16",
+    "demo/samples/retrieval/evaluation.json": "d9477b2d7be449a58d332dd16947fb238a54c86b94a45a2119d3d5f0676977bd",
+    "demo/samples/retrieval/passages.json": "26647a1ce9ffcac89cae219adfcf7f1107282590f87d5b1d0db4299eb2c7bd62"
+  },
+  "not_executed": [
+    "PDF extraction",
+    "Tesseract OCR",
+    "PostgreSQL",
+    "Docker",
+    "Live model API",
+    "Browser automation",
+    "Cloud deployment",
+    "Independent bilingual benchmark"
+  ]
+}
