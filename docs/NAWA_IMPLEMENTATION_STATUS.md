@@ -4,7 +4,7 @@ Checked 20 November 2026. This register identifies synthetic development evidenc
 
 ## Main branch
 
-For an interview-oriented explanation grounded in these results, see the [synthetic case study](NAWA_SYNTHETIC_CASE_STUDY.md).
+For an interview-oriented explanation grounded in these results, see the [synthetic case study](NAWA_SYNTHETIC_CASE_STUDY.md) and the [architecture and evidence map](NAWA_ARCHITECTURE_MAP.md).
 
 | Area | Evidence at main `823565f7c44c15b07719b91670fe8bbfb8d96521` | Boundary |
 | --- | --- | --- |

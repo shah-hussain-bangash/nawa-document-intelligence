@@ -31,6 +31,8 @@ The draft separates analyst and reviewer roles. A configurable source-checking m
 
 ## Architecture and governance choices to discuss
 
+The [architecture and evidence map](NAWA_ARCHITECTURE_MAP.md) shows the synthetic users, components, quotation journey and remaining trust boundaries.
+
 - Resolve tenant and role from server-side identity and membership; the draft uses local, process-bound sessions and application-level checks, not a verified production tenancy boundary.
 - Treat source documents and OCR text as untrusted data. Keep original source evidence distinct from a human correction and require a separate reviewer for approval in the tested workflow.
 - Use deterministic checks for financial calculations. The retrieval and claim-support experiments are not an automatic financial or approval gate.
