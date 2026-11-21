@@ -1,0 +1,5 @@
+# Synthetic live retrieval experiment
+
+The offline BM25 index is a snapshot. An index constructed before an access or source change can continue returning an old passage. `SyntheticLiveRetrieval` experiments with rebuilding from callback-provided eligible passages and rechecking the principal and filtered snapshot before returning search results. Resolving a passage ID takes a fresh snapshot and rechecks it again. Synthetic tests cover two tenants with positive controls, a replaced version, withdrawal, identity changes and dependency errors.
+
+The callbacks in these tests are in-memory fixtures. The loader must itself establish the current approved source and exclude withdrawn or obsolete versions; the experiment does not make that determination. It has no endpoint, live database integration, source-byte verification, authorization of exports, independent evaluation or production identity provider. Re-reading snapshots does not prevent a change after the final check or a change that occurs and reverts between checks. This is not an authorization boundary or a production release gate. Do not use it to justify returning real or confidential data.
