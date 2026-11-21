@@ -414,14 +414,27 @@ class PostgresIntakeTests(unittest.TestCase):
         from nawa_demo.synthetic_postgres_passages import SyntheticPostgresPassages
         issuer = 'https://synthetic-retrieval'
         users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
+        reviewer_users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
+        viewer_subject = uuid4().hex
         with self.connect() as conn:
             for subject, tenant in users:
                 conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
                 conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
                              (issuer, subject, tenant, 'analyst'))
+            for subject, tenant in reviewer_users:
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, tenant, 'reviewer'))
+            conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, viewer_subject))
+            conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                         (issuer, viewer_subject, self.tenant, 'viewer'))
         keys = [json.dumps([issuer, subject], separators=(',', ':')) for subject, _ in users]
+        reviewer_keys = [json.dumps([issuer, subject], separators=(',', ':')) for subject, _ in reviewer_users]
+        viewer_key = json.dumps([issuer, viewer_subject], separators=(',', ':'))
         principals = [make_principal(self.connect, key, tenant, 'analyst')
                       for key, (_, tenant) in zip(keys, users)]
+        reviewers = [make_principal(self.connect, key, tenant, 'reviewer')
+                     for key, (_, tenant) in zip(reviewer_keys, reviewer_users)]
         with TemporaryDirectory() as folder:
             store = LocalIntakeStore(folder)
             intake = ScopedIntake(self.connect, store)
@@ -440,26 +453,32 @@ class PostgresIntakeTests(unittest.TestCase):
                 review.review_start(principal, quote)
                 return document, quote
             def approve(index, quote):
-                # Synthetic fixture only: provision reviewer role through the
-                # database, not through a caller-supplied role.
-                subject, tenant = users[index]
-                with self.connect() as conn:
-                    conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
-                                 (issuer, subject, tenant))
-                reviewer = make_principal(self.connect, keys[index], tenant, 'reviewer')
-                review.review_decision(reviewer, {'id':quote, 'decision':'approve', 'reason':'synthetic review',
+                review.review_decision(reviewers[index], {'id':quote, 'decision':'approve', 'reason':'synthetic review',
                                                   'expected_revision':1})
-                with self.connect() as conn:
-                    conn.execute("UPDATE nawa_memberships SET role='analyst' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
-                                 (issuer, subject, tenant))
-                principals[index] = make_principal(self.connect, keys[index], tenant, 'analyst')
             first, first_quote = create(0, 'first', 0)
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
             approve(0, first_quote)
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
+            with self.assertRaises(ValueError):
+                source.set_access(principals[0], first, keys[0], True, 'analyst cannot grant')
+            self.assertTrue(source.set_access(reviewers[0], first, keys[0], True, 'synthetic grant'))
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], first)
             other, other_quote = create(1, 'other', 0)
             approve(1, other_quote)
+            self.assertTrue(source.set_access(reviewers[1], other, keys[1], True, 'synthetic grant'))
             self.assertEqual(retrieval.search(keys[1], self.other, 'Grand Total')[0]['document_id'], other)
+            self.assertEqual(retrieval.search(viewer_key, self.tenant, 'Grand Total'), [])
+            with self.assertRaises(ValueError):
+                source.set_access(reviewers[0], other, keys[0], True, 'cross tenant')
+            with self.assertRaises(ValueError):
+                source.set_access(reviewers[0], first, keys[1], True, 'cross tenant target')
+            self.assertTrue(source.set_access(reviewers[0], first, viewer_key, True, 'viewer grant'))
+            self.assertEqual(retrieval.search(viewer_key, self.tenant, 'Grand Total')[0]['document_id'], first)
+            self.assertTrue(source.set_access(reviewers[0], first, viewer_key, False, 'viewer revocation'))
+            self.assertFalse(source.set_access(reviewers[0], first, viewer_key, False, 'duplicate revocation'))
+            self.assertEqual(retrieval.search(viewer_key, self.tenant, 'Grand Total'), [])
+            with self.assertRaises(EvidenceUnavailable):
+                retrieval.resolve(viewer_key, self.tenant, first + ':v1')
             with self.assertRaises(EvidenceUnavailable):
                 retrieval.resolve(keys[1], self.other, first + ':v1')
             second, second_quote = create(0, 'second', 1)
@@ -467,7 +486,17 @@ class PostgresIntakeTests(unittest.TestCase):
             with self.assertRaises(EvidenceUnavailable):
                 retrieval.resolve(keys[0], self.tenant, first + ':v1')
             approve(0, second_quote)
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
+            self.assertTrue(source.set_access(reviewers[0], second, keys[0], True, 'second version grant'))
             self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+            with self.connect() as conn:
+                conn.execute('UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s',
+                             (issuer, users[0][0], self.tenant))
+                conn.execute('UPDATE nawa_memberships SET active=true WHERE issuer=%s AND subject=%s AND tenant_id=%s',
+                             (issuer, users[0][0], self.tenant))
+            principals[0] = make_principal(self.connect, keys[0], self.tenant, 'analyst')
+            self.assertEqual(retrieval.search(keys[0], self.tenant, 'Grand Total'), [])
+            self.assertTrue(source.set_access(reviewers[0], second, keys[0], True, 'regrant after reactivation'))
             original_second = (Path(folder) / second).read_bytes()
             (Path(folder) / second).write_bytes(b'tampered')
             with self.assertRaises(EvidenceUnavailable):
@@ -476,10 +505,7 @@ class PostgresIntakeTests(unittest.TestCase):
             (Path(folder) / second).write_bytes(original_second)
             with self.assertRaises(ValueError):
                 source.withdraw(principals[0], second, 'synthetic withdrawal')
-            with self.connect() as conn:
-                conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
-                             (issuer, users[0][0], self.tenant))
-            reviewer = make_principal(self.connect, keys[0], self.tenant, 'reviewer')
+            reviewer = reviewers[0]
             with self.assertRaises(ValueError):
                 source.withdraw(reviewer, other, 'other tenant source')
             self.assertTrue(source.withdraw(reviewer, second, 'synthetic withdrawal'))
@@ -494,7 +520,12 @@ class PostgresIntakeTests(unittest.TestCase):
             with self.connect() as conn:
                 withdrawn = conn.execute('''SELECT actor_hash,reason FROM nawa_synthetic_withdrawals
                     WHERE tenant_id=%s AND document_id=%s''', (self.tenant, second)).fetchone()
-            self.assertEqual(withdrawn, (hashlib.sha256(keys[0].encode()).hexdigest(), 'synthetic withdrawal'))
+            self.assertEqual(withdrawn, (hashlib.sha256(reviewer_keys[0].encode()).hexdigest(), 'synthetic withdrawal'))
+            with self.connect() as conn:
+                events = conn.execute('''SELECT action,reason FROM nawa_synthetic_document_grant_events
+                    WHERE tenant_id=%s AND document_id=%s AND subject_hash=%s ORDER BY id''',
+                    (self.tenant, first, hashlib.sha256(viewer_key.encode()).hexdigest())).fetchall()
+            self.assertEqual(events, [('grant', 'viewer grant'), ('revoke', 'viewer revocation')])
             with self.connect() as conn:
                 conn.execute('UPDATE nawa_memberships SET active=false WHERE issuer=%s AND subject=%s AND tenant_id=%s',
                              (issuer, users[0][0], self.tenant))
@@ -1120,9 +1151,10 @@ class PostgresIntakeTests(unittest.TestCase):
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 4)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 5)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_withdrawals')").fetchone()[0])
+            self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_document_grants')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
             with self.assertRaisesRegex(ValueError, 'history mismatch'):
