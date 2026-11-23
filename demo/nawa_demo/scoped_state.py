@@ -26,6 +26,10 @@ class ReviewNotInitialized(ValueError):
     pass
 
 
+def _review_actor(principal):
+    return 'oidc:' + hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+
+
 def validate_correction_source_policy(value):
     if value not in ('legacy_asserted', 'require_intake_txt', 'require_intake_fixture', 'require_intake_text_layer'):
         raise ValueError('Invalid synthetic correction source policy')
@@ -167,7 +171,7 @@ class ScopedState:
             quote = self._quote(conn, principal, item_id, lock=True)
             if conn.execute('SELECT 1 FROM nawa_reviews WHERE quotation_id = %s', (item_id,)).fetchone():
                 raise ValueError('Review already initialized')
-            ledger = begin(quote)
+            ledger = begin(quote, preparer=_review_actor(principal))
             conn.execute('INSERT INTO nawa_reviews (quotation_id, revision, ledger) VALUES (%s, %s, %s::jsonb)',
                          (item_id, 1, json.dumps(ledger, ensure_ascii=False)))
         return inspect(ledger)
@@ -197,14 +201,15 @@ class ScopedState:
                 raise ValueError('Review is not initialized')
             if inspect(row[1])['revision'] != row[0]:
                 raise ValueError('Review revision mismatch')
-            actor = 'oidc:' + hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+            actor = _review_actor(principal)
             source_checks = []
             if action == 'decide':
                 if payload.get('decision') == 'approve':
                     # A later role change must not let the same provisioned
                     # identity approve its own earlier correction.
-                    if any(event['type'] == 'correction' and event['actor'] == actor
-                           for event in row[1]['events']):
+                    if (row[1]['events'][0]['data'].get('preparer') == actor or
+                            any(event['type'] == 'correction' and event['actor'] == actor
+                                for event in row[1]['events'])):
                         raise AccessDenied('Request denied')
                     source_checks = self._verify_corrections(conn, principal, item_id, original, row[1])
                 updated = decide(row[1], actor=actor, decision=payload.get('decision'),

@@ -31,6 +31,19 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual((state['status'], state['revision']), ('pending_review', 1))
         self.assertEqual(state['source_evidence']['total']['line'], 6)
 
+    def test_preparer_is_hash_linked_and_legacy_reviews_still_replay(self):
+        self.assertNotIn('preparer', self.ledger['events'][0]['data'])
+        self.assertEqual(inspect(self.ledger)['revision'], 1)
+        prepared = begin(self.quotation, preparer='oidc:' + 'a' * 64)
+        self.assertEqual(prepared['events'][0]['data']['preparer'], 'oidc:' + 'a' * 64)
+        self.assertEqual(inspect(prepared)['revision'], 1)
+        tampered = copy.deepcopy(prepared)
+        tampered['events'][0]['data']['preparer'] = 'oidc:' + 'b' * 64
+        with self.assertRaisesRegex(ValueError, 'hash mismatch'):
+            inspect(tampered)
+        with self.assertRaisesRegex(ValueError, 'preparer identity'):
+            begin(self.quotation, preparer='synthetic-user')
+
     def test_approve_valid_quotation(self):
         state = inspect(decide(self.ledger, actor='reviewer-1', decision='approve',
                                reason='Verified values', expected_revision=1))

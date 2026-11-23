@@ -114,7 +114,7 @@ async function renderReview(draft=null,reopened=false){
   const feedback=el('p','','review-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');root.append(feedback);
   const reload=el('button','Reload saved review','secondary');reload.hidden=true;root.append(reload);
   let correctionInputs=null, decisionReason=null;
-  const reviewTask=async(action,decision=false)=>{try{feedback.textContent='';reload.hidden=true;await action();}catch(error){feedback.textContent=decision&&error.status===403?'Decision denied. Check your access or ask another authorized Reviewer if you prepared a correction.':`Could not save: ${error.message}. Check the details and try again, or reload the latest review.`;feedback.className='review-feedback review-error';reload.hidden=false;}};
+  const reviewTask=async(action,decision=false)=>{try{feedback.textContent='';reload.hidden=true;await action();}catch(error){feedback.textContent=decision&&error.status===403?'Decision denied. Check your access or ask another authorized Reviewer if you prepared this review.':`Could not save: ${error.message}. Check the details and try again, or reload the latest review.`;feedback.className='review-feedback review-error';reload.hidden=false;}};
   const form=el('div',undefined,'review-form');const actor=el('input');actor.placeholder='Reviewer ID (demo only)';actor.value=authMode==='oidc'?'Signed-in user':'reviewer-1';actor.disabled=authMode==='oidc';form.append(el('label',authMode==='oidc'?'Review identity':'Reviewer ID'),actor);
   if(draft && authMode!=='oidc')actor.value=draft.actor;
   captureDraft=()=>{
