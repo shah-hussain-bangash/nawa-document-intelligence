@@ -95,7 +95,29 @@ class Phase6Tests(unittest.TestCase):
         wrong = {'answer':'Subtotal AED 1050.00', 'citations':[citation]}
         self.assertIsNone(validate_generated(wrong, [hit]))
         exact = {'answer':'Subtotal AED 1000.00', 'citations':[citation]}
-        self.assertIsNotNone(validate_generated(exact, [hit]))
+        self.assertIsNone(validate_generated(exact, [hit]))
+        whole = {'answer':quote, 'citations':[citation]}
+        self.assertIsNotNone(validate_generated(whole, [hit]))
+
+    def test_generated_answer_cannot_clip_negation_from_a_sentence(self):
+        for sentence, fragment in (('The quotation is not approved.', 'approved.'),
+                                   ('الطلب غير معتمد.', 'معتمد.')):
+            with self.subTest(sentence=sentence):
+                hit = {'passage_id':'p', 'document_id':'d', 'version':'1', 'source':'synthetic.txt',
+                       'page':1, 'method':'synthetic', 'text':sentence}
+                truncated = {'answer':fragment, 'citations':[{'passage_id':'p', 'quote':fragment}]}
+                self.assertIsNone(validate_generated(truncated, [hit]))
+                clipped_answer = {'answer':fragment, 'citations':[{'passage_id':'p', 'quote':sentence}]}
+                self.assertIsNone(validate_generated(clipped_answer, [hit]))
+                complete = {'answer':sentence, 'citations':[{'passage_id':'p', 'quote':sentence}]}
+                self.assertIsNotNone(validate_generated(complete, [hit]))
+
+    def test_generated_answer_can_use_one_complete_sentence(self):
+        hit = {'passage_id':'p', 'document_id':'d', 'version':'1', 'source':'synthetic.txt',
+               'page':1, 'method':'synthetic', 'text':'Supplier Example. Subtotal AED 1000.00.'}
+        response = {'answer':'Subtotal AED 1000.00.',
+                    'citations':[{'passage_id':'p', 'quote':'Subtotal AED 1000.00.'}]}
+        self.assertIsNotNone(validate_generated(response, [hit]))
 
     def test_fake_citation_rejected(self):
         p = FixedProvider({'answer': 'Supplier Example English Supplies.', 'citations': [
