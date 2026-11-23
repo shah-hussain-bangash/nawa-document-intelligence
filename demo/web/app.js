@@ -5,11 +5,15 @@ let workspaceRole = null;
 let intakeEnabled = false;
 const csrfToken = () => (document.cookie.split('; ').find(value=>value.startsWith('nawa_csrf='))||'').slice('nawa_csrf='.length);
 const records = new Map();
+const unsavedDrafts = new Map();
 let selected = null;
 let reviewRequestVersion = 0;
+let activeDraftCapture = null;
+let draftSessionBinding = null;
 const message = (text, error=false) => { $('message').textContent=text; $('message').className = error?'message error':'message'; };
 const sourceCheckNote = (checks) => {if(!Array.isArray(checks))return '';const pages=checks.filter(x=>x.kind==='pdf_text_layer'&&Number.isInteger(x.page)&&Number.isInteger(x.page_line)).map(x=>`page ${x.page}, line ${x.page_line}`);return pages.length?` · retained PDF text matched: ${pages.join('; ')}`:'';};
 async function request(path, payload) {
+  if(!sameDraftSession())throw new Error('Sign-in changed in another tab');
   const response = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...(authMode==='oidc'?{'X-NAWA-CSRF':csrfToken()}:{})},body:JSON.stringify(payload)});
   const result = await response.json();
   if (!response.ok){const error=new Error(result.error||'Request failed');error.status=response.status;throw error;}
@@ -29,7 +33,23 @@ function showUnsaved(root,draft){
   if(draft.correction)for(const [label,value] of Object.entries(draft.correction))root.append(el('p',`${label}: ${value}`,'muted'));
   if(draft.reason)root.append(el('p',`Decision notes: ${draft.reason}`,'muted'));
 }
-function loaded(row){records.set(row.id,row.quotation);selected=row.id;$('count').textContent=records.size;renderItems();renderDetails();renderReview();message(`Loaded ${row.quotation.document}`);}
+function sameDraftSession(){
+  const current=csrfToken();
+  if(authMode==='oidc'&&draftSessionBinding!==null&&current&&current!==draftSessionBinding){
+    unsavedDrafts.clear();activeDraftCapture=null;
+    const main=document.querySelector('main');if(main)main.hidden=true;
+    $('signin').hidden=true;$('logout').hidden=true;$('sessionTransition').hidden=false;return false;
+  }
+  return true;
+}
+function rememberDraft(){
+  if(!sameDraftSession())return false;
+  if(!selected||!activeDraftCapture)return true;
+  const draft=activeDraftCapture();
+  if(draft)unsavedDrafts.set(selected,draft);else unsavedDrafts.delete(selected);
+  return true;
+}
+function loaded(row){if(!rememberDraft())return;records.set(row.id,row.quotation);selected=row.id;$('count').textContent=records.size;renderItems();renderDetails();renderReview();message(`Loaded ${row.quotation.document}`);}
 function renderItems(){
   const root=$('items');clear(root);
   for(const [id,q] of records){
@@ -37,7 +57,7 @@ function renderItems(){
     const chk=el('input');chk.type='checkbox';chk.dataset.id=id;chk.setAttribute('aria-label',`Compare ${q.document}`);item.append(chk);
     const body=el('button',undefined,'item-main');body.type='button';body.append(el('b',q.supplier),el('span',q.document));
     body.setAttribute('aria-label',`Open review for ${q.document}`);
-    body.addEventListener('click',()=>{selected=id;renderItems();renderDetails();renderReview();});item.append(body);
+    body.addEventListener('click',()=>{if(!rememberDraft())return;selected=id;renderItems();renderDetails();renderReview();});item.append(body);
     const right=el('div');right.append(el('div',`AED ${q.total}`,'amount'));
     right.append(el('span',Object.values(q.checks).every(Boolean)?'Original VAT valid':'Original VAT needs review','tag'+(Object.values(q.checks).every(Boolean)?'':' bad')));
     item.append(right);root.append(item);
@@ -68,11 +88,15 @@ function renderDetails(review=null){
   root.append(el('p',valid?'✓ Financial checks passed':'⚠ Financial checks need review','notice'));
 }
 async function renderReview(draft=null,reopened=false){
+  if(!sameDraftSession())return;
+  if(draft&&selected)unsavedDrafts.set(selected,draft);
+  if(!draft&&selected&&unsavedDrafts.has(selected))draft=unsavedDrafts.get(selected);
+  activeDraftCapture=null;
   const root=$('review');clear(root);if(!selected){root.append(el('p','Select a quotation.','empty'));return;}
   const itemId=selected, requestVersion=++reviewRequestVersion;root.append(el('p','Loading saved review…','muted'));let review;
   try{review=await request('/api/review/show',{id:itemId});}
   catch(error){
-    if(selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);
+    if(!sameDraftSession()||selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);
     if(error.message!=='Review is not initialized'){
       if(await sessionExpired(error)){
         if(selected!==itemId||reviewRequestVersion!==requestVersion)return;
@@ -92,7 +116,7 @@ async function renderReview(draft=null,reopened=false){
     start.addEventListener('click',async()=>{try{await request('/api/review/start',{id:itemId});message('Review created. You can now correct a field.');await renderReview(draft);}catch(error){feedback.className='review-feedback review-error';if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again to start the review. ';signInAgain(feedback);}else feedback.textContent=`Could not start the review: ${error.message}. Try again.`;}});
     root.append(el('p','Start a synthetic review, then select a field and provide source evidence.','muted'));showUnsaved(root,draft);root.append(start,feedback);return;
   }
-  if(selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);renderDetails(review);
+  if(!sameDraftSession()||selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);renderDetails(review);
   root.append(el('p',`Status: ${review.status} · revision ${review.revision}`,'muted'));
   const guidance=el('p',reopened?`Saved review reopened from the server at revision ${review.revision}.`:'Saved review loaded. Compare the saved values with the original evidence.','review-guidance');guidance.setAttribute('role','status');root.append(guidance);
   let captureDraft=()=>null;
@@ -118,10 +142,16 @@ async function renderReview(draft=null,reopened=false){
     if(draft){
       root.append(el('p','This review is final. Your input could not be confirmed as saved.','review-error'));
       showUnsaved(root,draft);
+      const discard=el('button','Discard unsaved entries','secondary');
+      discard.addEventListener('click',()=>{unsavedDrafts.delete(itemId);renderReview();});root.append(discard);
     }
     root.append(history);return;
   }
-  if(draft)root.append(el('p','Latest review loaded. Your unsaved entries are still below; check the revision before saving.','review-guidance'));
+  if(draft){
+    root.append(el('p','Unsaved entries restored for this quotation. They remain only in this tab; reloading or signing out clears them. Check the revision before saving.','review-guidance'));
+    const discard=el('button','Discard unsaved entries','secondary');
+    discard.addEventListener('click',()=>{unsavedDrafts.delete(itemId);renderReview();});root.append(discard);
+  }
   const feedback=el('p','','review-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');root.append(feedback);
   const reload=el('button','Reload saved review','secondary');reload.hidden=true;root.append(reload);
   let correctionInputs=null, decisionReason=null;
@@ -131,16 +161,22 @@ async function renderReview(draft=null,reopened=false){
   captureDraft=()=>{
     const entries=correctionInputs?Object.fromEntries(Object.entries(correctionInputs).map(([key,input])=>[key,input.value])):null;
     const reason=decisionReason?decisionReason.value:'';
-    const hasEntries=entries&&(['value','note','line','quote'].some(key=>entries[key].trim())||entries.field!=='supplier');
+    const hasEntries=entries&&(['value','note','line','quote'].some(key=>entries[key].trim())||(entries.field&&entries.field!=='supplier'));
     return hasEntries||reason.trim()?{actor:actor.value,reason,correction:entries}:null;
   };
+  activeDraftCapture=captureDraft;
   reload.addEventListener('click',()=>renderReview(captureDraft(),true));
   if(authMode!=='oidc'||workspaceRole==='reviewer'){
     const reason=el('textarea');reason.placeholder='Explain your decision';if(draft)reason.value=draft.reason;decisionReason=reason;form.append(el('label','Reason / review notes'),reason);
     const controls=el('div',undefined,'horizontal');
     for(const [decision,label] of [['approve','Approve'],['request_changes','Request changes'],['reject','Reject']]){
       const button=el('button',label,decision==='approve'?'':'secondary');
-      button.addEventListener('click',()=>reviewTask(async()=>{const result=await request('/api/review/decide',{id:itemId,actor:actor.value,reason:reason.value,decision,expected_revision:review.revision});message(`Recorded ${result.status}`);await renderReview();},true));controls.append(button);
+      button.addEventListener('click',()=>reviewTask(async()=>{
+        const submitted=captureDraft();const result=await request('/api/review/decide',{id:itemId,actor:actor.value,reason:reason.value,decision,expected_revision:review.revision});
+        if(selected!==itemId){if(JSON.stringify(unsavedDrafts.get(itemId))===JSON.stringify(submitted))unsavedDrafts.delete(itemId);message(`Recorded ${result.status} for ${records.get(itemId).document}.`);return;}
+        const latest=captureDraft();if(latest&&JSON.stringify(latest)!==JSON.stringify(submitted))unsavedDrafts.set(itemId,latest);else unsavedDrafts.delete(itemId);
+        message(`Recorded ${result.status}`);await renderReview();
+      },true));controls.append(button);
     }
     form.append(controls);
   }else if(workspaceRole==='analyst')form.append(el('p','After preparation, a separate Reviewer records the final decision.','muted'));
@@ -159,13 +195,16 @@ async function renderReview(draft=null,reopened=false){
   if(draft&&draft.correction)for(const [key,input] of Object.entries(correctionInputs))input.value=draft.correction[key]||'';
   const save=el('button','Save correction','secondary');
   save.addEventListener('click',()=>reviewTask(async()=>{
-    const result=await request('/api/review/correct',{id:itemId,actor:actor.value,field:fields.value,value:value.value,reason:note.value,source:review.document,line:Number(evidenceLine.value),quote:quote.value,expected_revision:review.revision});
+    const submitted=captureDraft();const result=await request('/api/review/correct',{id:itemId,actor:actor.value,field:fields.value,value:value.value,reason:note.value,source:review.document,line:Number(evidenceLine.value),quote:quote.value,expected_revision:review.revision});
+    if(selected!==itemId){if(JSON.stringify(unsavedDrafts.get(itemId))===JSON.stringify(submitted))unsavedDrafts.delete(itemId);message(`Correction saved for ${records.get(itemId).document}, revision ${result.revision}.`);return;}
+    const latest=captureDraft();if(latest&&JSON.stringify(latest)!==JSON.stringify(submitted))unsavedDrafts.set(itemId,latest);else unsavedDrafts.delete(itemId);
     message(`Correction saved, revision ${result.revision}. Reopen the quotation to check it.${sourceCheckNote(result.source_checks)}`);await renderReview();
   }));
   correction.append(save);root.append(el('hr'),correction,history);
 }
 $('loadSample').addEventListener('click',()=>task(async()=>loaded(await request('/api/load-sample',{name:$('sample').value}))));
 async function intakeStatus(id){
+  if(!sameDraftSession())throw new Error('Sign-in changed in another tab');
   const response=await fetch('/api/intake/status?id='+encodeURIComponent(id));const result=await response.json();
   if(!response.ok){const error=new Error(result.error||'Document status unavailable');error.status=response.status;throw error;}
   return result.state;
@@ -322,8 +361,10 @@ $('versionHistory').addEventListener('click',()=>task(async()=>{
   for(const item of result.versions)root.append(el('p',`Version ${item.version} · Document ID: ${item.id}`,'row'));
 }));
 $('compareBtn').addEventListener('click',()=>task(async()=>{const ids=Array.from(document.querySelectorAll('#items input:checked')).map(x=>x.dataset.id);const result=await request('/api/compare',{ids});const root=$('comparison');clear(root);for(const q of result.quotations){const excluded=q.comparison&&q.comparison.eligible===false;const state=excluded?'Excluded (review not approved)':Object.values(q.checks).every(Boolean)?'Valid':'Excluded (financial mismatch)';const basis=q.comparison?.basis==='approved_review'?` · approved review revision ${q.comparison.review_revision}`:'';root.append(el('div',`${q.supplier} — AED ${q.total} — ${state}${basis}${sourceCheckNote(q.comparison?.source_checks)}`,'row'));}root.append(el('p',`Lowest valid total: ${result.lowest_valid_total||'None'}`));root.append(el('p',result.note,'muted'));message('Comparison completed');}));
-async function initialize(){const main=document.querySelector('main');main.hidden=true;try{const config=await fetch('/auth/config');if(!config.ok)throw new Error('Authentication configuration unavailable');const auth=await config.json();authMode=auth.mode;intakeEnabled=auth.mode==='oidc'&&auth.intake_enabled===true;if(!['demo','oidc'].includes(authMode))throw new Error('Unknown authentication mode');if(authMode==='oidc'){const me=await fetch('/auth/me');if(me.status===403){$('signin').hidden=false;return;}if(!me.ok)throw new Error('Identity service unavailable');const identity=await me.json();workspaceRole=identity.role;if(intakeEnabled&&workspaceRole==='analyst')$('roleNotice').textContent='Upload a synthetic file below to retain its source for evidence-linked corrections. The test worker must be running.';if(workspaceRole!=='analyst'){$('roleNotice').textContent='An Analyst uploads and prepares quotations; a Reviewer records the final decision.';for(const id of ['loadSample','uploadBtn','intakeSubmit','intakePromote'])$(id).disabled=true;}$('logout').hidden=false;if(auth.intake_enabled===true)$('intakePanel').hidden=false;}else{$('footerNote').textContent+=' · Reviewer identities are not authenticated';}main.hidden=false;const response=await fetch('/api/quotations');const result=await response.json();if(!response.ok)throw new Error(result.error||'Storage unavailable');for(const row of result.quotations)records.set(row.id,row.quotation);$('count').textContent=records.size;if(records.size){selected=records.keys().next().value;renderItems();renderDetails();renderReview();}const note=$('storageMode');if(note)note.textContent=result.storage==='postgres'?'PostgreSQL development storage':'Local, in-memory decisions';}catch(error){$('signin').hidden=false;$('signinError').textContent=error.message;}}
-$('logout').addEventListener('click',()=>task(async()=>{const response=await fetch('/auth/logout',{method:'POST',headers:{'X-NAWA-CSRF':csrfToken()}});if(!response.ok)throw new Error('Sign-out failed');window.location.reload();}));
+async function initialize(){const main=document.querySelector('main');main.hidden=true;try{const config=await fetch('/auth/config');if(!config.ok)throw new Error('Authentication configuration unavailable');const auth=await config.json();authMode=auth.mode;intakeEnabled=auth.mode==='oidc'&&auth.intake_enabled===true;if(!['demo','oidc'].includes(authMode))throw new Error('Unknown authentication mode');if(authMode==='oidc'){const me=await fetch('/auth/me');if(me.status===403){$('signin').hidden=false;return;}if(!me.ok)throw new Error('Identity service unavailable');const identity=await me.json();workspaceRole=identity.role;draftSessionBinding=csrfToken();if(intakeEnabled&&workspaceRole==='analyst')$('roleNotice').textContent='Upload a synthetic file below to retain its source for evidence-linked corrections. The test worker must be running.';if(workspaceRole!=='analyst'){$('roleNotice').textContent='An Analyst uploads and prepares quotations; a Reviewer records the final decision.';for(const id of ['loadSample','uploadBtn','intakeSubmit','intakePromote'])$(id).disabled=true;}$('logout').hidden=false;if(auth.intake_enabled===true)$('intakePanel').hidden=false;}else{$('footerNote').textContent+=' · Reviewer identities are not authenticated';}main.hidden=false;const response=await fetch('/api/quotations');const result=await response.json();if(!response.ok)throw new Error(result.error||'Storage unavailable');for(const row of result.quotations)records.set(row.id,row.quotation);$('count').textContent=records.size;if(records.size){selected=records.keys().next().value;renderItems();renderDetails();renderReview();}const note=$('storageMode');if(note)note.textContent=result.storage==='postgres'?'PostgreSQL development storage':'Local, in-memory decisions';}catch(error){$('signin').hidden=false;$('signinError').textContent=error.message;}}
+$('logout').addEventListener('click',()=>task(async()=>{if(!sameDraftSession())return;const response=await fetch('/auth/logout',{method:'POST',headers:{'X-NAWA-CSRF':csrfToken()}});if(!response.ok)throw new Error('Sign-out failed');window.location.reload();}));
+$('sessionRefresh').addEventListener('click',()=>window.location.reload());
+if(typeof document.addEventListener==='function')document.addEventListener('visibilitychange',()=>{if(!document.hidden)sameDraftSession();});
 initialize();
 
 

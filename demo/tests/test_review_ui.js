@@ -18,21 +18,26 @@ const evidence={supplier:{line:1,source_text:'Supplier: Test'},currency:{line:2,
   vat_amount:{line:5,source_text:'VAT Amount: 50.00'},total:{line:6,source_text:'Total: 1050.00'}};
 const quotation={document:'synthetic.txt',supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',
   vat_amount:'50.00',total:'1050.00',evidence,checks:{vat_matches_rate:true,total_matches_components:true}};
+const quotation2={...quotation,document:'second-synthetic.txt'};
 let saved={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',
   vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[],corrections:[]};
-let failSave=true,holdNextShow=false,finishHeldShow=null;
+let failSave=true,holdNextShow=false,finishHeldShow=null,holdNextSave=false,finishHeldSave=null;
+let reloadCount=0;
+let correctionRequests=0;
 async function fetch(url,opts={}) {
   let data,ok=true,status=200;
   if(url==='/auth/config')data={mode:'oidc',intake_enabled:true};
   else if(url==='/auth/me')data={role:'analyst'};
-  else if(url==='/api/quotations')data={quotations:[{id:'q1',quotation}],storage:'postgres'};
+  else if(url==='/api/quotations')data={quotations:[{id:'q1',quotation},{id:'q2',quotation:quotation2}],storage:'postgres'};
   else if(url==='/api/review/show'){
     data=structuredClone(saved);
+    if(JSON.parse(opts.body).id==='q2')data.document='second-synthetic.txt';
     if(holdNextShow){holdNextShow=false;await new Promise(resolve=>{finishHeldShow=resolve;});}
   }
   else if(url==='/api/review/correct'){
+    correctionRequests++;
     if(failSave){ok=false;status=503;data={error:'Storage unavailable'};}
-    else {const p=JSON.parse(opts.body);assert.equal(p.expected_revision,2);saved.corrections.push({sequence:3,field:p.field,from:saved.fields[p.field],to:p.value,reason:p.reason,evidence:{source:p.source,line:p.line,quote:p.quote}});saved.fields[p.field]=p.value;saved.checks.total_matches_components=false;saved.revision++;data=structuredClone(saved);}
+    else {const p=JSON.parse(opts.body);assert.equal(p.expected_revision,saved.revision);if(holdNextSave){holdNextSave=false;await new Promise(resolve=>{finishHeldSave=resolve;});}saved.corrections.push({sequence:saved.revision+1,field:p.field,from:saved.fields[p.field],to:p.value,reason:p.reason,evidence:{source:p.source,line:p.line,quote:p.quote}});saved.fields[p.field]=p.value;saved.checks.total_matches_components=false;saved.revision++;data=structuredClone(saved);}
   }else throw Error('Unexpected '+url);
   return {ok,status,json:async()=>data};
 }
@@ -43,7 +48,7 @@ async function tick(){await new Promise(resolve=>setImmediate(resolve));}
 async function run(){
   const source=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
   vm.runInNewContext(source,{document,fetch,TextEncoder,Uint8Array,Map,Array,String,JSON,
-    btoa:value=>Buffer.from(value,'binary').toString('base64'),window:{location:{reload(){}}}});
+    btoa:value=>Buffer.from(value,'binary').toString('base64'),window:{location:{reload(){reloadCount++;}}}});
   await tick();await tick();
   let review=get('review');
   assert.equal(byText(review,'Approve'),undefined);
@@ -53,9 +58,18 @@ async function run(){
   await byText(review,'Save correction').events.click();
   assert.match(flatten(review).find(x=>x.className.includes('review-feedback')).textContent,/Could not save.*try again/i);
   assert.equal(byId(review,'correction-value').value,'1049.00');
+  flatten(get('items')).filter(x=>x.tag==='button')[1].events.click();await tick();await tick();
+  byId(review,'correction-field').value='total';byId(review,'correction-value').value='222.00';
+  byId(review,'correction-reason').value='Second quotation';
+  flatten(get('items')).filter(x=>x.tag==='button')[0].events.click();await tick();await tick();
+  assert.equal(byId(review,'correction-value').value,'1049.00');
+  assert.equal(byId(review,'correction-reason').value,'Source checked');
+  assert.ok(flatten(review).some(x=>x.textContent.includes('only in this tab')));
+  flatten(get('items')).filter(x=>x.tag==='button')[1].events.click();await tick();await tick();
+  assert.equal(byId(review,'correction-value').value,'222.00');
+  flatten(get('items')).filter(x=>x.tag==='button')[0].events.click();await tick();await tick();
   saved.revision=2;
-  const reload=byText(review,'Reload saved review');assert.equal(reload.hidden,false);
-  reload.events.click();await tick();await tick();
+  byText(review,'Reopen saved review').events.click();await tick();await tick();
   assert.equal(byId(review,'correction-field').value,'total');
   assert.equal(byId(review,'correction-value').value,'1049.00');
   assert.equal(byId(review,'correction-reason').value,'Source checked');
@@ -75,11 +89,32 @@ async function run(){
   await flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();await tick();
   assert.ok(flatten(get('details')).some(x=>x.textContent==='1049.00'));
   assert.ok(flatten(get('review')).some(x=>x.textContent.includes('revision 3')));
+  byId(review,'correction-field').value='total';byId(review,'correction-value').value='1047.00';
+  byId(review,'correction-reason').value='Later correction';byId(review,'correction-line').value='6';
+  byId(review,'correction-quote').value='Total: 1050.00';
+  holdNextSave=true;const delayedSave=byText(review,'Save correction').events.click();await tick();
+  flatten(get('items')).filter(x=>x.tag==='button')[1].events.click();await tick();await tick();
+  assert.equal(byId(review,'correction-value').value,'222.00');
+  finishHeldSave();await delayedSave;await tick();
+  assert.equal(byId(review,'correction-value').value,'222.00');
+  assert.match(get('message').textContent,/saved for synthetic\.txt, revision 4/i);
+  flatten(get('items')).filter(x=>x.tag==='button')[0].events.click();await tick();await tick();
+  assert.ok(flatten(get('details')).some(x=>x.textContent==='1047.00'));
+  assert.equal(byId(review,'correction-value').value,'');
   holdNextShow=true;flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();
-  saved.revision=4;flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();await tick();
+  saved.revision=5;flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();await tick();
   finishHeldShow();await tick();await tick();
-  assert.ok(flatten(review).some(x=>x.textContent.includes('revision 4')));
-  assert.equal(flatten(review).some(x=>x.textContent.includes('revision 3')),false);
-  console.log('PASS: reopening preserves input and ignores out-of-order saved-review responses');
+  assert.ok(flatten(review).some(x=>x.textContent.includes('revision 5')));
+  assert.equal(flatten(review).some(x=>x.textContent.includes('revision 4')),false);
+  document.cookie='nawa_csrf=different-session';
+  const requestsBefore=correctionRequests;
+  await byText(review,'Save correction').events.click();
+  assert.equal(correctionRequests,requestsBefore);
+  assert.equal(main.hidden,true);
+  assert.equal(get('sessionTransition').hidden,false);
+  assert.equal(reloadCount,0);
+  get('sessionRefresh').events.click();
+  assert.equal(reloadCount,1);
+  console.log('PASS: quotation drafts stay isolated and saved-review responses remain ordered');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

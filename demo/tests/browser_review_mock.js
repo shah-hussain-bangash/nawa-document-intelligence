@@ -12,22 +12,23 @@ const evidence={supplier:{line:1,source_text:'Supplier: Test'},currency:{line:2,
   vat_amount:{line:5,source_text:'VAT Amount: 50.00'},total:{line:6,source_text:'Total: 1050.00'}};
 const quotation={document:'synthetic.txt',supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',
   vat_amount:'50.00',total:'1050.00',evidence,checks:{vat_matches_rate:true,total_matches_components:true}};
-let rows=[],review=null,failSave=true,failReload=false,failStatus=true,failProcessing=true,expired=false,testRole='analyst';
+let rows=[],review=null,failSave=true,failReload=false,failStatus=true,failProcessing=true,expired=false,testRole='analyst',correctionCalls=0;
 const server=http.createServer(async(req,res)=>{
   const assets={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
   if(assets[req.url]){res.setHeader('Content-Type',req.url.endsWith('.js')?'text/javascript':req.url.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(path.join(root,assets[req.url])));return;}
   let raw='';for await(const chunk of req)raw+=chunk;let data;
   if(req.url==='/auth/config')data={mode:'oidc',intake_enabled:true};
-  else if(req.url==='/auth/me'){if(expired){res.statusCode=403;data={error:'Session unavailable'};}else data={role:testRole};}
+  else if(req.url==='/auth/me'){if(expired){res.statusCode=403;data={error:'Session unavailable'};}else{res.setHeader('Set-Cookie','nawa_csrf=fixture-csrf; Path=/; SameSite=Lax');data={role:testRole};}}
   else if(req.url==='/api/quotations')data={quotations:rows,storage:'postgres'};
   else if(req.url==='/api/intake/batch'){if(expired){res.statusCode=403;data={error:'Session unavailable'};}else data={files:[{id:'synthetic-document',created:true}]};}
   else if(req.url==='/api/intake/status?id=synthetic-document'){if(failStatus){failStatus=false;res.statusCode=503;data={error:'Status unavailable'};}else data={state:failProcessing?'failed':'completed',attempts:1};}
   else if(req.url==='/api/intake/retry'){failProcessing=false;data={state:'validated'};}
   else if(req.url==='/api/intake/promote'){rows=[{id:'q1',quotation}];data={...rows[0],created:true};}
-  else if(req.url==='/api/review/show'){if(failReload){failReload=false;res.statusCode=503;data={error:'Storage unavailable'};}else if(!review){res.statusCode=400;data={error:'Review is not initialized'};}else data=review;}
+  else if(req.url==='/api/review/show'){if(failReload){failReload=false;res.statusCode=503;data={error:'Storage unavailable'};}else if(!review){res.statusCode=400;data={error:'Review is not initialized'};}else data=JSON.parse(raw).id==='q2'?{...review,document:'second-synthetic.txt'}:review;}
   else if(req.url==='/api/review/start'){
     review={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[],corrections:[]};data=review;
   }else if(req.url==='/api/review/correct'){
+    correctionCalls++;
     if(expired){res.statusCode=403;data={error:'Session unavailable'};}
     else if(failSave){failSave=false;res.statusCode=503;data={error:'Storage unavailable'};}
     else{const p=JSON.parse(raw);assert.equal(p.expected_revision,2);review.corrections.push({sequence:3,field:p.field,from:review.fields[p.field],to:p.value,reason:p.reason,evidence:{source:p.source,line:p.line,quote:p.quote}});review.fields[p.field]=p.value;review.checks.total_matches_components=false;review.revision=3;data=review;}
@@ -82,6 +83,32 @@ const server=http.createServer(async(req,res)=>{
     await page.getByText('Cited excerpt: Total: 1050.00',{exact:true}).waitFor();
     assert.equal(await page.locator('.correction-evidence img').count(),0);
     assert.equal(await page.getByRole('button',{name:'Approve',exact:true}).count(),0);
+    rows.push({id:'q2',quotation:{...quotation,document:'second-synthetic.txt'}});
+    await page.reload();
+    await page.getByText('Status: pending_review · revision 3').waitFor();
+    await page.getByLabel('Corrected value').fill('1048.00');
+    await page.getByLabel('Reason for correction').fill('First quotation draft');
+    await page.getByRole('button',{name:'Open review for second-synthetic.txt'}).click();
+    await page.getByLabel('Corrected value').fill('222.00');
+    await page.getByLabel('Reason for correction').fill('Second quotation draft');
+    await page.getByRole('button',{name:'Open review for synthetic.txt',exact:true}).click();
+    assert.equal(await page.getByLabel('Corrected value').inputValue(),'1048.00');
+    await page.getByText(/Unsaved entries restored.*only in this tab/i).waitFor();
+    await page.getByRole('button',{name:'Open review for second-synthetic.txt'}).click();
+    assert.equal(await page.getByLabel('Corrected value').inputValue(),'222.00');
+    await page.getByRole('button',{name:'Discard unsaved entries'}).click();
+    assert.equal(await page.getByLabel('Corrected value').inputValue(),'');
+    await page.getByRole('button',{name:'Open review for synthetic.txt',exact:true}).click();
+    assert.equal(await page.getByLabel('Corrected value').inputValue(),'1048.00');
+    const callsBefore=correctionCalls;
+    await page.evaluate(()=>{document.cookie='nawa_csrf=different-session; Path=/';});
+    await page.getByRole('button',{name:'Save correction'}).click();
+    await page.locator('#sessionTransition').getByText('Sign-in changed in another tab.',{exact:false}).waitFor();
+    assert.equal(correctionCalls,callsBefore);
+    assert.equal(await page.locator('main').isHidden(),true);
+    await Promise.all([page.waitForEvent('load'),page.getByRole('button',{name:'Reload workspace'}).click()]);
+    await page.getByText('Status: pending_review · revision 3').waitFor();
+    assert.equal(await page.getByLabel('Corrected value').inputValue(),'');
     if(process.env.NAWA_UI_SCREENSHOT)await page.screenshot({path:process.env.NAWA_UI_SCREENSHOT,fullPage:true});
     testRole='reviewer';await page.reload();
     await page.getByText('Status: pending_review · revision 3').waitFor();
