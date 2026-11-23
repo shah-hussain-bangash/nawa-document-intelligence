@@ -1,0 +1,21 @@
+{
+  "scope": "Three synthetic text fixtures; draft labels, not an independent holdout.",
+  "normalization_policy": "fixture-canonical-v1",
+  "cases": [
+    {
+      "id": "en_valid", "language": "en", "source": "english_quote.txt", "label_status": "draft",
+      "expected": {"supplier": "Example English Supplies", "reference": null, "currency": "AED", "subtotal": "1000.00", "vat_rate": "5", "vat_amount": "50.00", "total": "1050.00"},
+      "expected_checks": {"vat_matches_rate": true, "total_matches_components": true}
+    },
+    {
+      "id": "ar_valid", "language": "ar", "source": "arabic_quote.txt", "label_status": "draft",
+      "expected": {"supplier": "شركة المثال للتوريدات", "reference": null, "currency": "AED", "subtotal": "900.00", "vat_rate": "5", "vat_amount": "45.00", "total": "945.00"},
+      "expected_checks": {"vat_matches_rate": true, "total_matches_components": true}
+    },
+    {
+      "id": "en_vat_mismatch", "language": "en", "source": "incorrect_vat_quote.txt", "label_status": "draft",
+      "expected": {"supplier": "Example Incorrect VAT", "reference": null, "currency": "AED", "subtotal": "800.00", "vat_rate": "5", "vat_amount": "30.00", "total": "830.00"},
+      "expected_checks": {"vat_matches_rate": false, "total_matches_components": true}
+    }
+  ]
+}
