@@ -6,6 +6,7 @@ let intakeEnabled = false;
 const csrfToken = () => (document.cookie.split('; ').find(value=>value.startsWith('nawa_csrf='))||'').slice('nawa_csrf='.length);
 const records = new Map();
 let selected = null;
+let reviewRequestVersion = 0;
 const message = (text, error=false) => { $('message').textContent=text; $('message').className = error?'message error':'message'; };
 const sourceCheckNote = (checks) => {if(!Array.isArray(checks))return '';const pages=checks.filter(x=>x.kind==='pdf_text_layer'&&Number.isInteger(x.page)&&Number.isInteger(x.page_line)).map(x=>`page ${x.page}, line ${x.page_line}`);return pages.length?` · retained PDF text matched: ${pages.join('; ')}`:'';};
 async function request(path, payload) {
@@ -61,16 +62,16 @@ function renderDetails(review=null){
   const valid=checks.vat_matches_rate===true&&checks.total_matches_components===true;
   root.append(el('p',valid?'✓ Financial checks passed':'⚠ Financial checks need review','notice'));
 }
-async function renderReview(draft=null){
+async function renderReview(draft=null,reopened=false){
   const root=$('review');clear(root);if(!selected){root.append(el('p','Select a quotation.','empty'));return;}
-  const itemId=selected;root.append(el('p','Loading saved review…','muted'));let review;
+  const itemId=selected, requestVersion=++reviewRequestVersion;root.append(el('p','Loading saved review…','muted'));let review;
   try{review=await request('/api/review/show',{id:itemId});}
   catch(error){
-    if(selected!==itemId)return;clear(root);
+    if(selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);
     if(error.message!=='Review is not initialized'){
       root.append(el('p',`Could not open the review: ${error.message}. Try again.`,'review-error'));
       showUnsaved(root,draft);
-      const retry=el('button','Retry opening review','secondary');retry.addEventListener('click',()=>renderReview(draft));root.append(retry);return;
+      const retry=el('button','Retry opening review','secondary');retry.addEventListener('click',()=>renderReview(draft,reopened));root.append(retry);return;
     }
     if(authMode==='oidc'&&workspaceRole!=='analyst'){
       root.append(el('p','An Analyst must start and prepare this review before a Reviewer can record a decision.','muted'));showUnsaved(root,draft);return;
@@ -80,9 +81,11 @@ async function renderReview(draft=null){
     start.addEventListener('click',async()=>{try{await request('/api/review/start',{id:itemId});message('Review created. You can now correct a field.');await renderReview(draft);}catch(error){feedback.textContent=`Could not start the review: ${error.message}. Try again.`;feedback.className='review-feedback review-error';}});
     root.append(el('p','Start a synthetic review, then select a field and provide source evidence.','muted'));showUnsaved(root,draft);root.append(start,feedback);return;
   }
-  if(selected!==itemId)return;clear(root);renderDetails(review);
+  if(selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);renderDetails(review);
   root.append(el('p',`Status: ${review.status} · revision ${review.revision}`,'muted'));
-  root.append(el('p','Saved review loaded. Compare the saved values with the original evidence.','review-guidance'));
+  const guidance=el('p',reopened?`Saved review reopened from the server at revision ${review.revision}.`:'Saved review loaded. Compare the saved values with the original evidence.','review-guidance');guidance.setAttribute('role','status');root.append(guidance);
+  let captureDraft=()=>null;
+  const reopen=el('button','Reopen saved review','secondary');reopen.addEventListener('click',()=>renderReview(captureDraft(),true));root.append(reopen);
   const history=el('div',undefined,'history');for(const h of review.history){history.append(el('div',`#${h.sequence} ${h.type} · ${h.actor} · ${h.timestamp}`,'row'));}
   if(review.status==='approved'||review.status==='rejected'){
     if(draft){
@@ -98,10 +101,13 @@ async function renderReview(draft=null){
   const reviewTask=async(action)=>{try{feedback.textContent='';reload.hidden=true;await action();}catch(error){feedback.textContent=`Could not save: ${error.message}. Check the details and try again, or reload the latest review.`;feedback.className='review-feedback review-error';reload.hidden=false;}};
   const form=el('div',undefined,'review-form');const actor=el('input');actor.placeholder='Reviewer ID (demo only)';actor.value=authMode==='oidc'?'Signed-in user':'reviewer-1';actor.disabled=authMode==='oidc';form.append(el('label',authMode==='oidc'?'Review identity':'Reviewer ID'),actor);
   if(draft && authMode!=='oidc')actor.value=draft.actor;
-  reload.addEventListener('click',()=>{
+  captureDraft=()=>{
     const entries=correctionInputs?Object.fromEntries(Object.entries(correctionInputs).map(([key,input])=>[key,input.value])):null;
-    renderReview({actor:actor.value,reason:decisionReason?decisionReason.value:'',correction:entries});
-  });
+    const reason=decisionReason?decisionReason.value:'';
+    const hasEntries=entries&&(['value','note','line','quote'].some(key=>entries[key].trim())||entries.field!=='supplier');
+    return hasEntries||reason.trim()?{actor:actor.value,reason,correction:entries}:null;
+  };
+  reload.addEventListener('click',()=>renderReview(captureDraft(),true));
   if(authMode!=='oidc'||workspaceRole==='reviewer'){
     const reason=el('textarea');reason.placeholder='Explain your decision';if(draft)reason.value=draft.reason;decisionReason=reason;form.append(el('label','Reason / review notes'),reason);
     const controls=el('div',undefined,'horizontal');

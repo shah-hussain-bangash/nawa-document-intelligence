@@ -70,6 +70,8 @@ def main():
                 raise AssertionError('Unsaved correction was not retained after reload')
             page.get_by_role('button', name='Save correction').click()
             page.locator('#review').get_by_text('Status: pending_review · revision 3').wait_for(state='visible', timeout=15000)
+            page.get_by_role('button', name='Reopen saved review').click()
+            page.get_by_text('Saved review reopened from the server at revision 3.').wait_for(state='visible', timeout=15000)
             if 'Originally extracted: 5' not in page.locator('#details').inner_text():
                 raise AssertionError('Original extracted value was not shown')
             page.reload(wait_until='domcontentloaded')

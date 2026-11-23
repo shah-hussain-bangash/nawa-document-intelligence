@@ -20,13 +20,16 @@ const quotation={document:'synthetic.txt',supplier:'Test',currency:'AED',subtota
   vat_amount:'50.00',total:'1050.00',evidence,checks:{vat_matches_rate:true,total_matches_components:true}};
 let saved={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',
   vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[]};
-let failSave=true;
+let failSave=true,holdNextShow=false,finishHeldShow=null;
 async function fetch(url,opts={}) {
   let data,ok=true,status=200;
   if(url==='/auth/config')data={mode:'oidc',intake_enabled:true};
   else if(url==='/auth/me')data={role:'analyst'};
   else if(url==='/api/quotations')data={quotations:[{id:'q1',quotation}],storage:'postgres'};
-  else if(url==='/api/review/show')data=structuredClone(saved);
+  else if(url==='/api/review/show'){
+    data=structuredClone(saved);
+    if(holdNextShow){holdNextShow=false;await new Promise(resolve=>{finishHeldShow=resolve;});}
+  }
   else if(url==='/api/review/correct'){
     if(failSave){ok=false;status=503;data={error:'Storage unavailable'};}
     else {const p=JSON.parse(opts.body);assert.equal(p.expected_revision,2);saved.fields[p.field]=p.value;saved.checks.total_matches_components=false;saved.revision++;data=structuredClone(saved);}
@@ -63,9 +66,18 @@ async function run(){
   assert.ok(flatten(get('details')).some(x=>x.textContent.includes('Original source')));
   assert.ok(flatten(get('details')).some(x=>x.textContent.includes('Financial checks need review')));
   assert.ok(flatten(review).some(x=>x.textContent.includes('revision 3')));
+  byId(review,'correction-value').value='1048.00';
+  byText(review,'Reopen saved review').events.click();await tick();await tick();
+  assert.equal(byId(review,'correction-value').value,'1048.00');
+  assert.ok(flatten(review).some(x=>x.textContent.includes('reopened from the server at revision 3')));
   await flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();await tick();
   assert.ok(flatten(get('details')).some(x=>x.textContent==='1049.00'));
   assert.ok(flatten(get('review')).some(x=>x.textContent.includes('revision 3')));
-  console.log('PASS: saved review reopens with original evidence; failed save keeps inputs for retry');
+  holdNextShow=true;flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();
+  saved.revision=4;flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();await tick();
+  finishHeldShow();await tick();await tick();
+  assert.ok(flatten(review).some(x=>x.textContent.includes('revision 4')));
+  assert.equal(flatten(review).some(x=>x.textContent.includes('revision 3')),false);
+  console.log('PASS: reopening preserves input and ignores out-of-order saved-review responses');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

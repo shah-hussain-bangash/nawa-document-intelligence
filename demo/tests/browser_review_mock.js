@@ -67,6 +67,8 @@ const server=http.createServer(async(req,res)=>{
     await page.getByRole('button',{name:'Save correction'}).click();
     await page.getByText('Status: pending_review · revision 3').waitFor();
     assert.match(await page.locator('#details').innerText(),/1049\.00[\s\S]*Originally extracted: 1050\.00/);
+    await page.getByRole('button',{name:'Reopen saved review'}).click();
+    await page.getByText('Saved review reopened from the server at revision 3.').waitFor();
     await page.reload();
     await page.getByText('Status: pending_review · revision 3').waitFor();
     assert.match(await page.locator('#details').innerText(),/1049\.00[\s\S]*Original source/);
