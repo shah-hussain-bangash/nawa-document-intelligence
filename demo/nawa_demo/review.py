@@ -65,6 +65,7 @@ def _apply(record):
     status = 'pending_review'
     last_hash = 'GENESIS'
     history = []
+    corrections = []
     for i, event in enumerate(events, 1):
         if not isinstance(event, dict) or set(event) != {'sequence', 'type', 'actor', 'timestamp', 'data', 'previous_hash', 'hash'}:
             raise ValueError('Invalid event structure')
@@ -112,6 +113,8 @@ def _apply(record):
                 raise ValueError('Correction source must match original document')
             fields[field] = data['to']
             _financial(fields)
+            corrections.append({'sequence': i, 'field': field, 'from': data['from'], 'to': data['to'],
+                                'reason': data['reason'], 'evidence': deepcopy(provenance)})
             status = 'pending_review'
         elif kind == 'decision':
             if set(data) != {'decision', 'reason'} or data['decision'] not in DECISIONS:
@@ -128,7 +131,7 @@ def _apply(record):
         last_hash = event['hash']
     return {'document': document, 'fields': fields, 'source_evidence': evidence,
             'checks': _financial(fields), 'status': status, 'revision': len(events),
-            'last_hash': last_hash, 'history': history}
+            'last_hash': last_hash, 'history': history, 'corrections': corrections}
 
 
 def inspect(record):
@@ -185,3 +188,4 @@ def correct(record, *, actor, field, value, reason, source, line, quote, expecte
 def decide(record, *, actor, decision, reason, expected_revision, timestamp=None):
     return _append(record, 'decision', actor, {'decision': decision, 'reason': reason},
                    expected_revision=expected_revision, timestamp=timestamp)
+

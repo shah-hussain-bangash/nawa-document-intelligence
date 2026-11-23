@@ -19,7 +19,7 @@ const evidence={supplier:{line:1,source_text:'Supplier: Test'},currency:{line:2,
 const quotation={document:'synthetic.txt',supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',
   vat_amount:'50.00',total:'1050.00',evidence,checks:{vat_matches_rate:true,total_matches_components:true}};
 let saved={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',
-  vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[]};
+  vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[],corrections:[]};
 let failSave=true,holdNextShow=false,finishHeldShow=null;
 async function fetch(url,opts={}) {
   let data,ok=true,status=200;
@@ -32,7 +32,7 @@ async function fetch(url,opts={}) {
   }
   else if(url==='/api/review/correct'){
     if(failSave){ok=false;status=503;data={error:'Storage unavailable'};}
-    else {const p=JSON.parse(opts.body);assert.equal(p.expected_revision,2);saved.fields[p.field]=p.value;saved.checks.total_matches_components=false;saved.revision++;data=structuredClone(saved);}
+    else {const p=JSON.parse(opts.body);assert.equal(p.expected_revision,2);saved.corrections.push({sequence:3,field:p.field,from:saved.fields[p.field],to:p.value,reason:p.reason,evidence:{source:p.source,line:p.line,quote:p.quote}});saved.fields[p.field]=p.value;saved.checks.total_matches_components=false;saved.revision++;data=structuredClone(saved);}
   }else throw Error('Unexpected '+url);
   return {ok,status,json:async()=>data};
 }
@@ -65,6 +65,8 @@ async function run(){
   assert.ok(flatten(get('details')).some(x=>x.textContent==='Originally extracted: 1050.00'));
   assert.ok(flatten(get('details')).some(x=>x.textContent.includes('Original source')));
   assert.ok(flatten(get('details')).some(x=>x.textContent.includes('Financial checks need review')));
+  assert.ok(flatten(review).some(x=>x.textContent==='Cited excerpt: Total: 1050.00'));
+  assert.ok(flatten(review).some(x=>x.textContent.includes('Compare them with the original source')));
   assert.ok(flatten(review).some(x=>x.textContent.includes('revision 3')));
   byId(review,'correction-value').value='1048.00';
   byText(review,'Reopen saved review').events.click();await tick();await tick();

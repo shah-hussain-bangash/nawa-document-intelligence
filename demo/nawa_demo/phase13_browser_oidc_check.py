@@ -309,6 +309,7 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     reviewer_page.reload(wait_until='domcontentloaded')
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    reviewer_page.get_by_text('Cited excerpt: Subtotal: 1000.00', exact=True).wait_for(state='visible', timeout=15000)
     if reviewer_page.locator('#review').get_by_role('button', name='Save correction').count():
         raise AssertionError('Reviewer should not see the correction control')
     reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked correction')
@@ -317,6 +318,7 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     reviewer_page.reload(wait_until='domcontentloaded')
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
+    reviewer_page.get_by_text('Cited excerpt: Subtotal: 1000.00', exact=True).wait_for(state='visible', timeout=15000)
     # Compare the approved correction with a second synthetic quotation.
     analyst_page.locator('#sample').select_option('arabic_quote.txt')
     analyst_page.locator('#loadSample').click()

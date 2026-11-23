@@ -86,6 +86,22 @@ async function renderReview(draft=null,reopened=false){
   const guidance=el('p',reopened?`Saved review reopened from the server at revision ${review.revision}.`:'Saved review loaded. Compare the saved values with the original evidence.','review-guidance');guidance.setAttribute('role','status');root.append(guidance);
   let captureDraft=()=>null;
   const reopen=el('button','Reopen saved review','secondary');reopen.addEventListener('click',()=>renderReview(captureDraft(),true));root.append(reopen);
+  const corrections=Array.isArray(review.corrections)?review.corrections:null;
+  if(corrections&&corrections.length){
+    const evidencePanel=el('section',undefined,'correction-evidence');
+    evidencePanel.append(el('h3','Evidence cited for corrections'));
+    evidencePanel.append(el('p','The preparer supplied these excerpts. Compare them with the original source; a matching line alone does not prove the corrected value.','muted'));
+    for(const change of corrections){
+      const entry=el('div',undefined,'correction-evidence-entry');
+      const cited=change.evidence||{};
+      entry.append(el('strong',`Revision ${change.sequence} · ${change.field}: ${change.from} → ${change.to}`));
+      entry.append(el('p',`Reason: ${change.reason}`),el('p',`Source: ${cited.source} · line ${cited.line}`));
+      const excerpt=el('p',`Cited excerpt: ${cited.quote}`);excerpt.setAttribute('dir','auto');entry.append(excerpt);evidencePanel.append(entry);
+    }
+    root.append(evidencePanel);
+  }else if(!corrections&&review.history.some(item=>item.type==='correction')){
+    root.append(el('p','Correction evidence is unavailable in this response. Verify the original source before deciding.','review-error'));
+  }
   const history=el('div',undefined,'history');for(const h of review.history){history.append(el('div',`#${h.sequence} ${h.type} · ${h.actor} · ${h.timestamp}`,'row'));}
   if(review.status==='approved'||review.status==='rejected'){
     if(draft){

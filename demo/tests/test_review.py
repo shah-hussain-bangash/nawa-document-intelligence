@@ -50,6 +50,16 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(inspect(changed)['fields']['total'], '900.00')
         self.assertEqual(inspect(changed)['history'][-1]['type'], 'correction')
 
+    def test_reopened_review_includes_the_cited_correction_evidence(self):
+        changed = self.correction(value='900.00', reason='Compare against source',
+                                  line=3, quote='Subtotal: 1000.00')
+        record = json.loads(json.dumps(changed))
+        self.assertEqual(inspect(record)['corrections'], [{
+            'sequence': 2, 'field': 'total', 'from': '1050.00', 'to': '900.00',
+            'reason': 'Compare against source',
+            'evidence': {'source': record['document'], 'line': 3, 'quote': 'Subtotal: 1000.00'},
+        }])
+
     def test_unsupported_number_correction_preserves_ledger(self):
         before = copy.deepcopy(self.ledger)
         with self.assertRaises(ValueError):
@@ -147,3 +157,4 @@ class ReviewTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

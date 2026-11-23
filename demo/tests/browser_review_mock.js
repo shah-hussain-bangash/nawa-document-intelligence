@@ -26,10 +26,10 @@ const server=http.createServer(async(req,res)=>{
   else if(req.url==='/api/intake/promote'){rows=[{id:'q1',quotation}];data={...rows[0],created:true};}
   else if(req.url==='/api/review/show'){if(failReload){failReload=false;res.statusCode=503;data={error:'Storage unavailable'};}else if(!review){res.statusCode=400;data={error:'Review is not initialized'};}else data=review;}
   else if(req.url==='/api/review/start'){
-    review={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[]};data=review;
+    review={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[],corrections:[]};data=review;
   }else if(req.url==='/api/review/correct'){
     if(failSave){failSave=false;res.statusCode=503;data={error:'Storage unavailable'};}
-    else{const p=JSON.parse(raw);assert.equal(p.expected_revision,2);review.fields[p.field]=p.value;review.checks.total_matches_components=false;review.revision=3;data=review;}
+    else{const p=JSON.parse(raw);assert.equal(p.expected_revision,2);review.corrections.push({sequence:3,field:p.field,from:review.fields[p.field],to:p.value,reason:p.reason,evidence:{source:p.source,line:p.line,quote:p.quote}});review.fields[p.field]=p.value;review.checks.total_matches_components=false;review.revision=3;data=review;}
   }else{res.statusCode=404;data={error:'Unknown test endpoint'};}
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
 });
@@ -49,7 +49,7 @@ const server=http.createServer(async(req,res)=>{
     await page.getByRole('button',{name:'Start review'}).click();
     await page.getByLabel('Field to correct').selectOption('total');
     await page.getByLabel('Corrected value').fill('1049.00');
-    await page.getByLabel('Reason for correction').fill('Source checked');
+    await page.getByLabel('Reason for correction').fill('Source checked <img src=x onerror=alert(1)>');
     await page.getByLabel('Original source line').fill('6');
     await page.getByLabel('Exact source excerpt').fill('Total: 1050.00');
     await page.getByRole('button',{name:'Save correction'}).click();
@@ -63,7 +63,7 @@ const server=http.createServer(async(req,res)=>{
     await page.getByRole('button',{name:'Retry opening review'}).click();
     await page.getByText('Status: pending_review · revision 2').waitFor();
     assert.equal(await page.getByLabel('Corrected value').inputValue(),'1049.00');
-    assert.equal(await page.getByLabel('Reason for correction').inputValue(),'Source checked');
+    assert.equal(await page.getByLabel('Reason for correction').inputValue(),'Source checked <img src=x onerror=alert(1)>');
     await page.getByRole('button',{name:'Save correction'}).click();
     await page.getByText('Status: pending_review · revision 3').waitFor();
     assert.match(await page.locator('#details').innerText(),/1049\.00[\s\S]*Originally extracted: 1050\.00/);
@@ -72,12 +72,15 @@ const server=http.createServer(async(req,res)=>{
     await page.reload();
     await page.getByText('Status: pending_review · revision 3').waitFor();
     assert.match(await page.locator('#details').innerText(),/1049\.00[\s\S]*Original source/);
+    await page.getByText('Cited excerpt: Total: 1050.00',{exact:true}).waitFor();
+    assert.equal(await page.locator('.correction-evidence img').count(),0);
     assert.equal(await page.getByRole('button',{name:'Approve',exact:true}).count(),0);
     if(process.env.NAWA_UI_SCREENSHOT)await page.screenshot({path:process.env.NAWA_UI_SCREENSHOT,fullPage:true});
     testRole='reviewer';await page.reload();
     await page.getByText('Status: pending_review · revision 3').waitFor();
     assert.equal(await page.getByRole('button',{name:'Save correction'}).count(),0);
     assert.equal(await page.getByRole('button',{name:'Approve',exact:true}).count(),1);
+    await page.getByText('Cited excerpt: Total: 1050.00',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Add selected file'}).isDisabled(),true);
     testRole='analyst';await page.reload();
     await page.getByText('Status: pending_review · revision 3').waitFor();
