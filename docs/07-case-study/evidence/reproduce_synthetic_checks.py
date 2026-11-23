@@ -11,6 +11,13 @@ parser.add_argument('--repo', type=Path, default=Path(__file__).resolve().parent
 parser.add_argument('--output', type=Path)
 args = parser.parse_args()
 root = args.repo.resolve()
+from historical_input_guard import verify_recorded_inputs
+try:
+    evidence_file = Path(__file__).resolve().parent / 'nawa-synthetic-checks-2026-11-21.json'
+    evidence = json.loads(evidence_file.read_text(encoding='utf-8'))
+    verify_recorded_inputs(root, evidence)
+except (OSError, ValueError) as exc:
+    parser.error(str(exc) + '; use the recorded baseline files at commit 823565f')
 sys.path.insert(0, str(root / 'demo'))
 from nawa_demo.core import extract, compare
 from nawa_demo.review import begin, decide, inspect
@@ -58,4 +65,4 @@ rendered = json.dumps(report, ensure_ascii=False, indent=2) + '\n'
 if args.output:
     args.output.write_text(rendered, encoding='utf-8')
 else:
-    print(rendered, end='')
+    sys.stdout.buffer.write(rendered.encode('utf-8'))
