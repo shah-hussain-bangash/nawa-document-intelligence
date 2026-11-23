@@ -1,0 +1,12 @@
+{
+  "model": "embeddinggemma:300m",
+  "scope": "Fixture lifecycle snapshot; no live authorization.",
+  "synthetic_query": "latest Cedar delivery",
+  "top3_after_current_filter": [
+    "en-delivery-v2",
+    "ar-delivery",
+    "ar-payment"
+  ],
+  "superseded_passage_indexed": false
+}
+

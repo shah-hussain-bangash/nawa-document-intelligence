@@ -1,0 +1,2 @@
+# Isolated Phase 13 prototype only; not yet included in the dashboard image.
+pypdf>=6.0,<7

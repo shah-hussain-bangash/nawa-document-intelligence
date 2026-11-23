@@ -1,0 +1,162 @@
+{
+  "scope": "20 hand-authored synthetic labels, not independently reviewed.",
+  "warning": "String heuristics do not establish semantic support.",
+  "case_count": 20,
+  "confusion": {
+    "exact_substring": {
+      "tp": 7,
+      "fn": 3,
+      "fp": 0,
+      "tn": 10
+    },
+    "lexical_coverage_0_8": {
+      "tp": 7,
+      "fn": 3,
+      "fp": 8,
+      "tn": 2
+    }
+  },
+  "cases": [
+    {
+      "id": "en-delivery-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "exact_substring": true,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "en-delivery-paraphrase",
+      "category": "paraphrase",
+      "expected_supported": true,
+      "exact_substring": false,
+      "lexical_coverage_0_8": false
+    },
+    {
+      "id": "en-delivery-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "en-delivery-cost",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "en-warranty-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "exact_substring": true,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "en-warranty-paraphrase",
+      "category": "paraphrase",
+      "expected_supported": true,
+      "exact_substring": false,
+      "lexical_coverage_0_8": false
+    },
+    {
+      "id": "en-warranty-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "en-warranty-addition",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": false
+    },
+    {
+      "id": "en-payment-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "exact_substring": true,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "en-payment-before",
+      "category": "contradiction",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "en-policy-paraphrase",
+      "category": "paraphrase",
+      "expected_supported": true,
+      "exact_substring": false,
+      "lexical_coverage_0_8": false
+    },
+    {
+      "id": "en-policy-count",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "ar-delivery-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "exact_substring": true,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "ar-delivery-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "ar-warranty-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "exact_substring": true,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "ar-warranty-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": false
+    },
+    {
+      "id": "ar-payment-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "exact_substring": true,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "ar-payment-before",
+      "category": "contradiction",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "ar-policy-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "exact_substring": true,
+      "lexical_coverage_0_8": true
+    },
+    {
+      "id": "ar-policy-count",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "exact_substring": false,
+      "lexical_coverage_0_8": true
+    }
+  ]
+}
+

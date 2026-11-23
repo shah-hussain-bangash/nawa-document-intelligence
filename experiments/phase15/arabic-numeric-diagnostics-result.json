@@ -1,0 +1,48 @@
+{
+  "status": "human_review_required",
+  "promotable": false,
+  "source_sha256": "974144a63519ffb690c471d334e7c04b53df0f2811fdd1568b5474df05a519be",
+  "scope": "Synthetic OCR review hints; not validation or correction.",
+  "cases": [
+    {
+      "case": "synthetic-a",
+      "engine": "tesseract",
+      "reasons": {
+        "subtotal": "unverified_numeric_candidate",
+        "total": "unverified_numeric_candidate",
+        "vat_amount": "exact_label_not_found",
+        "vat_rate": "exact_label_not_found"
+      }
+    },
+    {
+      "case": "synthetic-a",
+      "engine": "paddle",
+      "reasons": {
+        "subtotal": "ambiguous_arabic_comma",
+        "total": "exact_label_not_found",
+        "vat_amount": "exact_label_not_found",
+        "vat_rate": "exact_label_not_found"
+      }
+    },
+    {
+      "case": "synthetic-b",
+      "engine": "tesseract",
+      "reasons": {
+        "subtotal": "unrecognized_number",
+        "total": "unrecognized_number",
+        "vat_amount": "exact_label_not_found",
+        "vat_rate": "exact_label_not_found"
+      }
+    },
+    {
+      "case": "synthetic-b",
+      "engine": "paddle",
+      "reasons": {
+        "subtotal": "exact_label_not_found",
+        "total": "exact_label_not_found",
+        "vat_amount": "exact_label_not_found",
+        "vat_rate": "exact_label_not_found"
+      }
+    }
+  ]
+}

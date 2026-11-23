@@ -1,0 +1,238 @@
+{
+  "status": "human_review_required",
+  "image_sha256": "1b4e376e15feab5c2f35a1cfc2d613e853c0b259b3566e2c7a4a8361d938f05f",
+  "engine": "tesseract v5.4.0.20240606",
+  "engine_sha256": "babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9",
+  "model_sha256": {
+    "ara.traineddata": "ab9d157d8e38ca00e7e39c7d5363a5239e053f5b0dbdb3167dde9d8124335896",
+    "script/Arabic.traineddata": "a80454f72df35c6f52550551dd69b8521ea6a62d834396d1c7dce4c35493902e"
+  },
+  "preprocessing": "grayscale, autocontrast, 3x Lanczos, threshold 160, 30px white border",
+  "scope": "One synthetic image and hand-selected crops; not an independent or representative evaluation.",
+  "results": [
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "language": "ara",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "9 ٠١٠١8",
+      "match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "language": "ara",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "ريق",
+      "match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "language": "script/Arabic",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "EEK",
+      "match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "language": "script/Arabic",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "E0",
+      "match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "language": "ara",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "0",
+      "match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "language": "ara",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "-",
+      "match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "language": "script/Arabic",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "C",
+      "match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "language": "script/Arabic",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "",
+      "match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "language": "ara",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ا مع",
+      "match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "language": "ara",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "اف",
+      "match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "language": "script/Arabic",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "£Oرو 4",
+      "match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "language": "script/Arabic",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "e",
+      "match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "language": "ara",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "9 مع ١١",
+      "match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "language": "ara",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "رمي",
+      "match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "language": "script/Arabic",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "FEK",
+      "match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "language": "script/Arabic",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "E",
+      "match": false
+    }
+  ]
+}

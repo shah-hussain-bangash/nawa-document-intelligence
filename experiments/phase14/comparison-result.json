@@ -1,0 +1,399 @@
+{
+  "scope": "10 hand-authored synthetic cases, same author as fixtures; no production claims.",
+  "model": "embeddinggemma:300m",
+  "authorized_passage_count": 10,
+  "case_count": 10,
+  "document_embedding_ms_single_run": 13092.156599988812,
+  "methods": {
+    "bm25": {
+      "recall_at_5": 0.9,
+      "mrr_at_5": 0.85,
+      "ndcg_at_5": 0.8630929753571458,
+      "mean_query_ms_single_run": 0.04126000276301056
+    },
+    "vector": {
+      "recall_at_5": 1.0,
+      "mrr_at_5": 1.0,
+      "ndcg_at_5": 1.0,
+      "mean_query_ms_single_run": 1412.1005599969067
+    },
+    "hybrid": {
+      "recall_at_5": 1.0,
+      "mrr_at_5": 1.0,
+      "ndcg_at_5": 1.0,
+      "mean_query_ms_single_run": 1412.1554899975308
+    }
+  },
+  "warning": "Vector and hybrid always rank candidates; unknown-answer abstention is not implemented.",
+  "cases": [
+    {
+      "id": "en-direct-delivery",
+      "category": "direct",
+      "bm25": {
+        "top5": [
+          "en-delivery-v2",
+          "en-delivery-v1",
+          "en-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "en-delivery-v2",
+          "en-delivery-v1",
+          "ar-delivery",
+          "ar-payment",
+          "en-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "en-delivery-v2",
+          "en-delivery-v1",
+          "en-payment",
+          "ar-delivery",
+          "ar-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "en-old-version",
+      "category": "explicit_version",
+      "bm25": {
+        "top5": [
+          "en-delivery-v1",
+          "en-delivery-v2",
+          "en-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "en-delivery-v1",
+          "en-delivery-v2",
+          "ar-delivery",
+          "en-payment",
+          "ar-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "en-delivery-v1",
+          "en-delivery-v2",
+          "en-payment",
+          "ar-delivery",
+          "ar-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "en-paraphrase-warranty",
+      "category": "paraphrase",
+      "bm25": {
+        "top5": [
+          "en-warranty",
+          "en-payment",
+          "injection"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "en-warranty",
+          "ar-warranty",
+          "ar-delivery",
+          "ar-payment",
+          "en-delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "en-warranty",
+          "en-payment",
+          "injection",
+          "ar-warranty",
+          "ar-delivery"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "en-paraphrase-payment",
+      "category": "paraphrase",
+      "bm25": {
+        "top5": [
+          "en-policy",
+          "en-payment",
+          "en-warranty"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 0.5,
+        "ndcg_at_5": 0.6309297535714575
+      },
+      "vector": {
+        "top5": [
+          "en-payment",
+          "ar-payment",
+          "ar-delivery",
+          "en-delivery-v1",
+          "ar-policy"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "en-payment",
+          "en-policy",
+          "en-warranty",
+          "ar-payment",
+          "ar-delivery"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "en-direct-policy",
+      "category": "direct",
+      "bm25": {
+        "top5": [
+          "en-policy",
+          "en-delivery-v1"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "en-policy",
+          "ar-policy",
+          "en-delivery-v1",
+          "en-warranty",
+          "injection"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "en-policy",
+          "en-delivery-v1",
+          "ar-policy",
+          "en-warranty",
+          "injection"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "ar-direct-delivery",
+      "category": "direct",
+      "bm25": {
+        "top5": [
+          "ar-delivery"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "ar-delivery",
+          "en-delivery-v2",
+          "en-delivery-v1",
+          "ar-payment",
+          "ar-warranty"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "ar-delivery",
+          "en-delivery-v2",
+          "en-delivery-v1",
+          "ar-payment",
+          "ar-warranty"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "ar-direct-warranty",
+      "category": "direct",
+      "bm25": {
+        "top5": [
+          "ar-warranty"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "ar-warranty",
+          "en-warranty",
+          "ar-payment",
+          "ar-delivery",
+          "en-policy"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "ar-warranty",
+          "en-warranty",
+          "ar-payment",
+          "ar-delivery",
+          "en-policy"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "ar-paraphrase-payment",
+      "category": "paraphrase",
+      "bm25": {
+        "top5": [
+          "ar-payment",
+          "ar-policy"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "ar-payment",
+          "en-payment",
+          "ar-delivery",
+          "ar-policy",
+          "en-delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "ar-payment",
+          "ar-policy",
+          "en-payment",
+          "ar-delivery",
+          "en-delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "ar-morphology-policy",
+      "category": "morphology",
+      "bm25": {
+        "top5": [
+          "ar-policy"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "ar-policy",
+          "en-policy",
+          "ar-warranty",
+          "ar-delivery",
+          "ar-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "ar-policy",
+          "en-policy",
+          "ar-warranty",
+          "ar-delivery",
+          "ar-payment"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "ar-paraphrase-warranty",
+      "category": "paraphrase",
+      "bm25": {
+        "top5": [],
+        "recall_at_5": 0.0,
+        "reciprocal_rank_at_5": 0.0,
+        "ndcg_at_5": 0.0
+      },
+      "vector": {
+        "top5": [
+          "ar-warranty",
+          "en-warranty",
+          "ar-payment",
+          "ar-delivery",
+          "en-delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "ar-warranty",
+          "en-warranty",
+          "ar-payment",
+          "ar-delivery",
+          "en-delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,50 @@
+{
+  "status": "human_review_required",
+  "source_sha256": "1b4e376e15feab5c2f35a1cfc2d613e853c0b259b3566e2c7a4a8361d938f05f",
+  "model_sha256": {
+    "detector": {
+      "inference.json": "05feef1acb00aa4cd7362b15f7f501fc4f99d7b1fa73c1c871e0c7b1504b0f5c",
+      "inference.pdiparams": "afa1820cb16c1fd0dad589d0f8b389139061c1ef6d68019685fd07be997dda5b",
+      "inference.yml": "98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699"
+    },
+    "recognizer": {
+      "inference.json": "d43832804d89c0e18d59f8446a3babd0ef60c44bc335efddac3176caf71d50af",
+      "inference.pdiparams": "4b4271fd1dd89a40b2056e1a42e58de7c0df2fdcf1a97ca9a8916d7ec45f9143",
+      "inference.yml": "21368419e6c016c31db55d316d59e11c128e1913e6e6fe10287084710043d3a6"
+    }
+  },
+  "paddle_version": "3.2.0",
+  "paddleocr_version": "3.3.2",
+  "python_version": "3.12.14",
+  "scope": "One synthetic Arabic-label image; reference is not independently reviewed.",
+  "lines_synthetic": [
+    "عرض سعر تجريبي",
+    "اسم المورد شركة المثال للتوريدات",
+    "Aالعملة",
+    "المجموع الفرعي٩٠٫٠٠",
+    "نسبة الضريبة",
+    "قيمة الضرية٤٥،٠٠",
+    "الإجمالي شامل الضريبة٩٤٥،٠٠",
+    "بيانات تجريبية فقط"
+  ],
+  "cer": 0.11904761904761904,
+  "wer": 0.4230769230769231,
+  "strict_field_matches": {
+    "supplier": false,
+    "currency": false,
+    "subtotal": false,
+    "vat_rate": false,
+    "vat_amount": false,
+    "total": false
+  },
+  "rtl_field_matches": {
+    "supplier": false,
+    "currency": false,
+    "subtotal": false,
+    "vat_rate": false,
+    "vat_amount": false,
+    "total": false
+  },
+  "strict_fields_correct": 0,
+  "rtl_fields_correct": 0
+}

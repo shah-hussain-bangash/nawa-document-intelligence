@@ -9,3 +9,11 @@ demo/phase7_report.json
 
 demo/review_demo.json
 demo/review_correction_demo.json
+.data/
+.deps/
+.deps-pdf/
+.deps-jwt/
+.deps-yaml/
+phase13-regression-output.txt
+.env
+.env.*

@@ -1,0 +1,269 @@
+{
+  "model": "embeddinggemma:300m",
+  "scope": "Hand-authored synthetic score probe, not threshold calibration.",
+  "answerable_top_score_range": [
+    0.61064,
+    0.860658
+  ],
+  "unanswerable_top_score_range": [
+    0.202658,
+    0.844277
+  ],
+  "overlap": true,
+  "warning": "Every question is ranked, including unanswerable questions; no abstention.",
+  "cases": [
+    {
+      "id": "en-direct-delivery",
+      "category": "direct",
+      "label": "answerable",
+      "top_passage_id": "en-delivery-v2",
+      "top_cosine": 0.787144
+    },
+    {
+      "id": "en-old-version",
+      "category": "explicit_version",
+      "label": "answerable",
+      "top_passage_id": "en-delivery-v1",
+      "top_cosine": 0.732145
+    },
+    {
+      "id": "en-paraphrase-warranty",
+      "category": "paraphrase",
+      "label": "answerable",
+      "top_passage_id": "en-warranty",
+      "top_cosine": 0.671829
+    },
+    {
+      "id": "en-paraphrase-payment",
+      "category": "paraphrase",
+      "label": "answerable",
+      "top_passage_id": "en-payment",
+      "top_cosine": 0.675298
+    },
+    {
+      "id": "en-direct-policy",
+      "category": "direct",
+      "label": "answerable",
+      "top_passage_id": "en-policy",
+      "top_cosine": 0.723161
+    },
+    {
+      "id": "ar-direct-delivery",
+      "category": "direct",
+      "label": "answerable",
+      "top_passage_id": "ar-delivery",
+      "top_cosine": 0.860658
+    },
+    {
+      "id": "ar-direct-warranty",
+      "category": "direct",
+      "label": "answerable",
+      "top_passage_id": "ar-warranty",
+      "top_cosine": 0.834264
+    },
+    {
+      "id": "ar-paraphrase-payment",
+      "category": "paraphrase",
+      "label": "answerable",
+      "top_passage_id": "ar-payment",
+      "top_cosine": 0.668401
+    },
+    {
+      "id": "ar-morphology-policy",
+      "category": "morphology",
+      "label": "answerable",
+      "top_passage_id": "ar-policy",
+      "top_cosine": 0.662423
+    },
+    {
+      "id": "ar-paraphrase-warranty",
+      "category": "paraphrase",
+      "label": "answerable",
+      "top_passage_id": "ar-warranty",
+      "top_cosine": 0.61064
+    },
+    {
+      "id": "unknown-space",
+      "category": "unrelated",
+      "label": "unanswerable",
+      "top_passage_id": "en-policy",
+      "top_cosine": 0.215639
+    },
+    {
+      "id": "unknown-temperature",
+      "category": "unrelated",
+      "label": "unanswerable",
+      "top_passage_id": "en-warranty",
+      "top_cosine": 0.202658
+    },
+    {
+      "id": "unknown-arabic-space",
+      "category": "unrelated",
+      "label": "unanswerable",
+      "top_passage_id": "en-warranty",
+      "top_cosine": 0.205478
+    },
+    {
+      "id": "unknown-insurance",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-delivery-v2",
+      "top_cosine": 0.424111
+    },
+    {
+      "id": "unknown-contract",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-delivery-v1",
+      "top_cosine": 0.379939
+    },
+    {
+      "id": "unknown-arabic-penalty",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-delivery",
+      "top_cosine": 0.569085
+    },
+    {
+      "id": "unknown-arabic-bank",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-payment",
+      "top_cosine": 0.398489
+    },
+    {
+      "id": "unknown-warranty-rate",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-warranty",
+      "top_cosine": 0.468544
+    },
+    {
+      "id": "unknown-cedar-price",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-delivery-v1",
+      "top_cosine": 0.493682
+    },
+    {
+      "id": "unknown-cedar-date",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-delivery-v2",
+      "top_cosine": 0.507844
+    },
+    {
+      "id": "unknown-delivery-charge",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-delivery-v1",
+      "top_cosine": 0.663019
+    },
+    {
+      "id": "unknown-delivery-location",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-delivery-v1",
+      "top_cosine": 0.696324
+    },
+    {
+      "id": "unknown-warranty-maximum",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-warranty",
+      "top_cosine": 0.674314
+    },
+    {
+      "id": "unknown-warranty-provider",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-warranty",
+      "top_cosine": 0.767111
+    },
+    {
+      "id": "unknown-payment-discount",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-payment",
+      "top_cosine": 0.531008
+    },
+    {
+      "id": "unknown-payment-currency",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-payment",
+      "top_cosine": 0.551517
+    },
+    {
+      "id": "unknown-policy-count",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-policy",
+      "top_cosine": 0.840688
+    },
+    {
+      "id": "unknown-policy-approver",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "en-policy",
+      "top_cosine": 0.844277
+    },
+    {
+      "id": "unknown-arabic-delivery-charge",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-delivery",
+      "top_cosine": 0.662982
+    },
+    {
+      "id": "unknown-arabic-delivery-city",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-delivery",
+      "top_cosine": 0.616556
+    },
+    {
+      "id": "unknown-arabic-warranty-cost",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-warranty",
+      "top_cosine": 0.577131
+    },
+    {
+      "id": "unknown-arabic-warranty-company",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-warranty",
+      "top_cosine": 0.627414
+    },
+    {
+      "id": "unknown-arabic-payment-currency",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-payment",
+      "top_cosine": 0.488891
+    },
+    {
+      "id": "unknown-arabic-payment-account",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-payment",
+      "top_cosine": 0.456885
+    },
+    {
+      "id": "unknown-arabic-policy-count",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-policy",
+      "top_cosine": 0.645283
+    },
+    {
+      "id": "unknown-arabic-reviewer",
+      "category": "related_but_absent",
+      "label": "unanswerable",
+      "top_passage_id": "ar-policy",
+      "top_cosine": 0.72484
+    }
+  ]
+}
+

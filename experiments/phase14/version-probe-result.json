@@ -1,0 +1,45 @@
+{
+  "scope": "Synthetic assumption: v1 original, v2 latest. No lifecycle filtering.",
+  "model": "embeddinggemma:300m",
+  "cases": [
+    {
+      "id": "latest",
+      "assumed_expected": "en-delivery-v2",
+      "bm25_top3": [
+        "en-payment",
+        "en-delivery-v2",
+        "en-warranty"
+      ],
+      "vector_top3": [
+        "en-delivery-v1",
+        "en-delivery-v2",
+        "ar-delivery"
+      ],
+      "hybrid_top3": [
+        "en-delivery-v2",
+        "en-delivery-v1",
+        "en-payment"
+      ]
+    },
+    {
+      "id": "original",
+      "assumed_expected": "en-delivery-v1",
+      "bm25_top3": [
+        "en-delivery-v2",
+        "en-payment",
+        "en-warranty"
+      ],
+      "vector_top3": [
+        "en-delivery-v2",
+        "en-delivery-v1",
+        "ar-delivery"
+      ],
+      "hybrid_top3": [
+        "en-delivery-v2",
+        "en-delivery-v1",
+        "en-payment"
+      ]
+    }
+  ]
+}
+

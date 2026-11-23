@@ -1,0 +1,128 @@
+{
+  "status": "human_review_required",
+  "source_sha256": "1b4e376e15feab5c2f35a1cfc2d613e853c0b259b3566e2c7a4a8361d938f05f",
+  "model_name": "arabic_PP-OCRv5_mobile_rec",
+  "model_sha256": {
+    "inference.json": "d43832804d89c0e18d59f8446a3babd0ef60c44bc335efddac3176caf71d50af",
+    "inference.pdiparams": "4b4271fd1dd89a40b2056e1a42e58de7c0df2fdcf1a97ca9a8916d7ec45f9143",
+    "inference.yml": "21368419e6c016c31db55d316d59e11c128e1913e6e6fe10287084710043d3a6"
+  },
+  "paddle_version": "3.2.0",
+  "paddleocr_version": "3.3.2",
+  "python_version": "3.12.14",
+  "scope": "One synthetic image, manually selected regions, no detection or independent evaluation.",
+  "results": [
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "variant": "original",
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "٩٠٠،٠٠",
+      "model_score_uncalibrated": 0.8835511207580566,
+      "strict_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "variant": "enlarged_border",
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "٩٠،٠٠",
+      "model_score_uncalibrated": 0.7471351027488708,
+      "strict_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "variant": "original",
+      "expected": "٥",
+      "recognized": "",
+      "model_score_uncalibrated": 0.0,
+      "strict_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "variant": "enlarged_border",
+      "expected": "٥",
+      "recognized": "ه",
+      "model_score_uncalibrated": 0.6182012557983398,
+      "strict_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "variant": "original",
+      "expected": "٤٥٫٠٠",
+      "recognized": "،٠٠",
+      "model_score_uncalibrated": 0.8498597145080566,
+      "strict_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "variant": "enlarged_border",
+      "expected": "٤٥٫٠٠",
+      "recognized": "٤٥،٠٠",
+      "model_score_uncalibrated": 0.8154628872871399,
+      "strict_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "variant": "original",
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "٩٤٥،٠٠",
+      "model_score_uncalibrated": 0.862234890460968,
+      "strict_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "variant": "enlarged_border",
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "٩٤٥،",
+      "model_score_uncalibrated": 0.8763135075569153,
+      "strict_numeric_match": false
+    }
+  ]
+}
