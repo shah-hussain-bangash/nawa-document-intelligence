@@ -49,6 +49,14 @@ function rememberDraft(){
   if(draft)unsavedDrafts.set(selected,draft);else unsavedDrafts.delete(selected);
   return true;
 }
+function hasUnsavedEntries(){
+  if(activeDraftCapture&&activeDraftCapture())return true;
+  for(const id of unsavedDrafts.keys())if(id!==selected||!activeDraftCapture)return true;
+  return false;
+}
+window.addEventListener('beforeunload',event=>{
+  if(hasUnsavedEntries()){event.preventDefault();event.returnValue='';}
+});
 function loaded(row){if(!rememberDraft())return;records.set(row.id,row.quotation);selected=row.id;$('count').textContent=records.size;renderItems();renderDetails();renderReview();message(`Loaded ${row.quotation.document}`);}
 function renderItems(){
   const root=$('items');clear(root);
@@ -362,7 +370,7 @@ $('versionHistory').addEventListener('click',()=>task(async()=>{
 }));
 $('compareBtn').addEventListener('click',()=>task(async()=>{const ids=Array.from(document.querySelectorAll('#items input:checked')).map(x=>x.dataset.id);const result=await request('/api/compare',{ids});const root=$('comparison');clear(root);for(const q of result.quotations){const excluded=q.comparison&&q.comparison.eligible===false;const state=excluded?'Excluded (review not approved)':Object.values(q.checks).every(Boolean)?'Valid':'Excluded (financial mismatch)';const basis=q.comparison?.basis==='approved_review'?` · approved review revision ${q.comparison.review_revision}`:'';root.append(el('div',`${q.supplier} — AED ${q.total} — ${state}${basis}${sourceCheckNote(q.comparison?.source_checks)}`,'row'));}root.append(el('p',`Lowest valid total: ${result.lowest_valid_total||'None'}`));root.append(el('p',result.note,'muted'));message('Comparison completed');}));
 async function initialize(){const main=document.querySelector('main');main.hidden=true;try{const config=await fetch('/auth/config');if(!config.ok)throw new Error('Authentication configuration unavailable');const auth=await config.json();authMode=auth.mode;intakeEnabled=auth.mode==='oidc'&&auth.intake_enabled===true;if(!['demo','oidc'].includes(authMode))throw new Error('Unknown authentication mode');if(authMode==='oidc'){const me=await fetch('/auth/me');if(me.status===403){$('signin').hidden=false;return;}if(!me.ok)throw new Error('Identity service unavailable');const identity=await me.json();workspaceRole=identity.role;draftSessionBinding=csrfToken();if(intakeEnabled&&workspaceRole==='analyst')$('roleNotice').textContent='Upload a synthetic file below to retain its source for evidence-linked corrections. The test worker must be running.';if(workspaceRole!=='analyst'){$('roleNotice').textContent='An Analyst uploads and prepares quotations; a Reviewer records the final decision.';for(const id of ['loadSample','uploadBtn','intakeSubmit','intakePromote'])$(id).disabled=true;}$('logout').hidden=false;if(auth.intake_enabled===true)$('intakePanel').hidden=false;}else{$('footerNote').textContent+=' · Reviewer identities are not authenticated';}main.hidden=false;const response=await fetch('/api/quotations');const result=await response.json();if(!response.ok)throw new Error(result.error||'Storage unavailable');for(const row of result.quotations)records.set(row.id,row.quotation);$('count').textContent=records.size;if(records.size){selected=records.keys().next().value;renderItems();renderDetails();renderReview();}const note=$('storageMode');if(note)note.textContent=result.storage==='postgres'?'PostgreSQL development storage':'Local, in-memory decisions';}catch(error){$('signin').hidden=false;$('signinError').textContent=error.message;}}
-$('logout').addEventListener('click',()=>task(async()=>{if(!sameDraftSession())return;const response=await fetch('/auth/logout',{method:'POST',headers:{'X-NAWA-CSRF':csrfToken()}});if(!response.ok)throw new Error('Sign-out failed');window.location.reload();}));
+$('logout').addEventListener('click',()=>task(async()=>{if(!sameDraftSession())return;if(hasUnsavedEntries()&&!window.confirm('You have unsaved quotation entries. Signing out will discard them. Sign out?'))return;const response=await fetch('/auth/logout',{method:'POST',headers:{'X-NAWA-CSRF':csrfToken()}});if(!response.ok)throw new Error('Sign-out failed');unsavedDrafts.clear();activeDraftCapture=null;window.location.reload();}));
 $('sessionRefresh').addEventListener('click',()=>window.location.reload());
 if(typeof document.addEventListener==='function')document.addEventListener('visibilitychange',()=>{if(!document.hidden)sameDraftSession();});
 initialize();

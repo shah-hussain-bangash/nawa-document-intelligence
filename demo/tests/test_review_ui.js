@@ -24,6 +24,7 @@ let saved={document:'synthetic.txt',status:'pending_review',revision:1,fields:{s
 let failSave=true,holdNextShow=false,finishHeldShow=null,holdNextSave=false,finishHeldSave=null;
 let reloadCount=0;
 let correctionRequests=0;
+const windowEvents={};
 async function fetch(url,opts={}) {
   let data,ok=true,status=200;
   if(url==='/auth/config')data={mode:'oidc',intake_enabled:true};
@@ -48,13 +49,16 @@ async function tick(){await new Promise(resolve=>setImmediate(resolve));}
 async function run(){
   const source=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8');
   vm.runInNewContext(source,{document,fetch,TextEncoder,Uint8Array,Map,Array,String,JSON,
-    btoa:value=>Buffer.from(value,'binary').toString('base64'),window:{location:{reload(){reloadCount++;}}}});
+    btoa:value=>Buffer.from(value,'binary').toString('base64'),window:{addEventListener(name,handler){windowEvents[name]=handler;},confirm(){return false;},location:{reload(){reloadCount++;}}}});
   await tick();await tick();
   let review=get('review');
   assert.equal(byText(review,'Approve'),undefined);
   byId(review,'correction-field').value='total';byId(review,'correction-value').value='1049.00';
   byId(review,'correction-reason').value='Source checked';byId(review,'correction-line').value='6';
   byId(review,'correction-quote').value='Total: 1050.00';
+  const leaveEvent={prevented:false,preventDefault(){this.prevented=true;}};
+  windowEvents.beforeunload(leaveEvent);assert.equal(leaveEvent.prevented,true);
+  await get('logout').events.click();assert.equal(reloadCount,0);
   await byText(review,'Save correction').events.click();
   assert.match(flatten(review).find(x=>x.className.includes('review-feedback')).textContent,/Could not save.*try again/i);
   assert.equal(byId(review,'correction-value').value,'1049.00');

@@ -56,7 +56,7 @@ async function mainTest() {
   const source = fs.readFileSync(path.join(__dirname, '../web/app.js'), 'utf8');
   const context = {document, fetch, TextEncoder, Uint8Array, Map, Array, String, JSON,
                    btoa: value => Buffer.from(value, 'binary').toString('base64'),
-                   window:{location:{reload(){}}}};
+                   window:{addEventListener(){},location:{reload(){}}}};
   vm.runInNewContext(source, context, {filename:'app.js'});
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(main.hidden, false);

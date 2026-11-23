@@ -88,6 +88,13 @@ const server=http.createServer(async(req,res)=>{
     await page.getByText('Status: pending_review · revision 3').waitFor();
     await page.getByLabel('Corrected value').fill('1048.00');
     await page.getByLabel('Reason for correction').fill('First quotation draft');
+    const signOutPrompt=page.waitForEvent('dialog');
+    const signOutClick=page.getByRole('button',{name:'Sign out'}).click();
+    const confirmation=await signOutPrompt;
+    assert.match(confirmation.message(),/unsaved quotation entries/i);
+    await confirmation.dismiss();
+    await signOutClick;
+    assert.equal(await page.getByLabel('Corrected value').inputValue(),'1048.00');
     await page.getByRole('button',{name:'Open review for second-synthetic.txt'}).click();
     await page.getByLabel('Corrected value').fill('222.00');
     await page.getByLabel('Reason for correction').fill('Second quotation draft');
