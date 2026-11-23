@@ -20,7 +20,15 @@ def verify_no_active_synthetic_grants(connect):
             row = conn.execute('SELECT current_database()').fetchone()
             if (not row or not isinstance(row[0], str) or not _RESTORE_DB.fullmatch(row[0])):
                 return False
-            active = conn.execute('SELECT EXISTS (SELECT 1 FROM nawa_synthetic_document_grants WHERE active)').fetchone()
+            visibility = conn.execute(
+                "SELECT has_table_privilege(current_user, 'public.nawa_synthetic_document_grants', 'SELECT'), "
+                "row_security_active('public.nawa_synthetic_document_grants'), "
+                "(SELECT relkind::text FROM pg_class WHERE oid = 'public.nawa_synthetic_document_grants'::regclass)"
+            ).fetchone()
+            if (not isinstance(visibility, tuple) or len(visibility) != 3
+                    or visibility[0] is not True or visibility[1] is not False or visibility[2] != 'r'):
+                return False
+            active = conn.execute('SELECT EXISTS (SELECT 1 FROM public.nawa_synthetic_document_grants WHERE active)').fetchone()
             return isinstance(active, tuple) and len(active) == 1 and active[0] is False
     except Exception:
         return False

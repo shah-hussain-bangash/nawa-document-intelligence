@@ -7,9 +7,10 @@ from nawa_demo.synthetic_restore_guard import verify_no_active_synthetic_grants
 
 class Connection:
     def __init__(self, *, database='nawa_phase13_qa_restore_123456abcdef', active=False,
-                 host='127.0.0.1', autocommit=False):
+                 host='127.0.0.1', autocommit=False, visibility=(True, False, 'r')):
         self.database, self.active = database, active
         self.info, self.autocommit = SimpleNamespace(host=host), autocommit
+        self.visibility = visibility
         self.queries = []
 
     def __enter__(self):
@@ -24,7 +25,10 @@ class Connection:
             return self
         if query == 'SELECT current_database()':
             return SimpleNamespace(fetchone=lambda:(self.database,))
-        if query == 'SELECT EXISTS (SELECT 1 FROM nawa_synthetic_document_grants WHERE active)':
+        if query == "SELECT has_table_privilege(current_user, 'public.nawa_synthetic_document_grants', 'SELECT'), row_security_active('public.nawa_synthetic_document_grants'), (SELECT relkind::text FROM pg_class WHERE oid = 'public.nawa_synthetic_document_grants'::regclass)":
+            return SimpleNamespace(fetchone=lambda:self.visibility)
+        if query in ('SELECT EXISTS (SELECT 1 FROM public.nawa_synthetic_document_grants WHERE active)',
+                     'SELECT EXISTS (SELECT 1 FROM nawa_synthetic_document_grants WHERE active)'):
             return SimpleNamespace(fetchone=lambda:(self.active,))
         raise AssertionError('Unexpected query')
 
@@ -36,14 +40,22 @@ class SyntheticRestoreGuardTests(unittest.TestCase):
                 connection = Connection(active=active)
                 self.assertIs(verify_no_active_synthetic_grants(lambda:connection), not active)
                 self.assertEqual(connection.queries[0], 'SET TRANSACTION READ ONLY')
-                self.assertEqual(len(connection.queries), 3)
+                self.assertEqual(len(connection.queries), 4)
 
     def test_rejects_unapproved_connection_and_database(self):
         for connection in (Connection(database='nawa_demo'), Connection(host='db.example'),
                            Connection(autocommit=True), Connection(database='nawa_phase13_qa_restore_invalid')):
             with self.subTest(connection=connection):
                 self.assertFalse(verify_no_active_synthetic_grants(lambda:connection))
-                self.assertNotIn('SELECT EXISTS (SELECT 1 FROM nawa_synthetic_document_grants WHERE active)',
+                self.assertNotIn('SELECT EXISTS (SELECT 1 FROM public.nawa_synthetic_document_grants WHERE active)',
+                                 connection.queries)
+
+    def test_row_security_or_missing_visibility_cannot_report_a_clear_restore(self):
+        for visibility in ((True, True, 'r'), (False, False, 'r'), (True, False, 'v'), None):
+            with self.subTest(visibility=visibility):
+                connection = Connection(active=False, visibility=visibility)
+                self.assertFalse(verify_no_active_synthetic_grants(lambda:connection))
+                self.assertNotIn('SELECT EXISTS (SELECT 1 FROM public.nawa_synthetic_document_grants WHERE active)',
                                  connection.queries)
 
     def test_errors_and_malformed_results_fail_closed(self):
