@@ -414,6 +414,7 @@ class PostgresIntakeTests(unittest.TestCase):
         from nawa_demo.synthetic_postgres_passages import SyntheticPostgresPassages
         from nawa_demo.synthetic_postgres_review_queue import SyntheticPostgresReviewQueue
         from nawa_demo.synthetic_review_queue import ReviewRequestUnavailable
+        from nawa_demo.synthetic_restore_guard import verify_no_active_synthetic_grants
         issuer = 'https://synthetic-retrieval'
         users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
         reviewer_users = [(uuid4().hex, self.tenant), (uuid4().hex, self.other)]
@@ -536,14 +537,18 @@ class PostgresIntakeTests(unittest.TestCase):
                     # Risk characterization: this old backup reintroduces access
                     # that was revoked later; it is not a recovery safety pass.
                     self.assertEqual(restored_search.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
+                    self.assertFalse(verify_no_active_synthetic_grants(self.connect))
+                    self.assertFalse(verify_no_active_synthetic_grants(restored_connect))
                     # An explicit QA-only reset on the separate restored target
                     # denies all restored grants until individually regranted.
                     with restored_connect() as conn:
                         reset = conn.execute('UPDATE nawa_synthetic_document_grants SET active=false WHERE active')
                         self.assertGreaterEqual(reset.rowcount, 1)
+                    self.assertTrue(verify_no_active_synthetic_grants(restored_connect))
                     self.assertEqual(restored_search.search(keys[0], self.tenant, 'Grand Total'), [])
                     self.assertEqual(restored_search.search(keys[1], self.other, 'Grand Total'), [])
                     self.assertTrue(restored_source.set_access(reviewers[0], second, keys[0], True, 'synthetic reapproval'))
+                    self.assertFalse(verify_no_active_synthetic_grants(restored_connect))
                     self.assertEqual(restored_search.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
                     self.assertEqual(restored_search.search(keys[1], self.other, 'Grand Total'), [])
                     self.assertTrue(source.set_access(reviewers[0], second, keys[0], True, 'restore test cleanup'))
