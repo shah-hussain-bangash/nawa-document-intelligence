@@ -27,6 +27,7 @@ jobs:
           cd demo
           python -m unittest discover -s tests -v
           node tests/test_intake_ui.js
+          node tests/test_review_ui.js
 
   postgres-integration:
     runs-on: ubuntu-latest
@@ -260,4 +261,5 @@ jobs:
           NAWA_PHASE13_CI_QA: '1'
           PYTHONPATH: demo
         run: python -m nawa_demo.phase13_browser_oidc_check
+
 

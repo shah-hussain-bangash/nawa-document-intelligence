@@ -65,10 +65,25 @@ def main():
             page.locator('#items').get_by_text('browser-synthetic.txt').wait_for(state='visible', timeout=15000)
             page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
             page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+            page.get_by_label('Field to correct').select_option('vat_rate_percent')
+            page.get_by_label('Corrected value').fill('5.0')
+            page.get_by_label('Reason for correction').fill('Normalize the synthetic rate')
+            page.get_by_label('Original source line').fill('4')
+            page.get_by_label('Exact source excerpt').fill('VAT Rate: 5')
+            page.get_by_role('button', name='Save correction').click()
+            page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+            if 'Originally extracted: 5' not in page.locator('#details').inner_text():
+                raise AssertionError('Original extracted value was not shown')
+            page.reload(wait_until='domcontentloaded')
+            page.get_by_role('button', name='Open review for browser-synthetic.txt').click(timeout=15000)
+            page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+            details = page.locator('#details').inner_text()
+            if '5.0' not in details or 'VAT Rate: 5' not in details:
+                raise AssertionError('Saved value and source evidence were not restored')
             context.close()
         finally:
             browser.close()
-    print('PASS: real browser used synthetic session with live intake, worker, PostgreSQL and review.')
+    print('PASS: synthetic browser intake, correction and reopen with worker and PostgreSQL.')
 
 
 if __name__ == '__main__':
@@ -77,4 +92,5 @@ if __name__ == '__main__':
     except Exception as exc:
         print('Synthetic live-browser check failed:', type(exc).__name__, '(details withheld).')
         raise SystemExit(1) from None
+
 
