@@ -201,6 +201,11 @@ class ScopedState:
             source_checks = []
             if action == 'decide':
                 if payload.get('decision') == 'approve':
+                    # A later role change must not let the same provisioned
+                    # identity approve its own earlier correction.
+                    if any(event['type'] == 'correction' and event['actor'] == actor
+                           for event in row[1]['events']):
+                        raise AccessDenied('Request denied')
                     source_checks = self._verify_corrections(conn, principal, item_id, original, row[1])
                 updated = decide(row[1], actor=actor, decision=payload.get('decision'),
                                  reason=payload.get('reason'), expected_revision=payload.get('expected_revision'))
@@ -227,4 +232,5 @@ class ScopedState:
 
     def review_correction(self, principal, payload):
         return self._change(principal, payload, 'correct')
+
 

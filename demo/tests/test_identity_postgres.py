@@ -282,6 +282,38 @@ class IdentityPostgresTests(unittest.TestCase):
         with self.assertRaises(AccessDenied):
             state.list_items(reviewer)
 
+    def test_same_identity_cannot_approve_its_correction_after_role_change(self):
+        from nawa_demo.migrate import migrate
+        from nawa_demo.scoped_state import ScopedState, AccessDenied
+        from nawa_demo.identity_repository import membership
+        issuer, tenant = 'https://id.example', 'synthetic-tenant'
+        with self.connect() as conn:
+            migrate(conn)
+            conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s)', (tenant,))
+            for subject, role in [('preparer', 'analyst'), ('independent', 'reviewer')]:
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, tenant, role))
+            analyst = membership(conn, issuer=issuer, subject='preparer', tenant=tenant)
+            independent = membership(conn, issuer=issuer, subject='independent', tenant=tenant)
+        state = ScopedState(self.connect)
+        item = state.add_sample(analyst, 'english_quote.txt')['id']
+        state.review_start(analyst, item)
+        state.review_correction(analyst, {'id':item, 'field':'total', 'value':'1050',
+            'reason':'Synthetic formatting', 'source':'english_quote.txt', 'line':6,
+            'quote':'Grand Total: 1050.00', 'expected_revision':1})
+        with self.connect() as conn:
+            conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                         (issuer, 'preparer', tenant))
+            same_identity = membership(conn, issuer=issuer, subject='preparer', tenant=tenant)
+        decision = {'id':item, 'decision':'approve', 'reason':'Synthetic review', 'expected_revision':2,
+                    'actor':'forged-independent-identity'}
+        with self.assertRaises(AccessDenied):
+            state.review_decision(same_identity, decision)
+        self.assertEqual(state.review_show(same_identity, item)['revision'], 2)
+        approved = state.review_decision(independent, decision)
+        self.assertEqual((approved['status'], approved['revision']), ('approved', 3))
+
     def test_comparison_uses_only_approved_correction_and_preserves_source(self):
         import base64
         from pathlib import Path
@@ -334,4 +366,5 @@ class IdentityPostgresTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 

@@ -30,7 +30,8 @@ const server=http.createServer(async(req,res)=>{
   }else if(req.url==='/api/review/correct'){
     if(failSave){failSave=false;res.statusCode=503;data={error:'Storage unavailable'};}
     else{const p=JSON.parse(raw);assert.equal(p.expected_revision,2);review.corrections.push({sequence:3,field:p.field,from:review.fields[p.field],to:p.value,reason:p.reason,evidence:{source:p.source,line:p.line,quote:p.quote}});review.fields[p.field]=p.value;review.checks.total_matches_components=false;review.revision=3;data=review;}
-  }else{res.statusCode=404;data={error:'Unknown test endpoint'};}
+  }else if(req.url==='/api/review/decide'){res.statusCode=403;data={error:'Request denied'};}
+  else{res.statusCode=404;data={error:'Unknown test endpoint'};}
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));
 });
 
@@ -82,6 +83,9 @@ const server=http.createServer(async(req,res)=>{
     assert.equal(await page.getByRole('button',{name:'Approve',exact:true}).count(),1);
     await page.getByText('Cited excerpt: Total: 1050.00',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Add selected file'}).isDisabled(),true);
+    await page.getByPlaceholder('Explain your decision').fill('Synthetic decision');
+    await page.getByRole('button',{name:'Approve',exact:true}).click();
+    await page.getByText(/Decision denied.*another authorized Reviewer/i).waitFor();
     testRole='analyst';await page.reload();
     await page.getByText('Status: pending_review · revision 3').waitFor();
     await page.getByLabel('Field to correct').selectOption('total');

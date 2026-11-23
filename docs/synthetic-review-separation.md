@@ -1,0 +1,5 @@
+# Synthetic correction and approval separation
+
+The protected synthetic review path rejects an approval when the verified issuer-and-subject identity matches the actor of any correction in that review, even if that identity later receives the Reviewer role. The actor is derived server-side; a browser-supplied actor is not trusted. A different provisioned Reviewer can approve after the existing authorization, source, revision and financial checks pass.
+
+This is a narrow synthetic safeguard, not proof of separation between people. One person may hold different accounts or identities. Historical correction actors from other systems might not be comparable. Upload and review-start events do not record a verified preparer identity, so a reviewer who uploaded an uncorrected quotation is not blocked by this check. Existing reviews are not changed or migrated. An organization needs a trusted identity and provenance model, policy for historic records, and independent review before claiming complete separation of duties.
