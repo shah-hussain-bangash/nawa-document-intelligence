@@ -88,7 +88,7 @@ const server=http.createServer(async(req,res)=>{
     await page.getByText(/Could not save.*try again/i).waitFor();
     review.status='approved';review.revision=4;
     await page.getByRole('button',{name:'Reload saved review'}).click();
-    await page.getByText('This review is final. Your unsaved input was not recorded.').waitFor();
+    await page.getByText('This review is final. Your input could not be confirmed as saved.').waitFor();
     await page.getByText('value: 1048.00',{exact:true}).waitFor();
     console.log('PASS: browser upload, retry, correction and reopen against in-memory mock API');
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

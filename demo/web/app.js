@@ -89,7 +89,7 @@ async function renderReview(draft=null,reopened=false){
   const history=el('div',undefined,'history');for(const h of review.history){history.append(el('div',`#${h.sequence} ${h.type} · ${h.actor} · ${h.timestamp}`,'row'));}
   if(review.status==='approved'||review.status==='rejected'){
     if(draft){
-      root.append(el('p','This review is final. Your unsaved input was not recorded.','review-error'));
+      root.append(el('p','This review is final. Your input could not be confirmed as saved.','review-error'));
       showUnsaved(root,draft);
     }
     root.append(history);return;
