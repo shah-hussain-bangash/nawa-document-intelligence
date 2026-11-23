@@ -36,7 +36,8 @@ def check_structured_claim(claim, source_line):
     if (not isinstance(claim, dict) or set(claim) != {'field', 'amount', 'currency'}
             or not isinstance(claim.get('field'), str) or claim['field'] not in _LABELS
             or claim.get('currency') != 'AED'
-            or not isinstance(source_line, str) or len(source_line) > 200):
+            or not isinstance(source_line, str) or len(source_line) > 200
+            or source_line.splitlines() != [source_line]):
         return result
     try:
         match = _LINE.fullmatch(source_line)
