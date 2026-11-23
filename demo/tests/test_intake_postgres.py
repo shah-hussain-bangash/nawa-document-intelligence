@@ -314,6 +314,49 @@ class PostgresIntakeTests(unittest.TestCase):
             with self.assertRaises(AccessDenied):
                 state.review_decision(users['reviewer'], decision)
 
+    def test_strict_synthetic_approval_lock_blocks_duplicate_submitter_updates(self):
+        from nawa_demo.identity_repository import membership
+        from nawa_demo.scoped_state import AccessDenied
+        issuer = 'https://synthetic-locks.example'
+        names = {key:key + '-' + uuid4().hex for key in ('uploader', 'duplicate', 'reviewer')}
+        with self.connect() as conn:
+            for key, subject in names.items():
+                role = 'reviewer' if key == 'reviewer' else 'analyst'
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, self.tenant, role))
+            users = {key:membership(conn, issuer=issuer, subject=subject, tenant=self.tenant)
+                     for key, subject in names.items()}
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            tracked = ScopedIntake(self.connect, store, track_submitters=True)
+            state = ScopedState(self.connect, require_tracked_submitters=True)
+            sample = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = tracked.submit(users['uploader'], 'locking.txt', sample)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            item = tracked.promote(users['uploader'], document)['id']
+            state.review_start(users['uploader'], item)
+            limited_connect = lambda: psycopg.connect(DSN, options='-c lock_timeout=300ms')
+            competing_tracked = ScopedIntake(limited_connect, store, track_submitters=True)
+            competing_untracked = ScopedIntake(limited_connect, store)
+            # Hold the same source and tracking locks as the approval check.
+            # Each competing submission must time out rather than pass the lock.
+            with self.connect() as conn:
+                state._quote(conn, users['reviewer'], item, lock=True)
+                state._require_independent_submitter(conn, users['reviewer'], item)
+                with self.assertRaises(psycopg.errors.LockNotAvailable):
+                    competing_tracked.submit(users['duplicate'], 'locking.txt', sample)
+                with self.assertRaises(psycopg.errors.LockNotAvailable):
+                    competing_untracked.submit(users['duplicate'], 'locking.txt', sample)
+            # After the locks release, updated writers can proceed, and an
+            # untracked submission makes later strict approval fail closed.
+            self.assertEqual(tracked.submit(users['duplicate'], 'locking.txt', sample), (document, False))
+            self.assertEqual(ScopedIntake(self.connect, store).submit(users['duplicate'], 'locking.txt', sample),
+                             (document, False))
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], {'id':item, 'decision':'approve',
+                    'reason':'Synthetic review', 'expected_revision':1})
+
     def test_registration_dedup_and_claim_boundary(self):
         meta = check_document('عرض.txt', 'عرض سعر'.encode('utf-8'))
         document = uuid4().hex
