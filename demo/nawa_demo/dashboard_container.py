@@ -94,7 +94,8 @@ def serve():
         intake = None
         if intake_mode == 'synthetic':
             from .intake_runtime import build_synthetic_intake
-            intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'), origin_policy=origin_policy)
+            intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'), origin_policy=origin_policy,
+                                             track_submitters=(evidence_mode == 'ci'))
         scoped = ScopedState(connect, correction_source_policy=correction_policy,
                              correction_source_store=intake.store if intake is not None else None)
         retrieval = None
@@ -121,3 +122,4 @@ def serve():
 
 if __name__ == '__main__':
     serve()
+

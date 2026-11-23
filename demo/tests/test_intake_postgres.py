@@ -198,6 +198,38 @@ class PostgresIntakeTests(unittest.TestCase):
             conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s),(%s)', (self.tenant, self.other))
         self.jobs = PostgresIntakeJobs(self.connect)
 
+    def test_submitter_tracking_records_each_synthetic_duplicate_without_cross_tenant_leakage(self):
+        issuer = 'https://synthetic-uploader.example'
+        subjects = ['first-' + uuid4().hex, 'second-' + uuid4().hex, 'other-' + uuid4().hex]
+        with self.connect() as conn:
+            for subject, tenant in zip(subjects, [self.tenant, self.tenant, self.other]):
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, tenant, 'analyst'))
+        principals = [make_principal(self.connect, json.dumps([issuer, subject], separators=(',', ':')), tenant, 'analyst')
+                      for subject, tenant in zip(subjects, [self.tenant, self.tenant, self.other])]
+        with TemporaryDirectory() as folder:
+            service = ScopedIntake(self.connect, LocalIntakeStore(folder), track_submitters=True)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(service.submit, principal, 'synthetic.txt', b'Synthetic quotation')
+                           for principal in principals[:2]]
+                first, second = [future.result() for future in futures]
+            self.assertEqual(first[0], second[0])
+            self.assertEqual({first[1], second[1]}, {True, False})
+            self.assertEqual(service.submit(principals[0], 'synthetic.txt', b'Synthetic quotation'), (first[0], False))
+            other = service.submit(principals[2], 'synthetic.txt', b'Synthetic quotation')
+            self.assertNotEqual(first[0], other[0])
+            untracked = ScopedIntake(self.connect, LocalIntakeStore(folder)).submit(
+                principals[0], 'untracked.txt', b'Different synthetic quotation')
+            with self.connect() as conn:
+                rows = conn.execute('''SELECT tenant_id,document_id,actor_hash FROM nawa_synthetic_intake_submitters
+                    WHERE tenant_id IN (%s,%s) ORDER BY tenant_id,actor_hash''', (self.tenant, self.other)).fetchall()
+                self.assertEqual(conn.execute('''SELECT count(*) FROM nawa_synthetic_intake_submitters
+                    WHERE tenant_id=%s AND document_id=%s''', (self.tenant, untracked[0])).fetchone()[0], 0)
+            expected = {(principal.tenant, first[0] if principal.tenant == self.tenant else other[0],
+                         hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()) for principal in principals}
+            self.assertEqual({(tenant, document.hex, actor.strip()) for tenant, document, actor in rows}, expected)
+
     def test_registration_dedup_and_claim_boundary(self):
         meta = check_document('عرض.txt', 'عرض سعر'.encode('utf-8'))
         document = uuid4().hex
@@ -1342,12 +1374,13 @@ print('Synthetic request found in a fresh process')
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 7)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 8)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_withdrawals')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_document_grants')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_grant_generation_seq')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_review_requests')").fetchone()[0])
+            self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_intake_submitters')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
             with self.assertRaisesRegex(ValueError, 'history mismatch'):
@@ -1477,4 +1510,5 @@ print('Synthetic request found in a fresh process')
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
+
 

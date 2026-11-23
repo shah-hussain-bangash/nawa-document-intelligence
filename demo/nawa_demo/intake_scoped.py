@@ -19,10 +19,13 @@ def validate_origin_policy(value):
 
 class ScopedIntake:
     """Use only principals resolved from an authenticated server-side session."""
-    def __init__(self, connect, store, *, origin_policy='legacy_compatible'):
+    def __init__(self, connect, store, *, origin_policy='legacy_compatible', track_submitters=False):
         self.connect = connect
         self.store = store
         self.origin_policy = validate_origin_policy(origin_policy)
+        if type(track_submitters) is not bool:
+            raise ValueError('Synthetic submitter tracking must be boolean')
+        self.track_submitters = track_submitters
 
     @staticmethod
     def _require(principal, action):
@@ -45,6 +48,11 @@ class ScopedIntake:
                 jobs = PostgresIntakeJobs(lambda: nullcontext(conn))
                 registration_attempted = True
                 registered, created = jobs.register(principal.tenant, document_id, metadata)
+                if self.track_submitters:
+                    actor_hash = hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+                    conn.execute('''INSERT INTO nawa_synthetic_intake_submitters (tenant_id,document_id,actor_hash)
+                        VALUES (%s,%s,%s) ON CONFLICT (tenant_id,document_id,actor_hash) DO NOTHING''',
+                        (principal.tenant, UUID(registered), actor_hash))
         except IntakeRejected:
             # This explicit rejection occurs before insertion or commit.
             self.store.discard(document_id)
@@ -170,3 +178,4 @@ class ScopedIntake:
             conn.execute('INSERT INTO nawa_intake_promotions (tenant_id,document_id,quotation_id) VALUES (%s,%s,%s)',
                          (principal.tenant, document, item_id))
             return {'id':item_id, 'quotation':public_quote, 'created':True}
+
