@@ -122,8 +122,17 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install -r demo/requirements-pdf.txt -r demo/requirements-phase13.txt 'psycopg[binary]>=3.2,<4' 'PyJWT[crypto]>=2.10,<3'
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-16
+          version="$(pg_dump --version 2>/dev/null || true)"
+          if psql --version >/dev/null 2>&1 && pg_restore --version >/dev/null 2>&1 \
+              && [[ "$version" =~ ([0-9]+)\. ]] && (( BASH_REMATCH[1] >= 16 )); then
+            echo "Using installed PostgreSQL client: $version"
+          else
+            timeout 120s sudo apt-get update
+            timeout 120s sudo apt-get install -y postgresql-client-16
+          fi
+          psql --version
+          pg_dump --version
+          pg_restore --version
       - name: Create isolated synthetic schema
         run: |
           for file in demo/nawa_demo/migrations/00*.sql; do
