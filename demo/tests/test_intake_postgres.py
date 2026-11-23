@@ -539,6 +539,29 @@ class PostgresIntakeTests(unittest.TestCase):
                     self.assertEqual(restored_search.search(keys[0], self.tenant, 'Grand Total')[0]['document_id'], second)
                     self.assertFalse(verify_no_active_synthetic_grants(self.connect))
                     self.assertFalse(verify_no_active_synthetic_grants(restored_connect))
+                    # A restricted role sees no rows under RLS even though active
+                    # grants exist. The guard must not mistake that for a clean restore.
+                    role_name = 'nawa_guard_' + uuid4().hex[:12]
+                    with restored_connect() as conn:
+                        conn.execute(psycopg.sql.SQL('CREATE ROLE {} NOLOGIN').format(psycopg.sql.Identifier(role_name)))
+                        conn.execute(psycopg.sql.SQL('GRANT SELECT ON public.nawa_synthetic_document_grants TO {}')
+                                     .format(psycopg.sql.Identifier(role_name)))
+                        conn.execute('ALTER TABLE public.nawa_synthetic_document_grants ENABLE ROW LEVEL SECURITY')
+                    try:
+                        def restricted_connect():
+                            conn = psycopg.connect(**restored_params, autocommit=True)
+                            conn.execute(psycopg.sql.SQL('SET ROLE {}').format(psycopg.sql.Identifier(role_name)))
+                            conn.autocommit = False
+                            return conn
+                        with restricted_connect() as conn:
+                            self.assertEqual(conn.execute('SELECT count(*) FROM public.nawa_synthetic_document_grants').fetchone()[0], 0)
+                        self.assertFalse(verify_no_active_synthetic_grants(restricted_connect))
+                    finally:
+                        with restored_connect() as conn:
+                            conn.execute('ALTER TABLE public.nawa_synthetic_document_grants DISABLE ROW LEVEL SECURITY')
+                            conn.execute(psycopg.sql.SQL('REVOKE ALL ON public.nawa_synthetic_document_grants FROM {}')
+                                         .format(psycopg.sql.Identifier(role_name)))
+                            conn.execute(psycopg.sql.SQL('DROP ROLE {}').format(psycopg.sql.Identifier(role_name)))
                     # An explicit QA-only reset on the separate restored target
                     # denies all restored grants until individually regranted.
                     with restored_connect() as conn:
