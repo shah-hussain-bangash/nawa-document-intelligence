@@ -231,8 +231,8 @@ function uploadRecovery(id, state){
       if(current==='completed'){uploadLoaded(await request('/api/intake/promote',{id}));return;}
       if(current==='failed'){feedback.className='review-feedback review-error';feedback.textContent='Processing failed. Enter a reason and retry below.';uploadRecovery(id,'failed');return;}
       feedback.className='review-feedback';
-      feedback.textContent=current==='received'?'This file needs revalidation. Use Revalidate received file in document intake below.':'Processing is still pending. Check again shortly.';
-      uploadRecovery(id,'pending');
+      feedback.textContent=current==='received'?'This file needs revalidation. Enter a reason below.':'Processing is still pending. Check again shortly.';
+      uploadRecovery(id,current==='received'?'received':'pending');
     }catch(error){
       feedback.className='review-feedback review-error';
       if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again to check the document. ';signInAgain(feedback);}
@@ -240,21 +240,22 @@ function uploadRecovery(id, state){
     }finally{check.disabled=false;$('uploadBtn').disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
   });
   root.append(check);
-  if(state==='failed'){
-    const label=el('label','Reason for retry');label.setAttribute('for','upload-retry-reason');
+  if(state==='failed'||state==='received'){
+    const revalidate=state==='received';
+    const label=el('label',revalidate?'Reason for revalidation':'Reason for retry');label.setAttribute('for','upload-retry-reason');
     const reason=el('input');reason.id='upload-retry-reason';reason.maxLength=500;
-    const retry=el('button','Retry processing','secondary');
+    const retry=el('button',revalidate?'Revalidate file':'Retry processing','secondary');
     retry.addEventListener('click',async()=>{
-      if(!reason.value.trim()){feedback.className='review-feedback review-error';feedback.textContent='Enter a reason for the retry.';reason.focus();return;}
+      if(!reason.value.trim()){feedback.className='review-feedback review-error';feedback.textContent=revalidate?'Enter a reason for revalidation.':'Enter a reason for the retry.';reason.focus();return;}
       retry.disabled=true;check.disabled=true;$('uploadBtn').disabled=true;
       try{
-        await request('/api/intake/retry',{id,reason:reason.value.trim()});
-        feedback.className='review-feedback';feedback.textContent='Retry requested. Check processing to see when the document is ready.';
+        await request(revalidate?'/api/intake/revalidate':'/api/intake/retry',{id,reason:reason.value.trim()});
+        feedback.className='review-feedback';feedback.textContent=revalidate?'Revalidation requested. Check processing to see when the document is ready.':'Retry requested. Check processing to see when the document is ready.';
         uploadRecovery(id,'pending');
       }catch(error){
         feedback.className='review-feedback review-error';
         if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again to retry. ';signInAgain(feedback);}
-        else feedback.textContent=`Could not confirm the retry: ${error.message}. Check processing before trying again.`;
+        else feedback.textContent=`Could not confirm ${revalidate?'revalidation':'the retry'}: ${error.message}. Check processing before trying again.`;
       }finally{retry.disabled=false;check.disabled=false;$('uploadBtn').disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
     });
     root.append(label,reason,retry);
@@ -284,8 +285,8 @@ $('uploadBtn').addEventListener('click',async()=>{
           uploadRecovery(documentId,'failed');return;
         }
         if(state==='received'){
-          feedback.className='review-feedback review-error';feedback.textContent='This file needs revalidation. Use Revalidate received file in document intake below.';
-          uploadRecovery(documentId,'pending');return;
+          feedback.className='review-feedback review-error';feedback.textContent='This file needs revalidation. Enter a reason below.';
+          uploadRecovery(documentId,'received');return;
         }
         if(attempt<39)await new Promise(resolve=>setTimeout(resolve,1000));
       }

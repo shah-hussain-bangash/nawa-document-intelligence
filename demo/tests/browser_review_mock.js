@@ -12,7 +12,7 @@ const evidence={supplier:{line:1,source_text:'Supplier: Test'},currency:{line:2,
   vat_amount:{line:5,source_text:'VAT Amount: 50.00'},total:{line:6,source_text:'Total: 1050.00'}};
 const quotation={document:'synthetic.txt',supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',
   vat_amount:'50.00',total:'1050.00',evidence,checks:{vat_matches_rate:true,total_matches_components:true}};
-let rows=[],review=null,failSave=true,failReload=false,failStatus=true,failProcessing=true,expired=false,testRole='analyst',correctionCalls=0;
+let rows=[],review=null,failSave=true,failReload=false,failStatus=true,failProcessing=true,needsRevalidation=true,expired=false,testRole='analyst',correctionCalls=0;
 const server=http.createServer(async(req,res)=>{
   const assets={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
   if(assets[req.url]){res.setHeader('Content-Type',req.url.endsWith('.js')?'text/javascript':req.url.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(path.join(root,assets[req.url])));return;}
@@ -21,7 +21,8 @@ const server=http.createServer(async(req,res)=>{
   else if(req.url==='/auth/me'){if(expired){res.statusCode=403;data={error:'Session unavailable'};}else{res.setHeader('Set-Cookie','nawa_csrf=fixture-csrf; Path=/; SameSite=Lax');data={role:testRole};}}
   else if(req.url==='/api/quotations')data={quotations:rows,storage:'postgres'};
   else if(req.url==='/api/intake/batch'){if(expired){res.statusCode=403;data={error:'Session unavailable'};}else data={files:[{id:'synthetic-document',created:true}]};}
-  else if(req.url==='/api/intake/status?id=synthetic-document'){if(failStatus){failStatus=false;res.statusCode=503;data={error:'Status unavailable'};}else data={state:failProcessing?'failed':'completed',attempts:1};}
+  else if(req.url==='/api/intake/status?id=synthetic-document'){if(failStatus){failStatus=false;res.statusCode=503;data={error:'Status unavailable'};}else data={state:needsRevalidation?'received':failProcessing?'failed':'completed',attempts:1};}
+  else if(req.url==='/api/intake/revalidate'){assert.equal(JSON.parse(raw).reason,'Verify received document');needsRevalidation=false;data={state:'validated'};}
   else if(req.url==='/api/intake/retry'){failProcessing=false;data={state:'validated'};}
   else if(req.url==='/api/intake/promote'){rows=[{id:'q1',quotation}];data={...rows[0],created:true};}
   else if(req.url==='/api/review/show'){if(failReload){failReload=false;res.statusCode=503;data={error:'Storage unavailable'};}else if(!review){res.statusCode=400;data={error:'Review is not initialized'};}else data=JSON.parse(raw).id==='q2'?{...review,document:'second-synthetic.txt'}:review;}
@@ -46,6 +47,13 @@ const server=http.createServer(async(req,res)=>{
     await page.locator('#upload').setInputFiles({name:'synthetic.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic')});
     await page.getByRole('button',{name:'Add selected file'}).click();
     await page.getByText(/Could not confirm processing.*Check processing/i).waitFor();
+    await page.getByRole('button',{name:'Check processing'}).click();
+    await page.getByText(/needs revalidation.*reason below/i).waitFor();
+    await page.getByRole('button',{name:'Revalidate file'}).click();
+    await page.getByText('Enter a reason for revalidation.').waitFor();
+    await page.getByLabel('Reason for revalidation',{exact:true}).fill('Verify received document');
+    await page.getByRole('button',{name:'Revalidate file'}).click();
+    await page.getByText(/Revalidation requested.*Check processing/i).waitFor();
     await page.getByRole('button',{name:'Check processing'}).click();
     await page.getByText(/Processing failed.*reason and retry/i).waitFor();
     await page.getByRole('button',{name:'Retry processing'}).click();
