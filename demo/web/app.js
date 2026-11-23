@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 let authMode = 'unknown';
 let workspaceRole = null;
+let intakeEnabled = false;
 const csrfToken = () => (document.cookie.split('; ').find(value=>value.startsWith('nawa_csrf='))||'').slice('nawa_csrf='.length);
 const records = new Map();
 let selected = null;
@@ -108,7 +109,34 @@ async function renderReview(){
   correction.append(save);root.append(el('hr'),correction,history);
 }
 $('loadSample').addEventListener('click',()=>task(async()=>loaded(await request('/api/load-sample',{name:$('sample').value}))));
-$('uploadBtn').addEventListener('click',async()=>{const feedback=$('uploadFeedback');feedback.textContent='';try{const file=$('upload').files[0];if(!file)throw new Error('Choose a synthetic TXT or PDF file');if(file.size>4*1024*1024)throw new Error('File exceeds 4 MiB');const bytes=new Uint8Array(await file.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=16384){binary+=String.fromCharCode(...bytes.subarray(i,i+16384));}loaded(await request('/api/upload',{filename:file.name,content_base64:btoa(binary)}));feedback.className='review-feedback';feedback.textContent='Quotation loaded. Open its review below to check the extracted values.';}catch(error){feedback.className='review-feedback review-error';feedback.textContent=`Could not load the quotation: ${error.message}. Check the file and try again.`;}});
+$('uploadBtn').addEventListener('click',async()=>{
+  const feedback=$('uploadFeedback'), button=$('uploadBtn');feedback.textContent='';button.disabled=true;
+  try{
+    const file=$('upload').files[0];if(!file)throw new Error('Choose a synthetic TXT or PDF file');
+    if(file.size>4*1024*1024)throw new Error('File exceeds 4 MiB');
+    const bytes=new Uint8Array(await file.arrayBuffer());let binary='';
+    for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));
+    const encoded=btoa(binary);let result;
+    if(intakeEnabled){
+      feedback.className='review-feedback';feedback.textContent='Uploading the source for processing…';
+      const batch=await request('/api/intake/batch',{files:[{filename:file.name,content_base64:encoded}]});
+      const item=Array.isArray(batch.files)?batch.files[0]:null;
+      if(!item||!item.id)throw new Error(item&&item.error||'The document was not accepted');
+      const id=item.id;$('intakeId').value=id;
+      for(let attempt=0;attempt<40;attempt++){
+        feedback.textContent='Processing the quotation. Please wait…';
+        const response=await fetch('/api/intake/status?id='+encodeURIComponent(id));const status=await response.json();
+        if(!response.ok)throw new Error(status.error||'Document status unavailable');
+        if(status.state==='completed'){result=await request('/api/intake/promote',{id});break;}
+        if(status.state==='failed')throw new Error('Processing failed. Use Retry failed file in document intake below');
+        if(attempt<39)await new Promise(resolve=>setTimeout(resolve,1000));
+      }
+      if(!result)throw new Error('Processing is still pending. Use Check status in document intake below');
+    }else result=await request('/api/upload',{filename:file.name,content_base64:encoded});
+    loaded(result);feedback.className='review-feedback';feedback.textContent='Quotation loaded. Start or open its review below to check the extracted values.';
+  }catch(error){feedback.className='review-feedback review-error';feedback.textContent=`Could not load the quotation: ${error.message}. Check the details and try again.`;}
+  finally{button.disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
+});
 $('intakeSubmit').addEventListener('click',()=>task(async()=>{
   const files=Array.from($('intakeFiles').files);
   if(!files.length||files.length>10)throw new Error('Choose between 1 and 10 synthetic files');
@@ -179,7 +207,7 @@ $('versionHistory').addEventListener('click',()=>task(async()=>{
   for(const item of result.versions)root.append(el('p',`Version ${item.version} · Document ID: ${item.id}`,'row'));
 }));
 $('compareBtn').addEventListener('click',()=>task(async()=>{const ids=Array.from(document.querySelectorAll('#items input:checked')).map(x=>x.dataset.id);const result=await request('/api/compare',{ids});const root=$('comparison');clear(root);for(const q of result.quotations){const excluded=q.comparison&&q.comparison.eligible===false;const state=excluded?'Excluded (review not approved)':Object.values(q.checks).every(Boolean)?'Valid':'Excluded (financial mismatch)';const basis=q.comparison?.basis==='approved_review'?` · approved review revision ${q.comparison.review_revision}`:'';root.append(el('div',`${q.supplier} — AED ${q.total} — ${state}${basis}${sourceCheckNote(q.comparison?.source_checks)}`,'row'));}root.append(el('p',`Lowest valid total: ${result.lowest_valid_total||'None'}`));root.append(el('p',result.note,'muted'));message('Comparison completed');}));
-async function initialize(){const main=document.querySelector('main');main.hidden=true;try{const config=await fetch('/auth/config');if(!config.ok)throw new Error('Authentication configuration unavailable');const auth=await config.json();authMode=auth.mode;if(!['demo','oidc'].includes(authMode))throw new Error('Unknown authentication mode');if(authMode==='oidc'){const me=await fetch('/auth/me');if(me.status===403){$('signin').hidden=false;return;}if(!me.ok)throw new Error('Identity service unavailable');const identity=await me.json();workspaceRole=identity.role;if(workspaceRole!=='analyst'){$('roleNotice').textContent='An Analyst uploads and prepares quotations; a Reviewer records the final decision.';for(const id of ['loadSample','uploadBtn','intakeSubmit','intakePromote'])$(id).disabled=true;}$('logout').hidden=false;if(auth.intake_enabled===true)$('intakePanel').hidden=false;}else{$('footerNote').textContent+=' · Reviewer identities are not authenticated';}main.hidden=false;const response=await fetch('/api/quotations');const result=await response.json();if(!response.ok)throw new Error(result.error||'Storage unavailable');for(const row of result.quotations)records.set(row.id,row.quotation);$('count').textContent=records.size;if(records.size){selected=records.keys().next().value;renderItems();renderDetails();renderReview();}const note=$('storageMode');if(note)note.textContent=result.storage==='postgres'?'PostgreSQL development storage':'Local, in-memory decisions';}catch(error){$('signin').hidden=false;$('signinError').textContent=error.message;}}
+async function initialize(){const main=document.querySelector('main');main.hidden=true;try{const config=await fetch('/auth/config');if(!config.ok)throw new Error('Authentication configuration unavailable');const auth=await config.json();authMode=auth.mode;intakeEnabled=auth.mode==='oidc'&&auth.intake_enabled===true;if(!['demo','oidc'].includes(authMode))throw new Error('Unknown authentication mode');if(authMode==='oidc'){const me=await fetch('/auth/me');if(me.status===403){$('signin').hidden=false;return;}if(!me.ok)throw new Error('Identity service unavailable');const identity=await me.json();workspaceRole=identity.role;if(intakeEnabled&&workspaceRole==='analyst')$('roleNotice').textContent='Upload a synthetic file below to retain its source for evidence-linked corrections. The test worker must be running.';if(workspaceRole!=='analyst'){$('roleNotice').textContent='An Analyst uploads and prepares quotations; a Reviewer records the final decision.';for(const id of ['loadSample','uploadBtn','intakeSubmit','intakePromote'])$(id).disabled=true;}$('logout').hidden=false;if(auth.intake_enabled===true)$('intakePanel').hidden=false;}else{$('footerNote').textContent+=' · Reviewer identities are not authenticated';}main.hidden=false;const response=await fetch('/api/quotations');const result=await response.json();if(!response.ok)throw new Error(result.error||'Storage unavailable');for(const row of result.quotations)records.set(row.id,row.quotation);$('count').textContent=records.size;if(records.size){selected=records.keys().next().value;renderItems();renderDetails();renderReview();}const note=$('storageMode');if(note)note.textContent=result.storage==='postgres'?'PostgreSQL development storage':'Local, in-memory decisions';}catch(error){$('signin').hidden=false;$('signinError').textContent=error.message;}}
 $('logout').addEventListener('click',()=>task(async()=>{const response=await fetch('/auth/logout',{method:'POST',headers:{'X-NAWA-CSRF':csrfToken()}});if(!response.ok)throw new Error('Sign-out failed');window.location.reload();}));
 initialize();
 

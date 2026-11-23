@@ -12,7 +12,7 @@ const evidence={supplier:{line:1,source_text:'Supplier: Test'},currency:{line:2,
   vat_amount:{line:5,source_text:'VAT Amount: 50.00'},total:{line:6,source_text:'Total: 1050.00'}};
 const quotation={document:'synthetic.txt',supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',
   vat_amount:'50.00',total:'1050.00',evidence,checks:{vat_matches_rate:true,total_matches_components:true}};
-let rows=[],review=null,failSave=true,testRole='analyst';
+let rows=[],review=null,failSave=true,failProcessing=true,testRole='analyst';
 const server=http.createServer(async(req,res)=>{
   const assets={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
   if(assets[req.url]){res.setHeader('Content-Type',req.url.endsWith('.js')?'text/javascript':req.url.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(path.join(root,assets[req.url])));return;}
@@ -20,7 +20,10 @@ const server=http.createServer(async(req,res)=>{
   if(req.url==='/auth/config')data={mode:'oidc',intake_enabled:true};
   else if(req.url==='/auth/me')data={role:testRole};
   else if(req.url==='/api/quotations')data={quotations:rows,storage:'postgres'};
-  else if(req.url==='/api/upload'){rows=[{id:'q1',quotation}];data=rows[0];}
+  else if(req.url==='/api/intake/batch')data={files:[{id:'synthetic-document',created:true}]};
+  else if(req.url==='/api/intake/status?id=synthetic-document')data={state:failProcessing?'failed':'completed',attempts:1};
+  else if(req.url==='/api/intake/retry'){failProcessing=false;data={state:'validated'};}
+  else if(req.url==='/api/intake/promote'){rows=[{id:'q1',quotation}];data={...rows[0],created:true};}
   else if(req.url==='/api/review/show'){if(!review){res.statusCode=400;data={error:'Review is not initialized'};}else data=review;}
   else if(req.url==='/api/review/start'){
     review={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[]};data=review;
@@ -38,6 +41,10 @@ const server=http.createServer(async(req,res)=>{
     const page=await browser.newPage({viewport:{width:1280,height:900}});
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.locator('#upload').setInputFiles({name:'synthetic.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic')});
+    await page.getByRole('button',{name:'Add selected file'}).click();
+    await page.getByText(/Processing failed.*Retry failed file/i).waitFor();
+    await page.locator('#requeueReason').fill('Retry synthetic processing');
+    await page.getByRole('button',{name:'Retry failed file'}).click();
     await page.getByRole('button',{name:'Add selected file'}).click();
     await page.getByRole('button',{name:'Start review'}).click();
     await page.getByLabel('Field to correct').selectOption('total');

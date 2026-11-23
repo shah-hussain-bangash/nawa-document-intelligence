@@ -6,8 +6,6 @@ does not test browser OIDC login or modify any operating-system trust store.
 import json
 import os
 from pathlib import Path
-import re
-import time
 from uuid import uuid4
 
 from playwright.sync_api import sync_playwright
@@ -38,31 +36,10 @@ def main():
             page = context.new_page()
             page.goto(oidc.APP, wait_until='domcontentloaded', timeout=15000)
             page.locator('#intakePanel').wait_for(state='visible', timeout=15000)
-            page.locator('#intakeFiles').set_input_files({'name':'browser-synthetic.txt',
-                                                          'mimeType':'text/plain','buffer':sample})
-            page.locator('#intakeSubmit').click()
-            result = page.locator('#intakeResults .row').first
-            result.wait_for(state='visible', timeout=15000)
-            match = re.search(r'ID: ([0-9a-f]{32})', result.inner_text())
-            if not match:
-                raise AssertionError('Synthetic browser submission did not return an ID')
-            document_id = match.group(1)
-            page.locator('#intakeRefresh').click()
-            row = page.locator('#intakeJobs .row').filter(has_text=document_id)
-            row.wait_for(state='visible', timeout=15000)
-            row.get_by_role('button', name='Use document').click()
-            if page.locator('#intakeId').input_value() != document_id:
-                raise AssertionError('Synthetic browser selection failed')
-            for _ in range(60):
-                page.locator('#intakeCheck').click()
-                page.wait_for_timeout(500)
-                if 'completed' in page.locator('#intakeStatus').inner_text():
-                    break
-                time.sleep(0.5)
-            else:
-                raise AssertionError('Synthetic browser document did not complete')
-            page.locator('#intakePromote').click()
-            page.locator('#items').get_by_text('browser-synthetic.txt').wait_for(state='visible', timeout=15000)
+            page.locator('#upload').set_input_files({'name':'browser-synthetic.txt',
+                                                     'mimeType':'text/plain','buffer':sample})
+            page.get_by_role('button', name='Add selected file').click()
+            page.locator('#items').get_by_text('browser-synthetic.txt').wait_for(state='visible', timeout=50000)
             page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
             page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
             page.get_by_label('Field to correct').select_option('vat_rate_percent')
