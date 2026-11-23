@@ -87,6 +87,16 @@ class Phase6Tests(unittest.TestCase):
         self.assertIsNone(r['answer'])
         self.assertEqual(r['citations'], [])
 
+    def test_generated_answer_cannot_swap_a_supported_number_between_fields(self):
+        quote = 'Subtotal AED 1000.00 and Grand total AED 1050.00.'
+        hit = {'passage_id':'p', 'document_id':'d', 'version':'1', 'source':'synthetic.txt',
+               'page':1, 'method':'synthetic', 'text':quote}
+        citation = {'passage_id':'p', 'quote':quote}
+        wrong = {'answer':'Subtotal AED 1050.00', 'citations':[citation]}
+        self.assertIsNone(validate_generated(wrong, [hit]))
+        exact = {'answer':'Subtotal AED 1000.00', 'citations':[citation]}
+        self.assertIsNotNone(validate_generated(exact, [hit]))
+
     def test_fake_citation_rejected(self):
         p = FixedProvider({'answer': 'Supplier Example English Supplies.', 'citations': [
             {'passage_id': 'fake-secret', 'quote': 'Supplier Example English Supplies.'}]})
