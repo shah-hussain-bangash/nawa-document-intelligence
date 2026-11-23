@@ -18,6 +18,11 @@ async function request(path, payload) {
 async function task(action){try{await action();}catch(e){message(e.message,true);}}
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=String(text);if(className)node.className=className;return node;}
 function clear(node){node.replaceChildren();}
+async function sessionExpired(error){
+  if(authMode!=='oidc'||error.status!==403)return false;
+  try{const response=await fetch('/auth/me');return response.status===401||response.status===403;}catch(_error){return false;}
+}
+function signInAgain(root){const link=el('a','Sign in again','retry-link');link.href='/auth/login';root.append(link);}
 function showUnsaved(root,draft){
   if(!draft)return;
   root.append(el('p','Your entries below were not confirmed as saved.','review-error'));
@@ -69,6 +74,12 @@ async function renderReview(draft=null,reopened=false){
   catch(error){
     if(selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);
     if(error.message!=='Review is not initialized'){
+      if(await sessionExpired(error)){
+        if(selected!==itemId||reviewRequestVersion!==requestVersion)return;
+        root.append(el('p','Your session has ended or your access has changed. Copy any unsaved entries before signing in again.','review-error'));
+        showUnsaved(root,draft);signInAgain(root);return;
+      }
+      if(selected!==itemId||reviewRequestVersion!==requestVersion)return;
       root.append(el('p',`Could not open the review: ${error.message}. Try again.`,'review-error'));
       showUnsaved(root,draft);
       const retry=el('button','Retry opening review','secondary');retry.addEventListener('click',()=>renderReview(draft,reopened));root.append(retry);return;
@@ -78,7 +89,7 @@ async function renderReview(draft=null,reopened=false){
     }
     const start=el('button','Start review');
     const feedback=el('p','','review-feedback');feedback.setAttribute('role','status');
-    start.addEventListener('click',async()=>{try{await request('/api/review/start',{id:itemId});message('Review created. You can now correct a field.');await renderReview(draft);}catch(error){feedback.textContent=`Could not start the review: ${error.message}. Try again.`;feedback.className='review-feedback review-error';}});
+    start.addEventListener('click',async()=>{try{await request('/api/review/start',{id:itemId});message('Review created. You can now correct a field.');await renderReview(draft);}catch(error){feedback.className='review-feedback review-error';if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again to start the review. ';signInAgain(feedback);}else feedback.textContent=`Could not start the review: ${error.message}. Try again.`;}});
     root.append(el('p','Start a synthetic review, then select a field and provide source evidence.','muted'));showUnsaved(root,draft);root.append(start,feedback);return;
   }
   if(selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);renderDetails(review);
@@ -114,7 +125,7 @@ async function renderReview(draft=null,reopened=false){
   const feedback=el('p','','review-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');root.append(feedback);
   const reload=el('button','Reload saved review','secondary');reload.hidden=true;root.append(reload);
   let correctionInputs=null, decisionReason=null;
-  const reviewTask=async(action,decision=false)=>{try{feedback.textContent='';reload.hidden=true;await action();}catch(error){feedback.textContent=decision&&error.status===403?'Decision denied. Check your access or ask another authorized Reviewer if you prepared this review.':`Could not save: ${error.message}. Check the details and try again, or reload the latest review.`;feedback.className='review-feedback review-error';reload.hidden=false;}};
+  const reviewTask=async(action,decision=false)=>{try{feedback.textContent='';reload.hidden=true;await action();}catch(error){feedback.className='review-feedback review-error';if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Copy your unsaved entries before signing in again. ';signInAgain(feedback);}else{feedback.textContent=decision&&error.status===403?'Decision denied. Check your access or ask another authorized Reviewer if you prepared this review.':`Could not save: ${error.message}. Check the details and try again, or reload the latest review.`;reload.hidden=false;}}};
   const form=el('div',undefined,'review-form');const actor=el('input');actor.placeholder='Reviewer ID (demo only)';actor.value=authMode==='oidc'?'Signed-in user':'reviewer-1';actor.disabled=authMode==='oidc';form.append(el('label',authMode==='oidc'?'Review identity':'Reviewer ID'),actor);
   if(draft && authMode!=='oidc')actor.value=draft.actor;
   captureDraft=()=>{
@@ -179,7 +190,7 @@ $('uploadBtn').addEventListener('click',async()=>{
       if(!result)throw new Error('Processing is still pending. Use Check status in document intake below');
     }else result=await request('/api/upload',{filename:file.name,content_base64:encoded});
     loaded(result);feedback.className='review-feedback';feedback.textContent='Quotation loaded. Start or open its review below to check the extracted values.';
-  }catch(error){feedback.className='review-feedback review-error';feedback.textContent=`Could not load the quotation: ${error.message}. Check the details and try again.`;}
+  }catch(error){feedback.className='review-feedback review-error';if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again, then select the file again. ';signInAgain(feedback);}else feedback.textContent=`Could not load the quotation: ${error.message}. Check the details and try again.`;}
   finally{button.disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
 });
 $('intakeSubmit').addEventListener('click',()=>task(async()=>{

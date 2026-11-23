@@ -239,7 +239,7 @@ def browser_tenant_isolation(browser, analyst_page, reviewer_page, reviewer_user
             raise AssertionError('Browser identity reauthentication failed')
         fresh_reviewer.close()
         reviewer_page.context.close()
-        return newest_reviewer, newest_page
+        return newest_reviewer, newest_page, ids[0]
     finally:
         other.close()
 
@@ -582,8 +582,17 @@ def main():
                 analyst_page.locator('#comparison').get_by_text(
                     'Browser New Supplier — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
                     exact=True).wait_for(state='visible', timeout=15000)
-                reviewer, reviewer_page = browser_tenant_isolation(
+                reviewer, reviewer_page, pending_item = browser_tenant_isolation(
                     browser, analyst_page, reviewer_page, users['reviewer'], users['outsider'])
+                # Keep an unsaved synthetic correction open while the analyst
+                # session is invalidated, then exercise the on-screen recovery.
+                analyst_page.reload(wait_until='domcontentloaded')
+                pending_row = analyst_page.locator('#items input[data-id="' + pending_item + '"]').locator('..')
+                pending_row.locator('button.item-main').click(timeout=15000)
+                analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+                analyst_page.get_by_label('Field to correct').select_option('total')
+                analyst_page.get_by_label('Corrected value').fill('1048.00')
+                analyst_page.get_by_label('Reason for correction').fill('Synthetic unsaved correction')
                 # Logout invalidates the server-side session, including a replayed cookie.
                 old = next(cookie for cookie in analyst.cookies() if cookie['name'] == 'nawa_session')
                 status = analyst_page.evaluate('''async () => {
@@ -595,6 +604,12 @@ def main():
                 }''')
                 if status != 200 or analyst_page.request.get(APP + '/auth/me').status != 403:
                     raise AssertionError('Synthetic browser logout failed')
+                analyst_page.get_by_role('button', name='Save correction').click()
+                analyst_page.get_by_text('Your session has ended or your access has changed.', exact=False).wait_for(state='visible', timeout=15000)
+                if analyst_page.get_by_label('Corrected value').input_value() != '1048.00':
+                    raise AssertionError('Unsaved synthetic correction was lost')
+                if analyst_page.get_by_role('link', name='Sign in again').get_attribute('href') != '/auth/login':
+                    raise AssertionError('Synthetic sign-in recovery link unavailable')
                 replay = browser.new_context(ignore_https_errors=False)
                 try:
                     replay.add_cookies([{'name':'nawa_session', 'value':old['value'], 'url':APP, 'httpOnly':True}])

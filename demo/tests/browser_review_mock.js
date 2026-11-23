@@ -12,15 +12,15 @@ const evidence={supplier:{line:1,source_text:'Supplier: Test'},currency:{line:2,
   vat_amount:{line:5,source_text:'VAT Amount: 50.00'},total:{line:6,source_text:'Total: 1050.00'}};
 const quotation={document:'synthetic.txt',supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',
   vat_amount:'50.00',total:'1050.00',evidence,checks:{vat_matches_rate:true,total_matches_components:true}};
-let rows=[],review=null,failSave=true,failReload=false,failProcessing=true,testRole='analyst';
+let rows=[],review=null,failSave=true,failReload=false,failProcessing=true,expired=false,testRole='analyst';
 const server=http.createServer(async(req,res)=>{
   const assets={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
   if(assets[req.url]){res.setHeader('Content-Type',req.url.endsWith('.js')?'text/javascript':req.url.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(path.join(root,assets[req.url])));return;}
   let raw='';for await(const chunk of req)raw+=chunk;let data;
   if(req.url==='/auth/config')data={mode:'oidc',intake_enabled:true};
-  else if(req.url==='/auth/me')data={role:testRole};
+  else if(req.url==='/auth/me'){if(expired){res.statusCode=403;data={error:'Session unavailable'};}else data={role:testRole};}
   else if(req.url==='/api/quotations')data={quotations:rows,storage:'postgres'};
-  else if(req.url==='/api/intake/batch')data={files:[{id:'synthetic-document',created:true}]};
+  else if(req.url==='/api/intake/batch'){if(expired){res.statusCode=403;data={error:'Session unavailable'};}else data={files:[{id:'synthetic-document',created:true}]};}
   else if(req.url==='/api/intake/status?id=synthetic-document')data={state:failProcessing?'failed':'completed',attempts:1};
   else if(req.url==='/api/intake/retry'){failProcessing=false;data={state:'validated'};}
   else if(req.url==='/api/intake/promote'){rows=[{id:'q1',quotation}];data={...rows[0],created:true};}
@@ -28,7 +28,8 @@ const server=http.createServer(async(req,res)=>{
   else if(req.url==='/api/review/start'){
     review={document:'synthetic.txt',status:'pending_review',revision:1,fields:{supplier:'Test',currency:'AED',subtotal:'1000.00',vat_rate_percent:'5',vat_amount:'50.00',total:'1050.00'},checks:{vat_matches_rate:true,total_matches_components:true},history:[],corrections:[]};data=review;
   }else if(req.url==='/api/review/correct'){
-    if(failSave){failSave=false;res.statusCode=503;data={error:'Storage unavailable'};}
+    if(expired){res.statusCode=403;data={error:'Session unavailable'};}
+    else if(failSave){failSave=false;res.statusCode=503;data={error:'Storage unavailable'};}
     else{const p=JSON.parse(raw);assert.equal(p.expected_revision,2);review.corrections.push({sequence:3,field:p.field,from:review.fields[p.field],to:p.value,reason:p.reason,evidence:{source:p.source,line:p.line,quote:p.quote}});review.fields[p.field]=p.value;review.checks.total_matches_components=false;review.revision=3;data=review;}
   }else if(req.url==='/api/review/decide'){res.statusCode=403;data={error:'Request denied'};}
   else{res.statusCode=404;data={error:'Unknown test endpoint'};}
@@ -91,12 +92,22 @@ const server=http.createServer(async(req,res)=>{
     await page.getByLabel('Field to correct').selectOption('total');
     await page.getByLabel('Corrected value').fill('1048.00');
     await page.getByLabel('Reason for correction').fill('Second unsaved change');
+    expired=true;await page.getByRole('button',{name:'Save correction'}).click();
+    await page.getByText(/session has ended.*Copy your unsaved entries/i).waitFor();
+    assert.equal(await page.getByLabel('Corrected value').inputValue(),'1048.00');
+    assert.equal(await page.getByRole('link',{name:'Sign in again'}).getAttribute('href'),'/auth/login');
+    expired=false;
     failSave=true;await page.getByRole('button',{name:'Save correction'}).click();
     await page.getByText(/Could not save.*try again/i).waitFor();
     review.status='approved';review.revision=4;
     await page.getByRole('button',{name:'Reload saved review'}).click();
     await page.getByText('This review is final. Your input could not be confirmed as saved.').waitFor();
     await page.getByText('value: 1048.00',{exact:true}).waitFor();
+    expired=true;
+    await page.locator('#upload').setInputFiles({name:'synthetic.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic')});
+    await page.getByRole('button',{name:'Add selected file'}).click();
+    await page.getByText(/session has ended.*select the file again/i).waitFor();
+    assert.equal(await page.getByRole('link',{name:'Sign in again'}).getAttribute('href'),'/auth/login');
     console.log('PASS: browser upload, retry, correction and reopen against in-memory mock API');
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});
