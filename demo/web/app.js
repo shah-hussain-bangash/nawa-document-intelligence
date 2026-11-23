@@ -165,33 +165,92 @@ async function renderReview(draft=null,reopened=false){
   correction.append(save);root.append(el('hr'),correction,history);
 }
 $('loadSample').addEventListener('click',()=>task(async()=>loaded(await request('/api/load-sample',{name:$('sample').value}))));
+async function intakeStatus(id){
+  const response=await fetch('/api/intake/status?id='+encodeURIComponent(id));const result=await response.json();
+  if(!response.ok){const error=new Error(result.error||'Document status unavailable');error.status=response.status;throw error;}
+  return result.state;
+}
+function uploadLoaded(result){
+  loaded(result);clear($('uploadRecovery'));$('uploadFeedback').className='review-feedback';
+  $('uploadFeedback').textContent='Quotation loaded. Start or open its review below to check the extracted values.';
+}
+function uploadRecovery(id, state){
+  const root=$('uploadRecovery'),feedback=$('uploadFeedback');clear(root);
+  const check=el('button','Check processing','secondary');
+  check.addEventListener('click',async()=>{
+    check.disabled=true;$('uploadBtn').disabled=true;
+    try{
+      const current=await intakeStatus(id);
+      if(current==='completed'){uploadLoaded(await request('/api/intake/promote',{id}));return;}
+      if(current==='failed'){feedback.className='review-feedback review-error';feedback.textContent='Processing failed. Enter a reason and retry below.';uploadRecovery(id,'failed');return;}
+      feedback.className='review-feedback';
+      feedback.textContent=current==='received'?'This file needs revalidation. Use Revalidate received file in document intake below.':'Processing is still pending. Check again shortly.';
+      uploadRecovery(id,'pending');
+    }catch(error){
+      feedback.className='review-feedback review-error';
+      if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again to check the document. ';signInAgain(feedback);}
+      else feedback.textContent=`Could not check processing: ${error.message}. Try Check processing again.`;
+    }finally{check.disabled=false;$('uploadBtn').disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
+  });
+  root.append(check);
+  if(state==='failed'){
+    const label=el('label','Reason for retry');label.setAttribute('for','upload-retry-reason');
+    const reason=el('input');reason.id='upload-retry-reason';reason.maxLength=500;
+    const retry=el('button','Retry processing','secondary');
+    retry.addEventListener('click',async()=>{
+      if(!reason.value.trim()){feedback.className='review-feedback review-error';feedback.textContent='Enter a reason for the retry.';reason.focus();return;}
+      retry.disabled=true;check.disabled=true;$('uploadBtn').disabled=true;
+      try{
+        await request('/api/intake/retry',{id,reason:reason.value.trim()});
+        feedback.className='review-feedback';feedback.textContent='Retry requested. Check processing to see when the document is ready.';
+        uploadRecovery(id,'pending');
+      }catch(error){
+        feedback.className='review-feedback review-error';
+        if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again to retry. ';signInAgain(feedback);}
+        else feedback.textContent=`Could not confirm the retry: ${error.message}. Check processing before trying again.`;
+      }finally{retry.disabled=false;check.disabled=false;$('uploadBtn').disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
+    });
+    root.append(label,reason,retry);
+  }
+}
 $('uploadBtn').addEventListener('click',async()=>{
-  const feedback=$('uploadFeedback'), button=$('uploadBtn');feedback.textContent='';button.disabled=true;
+  const feedback=$('uploadFeedback'), button=$('uploadBtn');let documentId=null;
+  feedback.textContent='';clear($('uploadRecovery'));button.disabled=true;
   try{
     const file=$('upload').files[0];if(!file)throw new Error('Choose a synthetic TXT or PDF file');
     if(file.size>4*1024*1024)throw new Error('File exceeds 4 MiB');
     const bytes=new Uint8Array(await file.arrayBuffer());let binary='';
     for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));
-    const encoded=btoa(binary);let result;
+    const encoded=btoa(binary);
     if(intakeEnabled){
       feedback.className='review-feedback';feedback.textContent='Uploading the source for processing…';
       const batch=await request('/api/intake/batch',{files:[{filename:file.name,content_base64:encoded}]});
       const item=Array.isArray(batch.files)?batch.files[0]:null;
-      if(!item||!item.id)throw new Error(item&&item.error||'The document was not accepted');
-      const id=item.id;$('intakeId').value=id;
+      if(!item||typeof item.id!=='string'||!item.id)throw new Error(item&&item.error||'The document was not accepted');
+      documentId=item.id;$('intakeId').value=documentId;
       for(let attempt=0;attempt<40;attempt++){
         feedback.textContent='Processing the quotation. Please wait…';
-        const response=await fetch('/api/intake/status?id='+encodeURIComponent(id));const status=await response.json();
-        if(!response.ok)throw new Error(status.error||'Document status unavailable');
-        if(status.state==='completed'){result=await request('/api/intake/promote',{id});break;}
-        if(status.state==='failed')throw new Error('Processing failed. Use Retry failed file in document intake below');
+        const state=await intakeStatus(documentId);
+        if(state==='completed'){uploadLoaded(await request('/api/intake/promote',{id:documentId}));return;}
+        if(state==='failed'){
+          feedback.className='review-feedback review-error';feedback.textContent='Processing failed. Enter a reason and retry below.';
+          uploadRecovery(documentId,'failed');return;
+        }
+        if(state==='received'){
+          feedback.className='review-feedback review-error';feedback.textContent='This file needs revalidation. Use Revalidate received file in document intake below.';
+          uploadRecovery(documentId,'pending');return;
+        }
         if(attempt<39)await new Promise(resolve=>setTimeout(resolve,1000));
       }
-      if(!result)throw new Error('Processing is still pending. Use Check status in document intake below');
-    }else result=await request('/api/upload',{filename:file.name,content_base64:encoded});
-    loaded(result);feedback.className='review-feedback';feedback.textContent='Quotation loaded. Start or open its review below to check the extracted values.';
-  }catch(error){feedback.className='review-feedback review-error';if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again, then select the file again. ';signInAgain(feedback);}else feedback.textContent=`Could not load the quotation: ${error.message}. Check the details and try again.`;}
-  finally{button.disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
+      feedback.className='review-feedback';feedback.textContent='Processing is still pending. Check again shortly.';
+      uploadRecovery(documentId,'pending');
+    }else uploadLoaded(await request('/api/upload',{filename:file.name,content_base64:encoded}));
+  }catch(error){
+    feedback.className='review-feedback review-error';
+    if(await sessionExpired(error)){feedback.textContent='Your session has ended or your access has changed. Sign in again, then select the file again. ';signInAgain(feedback);}
+    else if(documentId){feedback.textContent=`Could not confirm processing: ${error.message}. Check processing before submitting again.`;uploadRecovery(documentId,'pending');}
+    else feedback.textContent=`Could not load the quotation: ${error.message}. Check the details and try again.`;
+  }finally{button.disabled=authMode==='oidc'&&workspaceRole!=='analyst';}
 });
 $('intakeSubmit').addEventListener('click',()=>task(async()=>{
   const files=Array.from($('intakeFiles').files);
