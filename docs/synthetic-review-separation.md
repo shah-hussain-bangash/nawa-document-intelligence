@@ -12,4 +12,6 @@ An opt-in `require_tracked_submitters` experiment in `ScopedState` denies approv
 
 An isolated PostgreSQL test holds the same source and tracking locks and verifies that both tracked and untracked duplicate submissions time out while those locks are held. After release, the submissions proceed and the untracked one invalidates the marker, so later strict approval is denied. This is one lock-order test; it does not prove distributed coordination, recovery correctness or behavior of writers that bypass these paths.
 
+An isolated HTTP test configures this policy on a separate in-process handler and checks session and CSRF handling, tenant separation, a role-changed uploader, an independent reviewer, and missing upload history. The identities are provisioned test fixtures and sessions are issued directly for the test; this is not a browser sign-in test or an enabled dashboard policy.
+
 This adds explicitly applied synthetic intake migrations; it does not apply a migration to an existing installation or authorize a data upgrade. A previous synthetic schema will fail the new migration verification until explicitly updated. Migration, recovery, retention, policy for missing history and concurrent approval require review before any production use.

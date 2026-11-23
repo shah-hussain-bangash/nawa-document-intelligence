@@ -1323,6 +1323,85 @@ print('Synthetic request found in a fresh process')
             with self.assertRaisesRegex(ValueError, 'integrity'):
                 service.promote(principal, document)
 
+    def test_http_strict_synthetic_approval_checks_uploader_and_unknown_history(self):
+        issuer = 'https://synthetic-http-separation.example'
+        names = {key:key + '-' + uuid4().hex for key in ('uploader', 'starter', 'reviewer', 'outsider')}
+        tenants = {'uploader':self.tenant, 'starter':self.tenant, 'reviewer':self.tenant, 'outsider':self.other}
+        with self.connect() as conn:
+            for key, subject in names.items():
+                role = 'reviewer' if key in ('reviewer', 'outsider') else 'analyst'
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, tenants[key], role))
+        def lookup(key, tenant):
+            with self.connect() as conn:
+                return membership_by_key(conn, identity_key=key, tenant=tenant)
+        sessions = SessionStore(lookup)
+        keys = {key:json.dumps([issuer, subject], separators=(',', ':')) for key, subject in names.items()}
+        tokens = {key:sessions.issue(identity, tenants[key]) for key, identity in keys.items()}
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            intake = ScopedIntake(self.connect, store, track_submitters=True)
+            state = ScopedState(self.connect, require_tracked_submitters=True)
+            handler = make_protected_handler(state, sessions, DashboardState(), intake=intake)
+            server = HTTPServer(('127.0.0.1', 0), handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base = f'http://127.0.0.1:{server.server_port}'
+            def post(path, payload, token, *, csrf=None):
+                headers = {'Content-Type':'application/json', 'Origin':'http://127.0.0.1:8765',
+                           'Cookie':'nawa_session=' + token['session'],
+                           'X-NAWA-CSRF':token['csrf'] if csrf is None else csrf}
+                request = Request(base + path, data=json.dumps(payload).encode(), headers=headers)
+                try:
+                    with urlopen(request, timeout=10) as response:
+                        return response.status, json.load(response)
+                except HTTPError as error:
+                    with error:
+                        return error.code, json.load(error)
+            try:
+                content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+                upload = {'filename':'synthetic-http.txt', 'content_base64':base64.b64encode(content).decode()}
+                status, result = post('/api/intake/submit', upload, tokens['uploader'])
+                self.assertEqual(status, 200)
+                document = result['id']
+                self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+                status, result = post('/api/intake/promote', {'id':document}, tokens['starter'])
+                self.assertEqual(status, 200)
+                item = result['id']
+                self.assertEqual(post('/api/review/start', {'id':item}, tokens['starter'])[0], 200)
+                with self.connect() as conn:
+                    conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                                 (issuer, names['uploader'], self.tenant))
+                decision = {'id':item, 'decision':'approve', 'reason':'Synthetic review', 'expected_revision':1,
+                            'actor':'forged-independent-reviewer'}
+                self.assertEqual(post('/api/review/decide', decision, tokens['uploader'])[0], 403)
+                tokens['uploader'] = sessions.issue(keys['uploader'], self.tenant)
+                self.assertEqual(post('/api/review/decide', decision, tokens['uploader'])[0], 403)
+                self.assertEqual(post('/api/review/decide', decision, tokens['reviewer'], csrf='wrong')[0], 403)
+                self.assertEqual(post('/api/review/decide', decision, tokens['outsider'])[0], 400)
+                self.assertEqual(post('/api/review/show', {'id':item}, tokens['reviewer'])[1]['revision'], 1)
+                status, result = post('/api/review/decide', decision, tokens['reviewer'])
+                self.assertEqual((status, result['status'], result['revision']), (200, 'approved', 2))
+
+                # A duplicate uploaded after an untracked first registration
+                # cannot create complete history retroactively.
+                legacy_content = content + b'\n# synthetic unknown history\n'
+                starter = make_principal(self.connect, keys['starter'], self.tenant, 'analyst')
+                legacy, _ = ScopedIntake(self.connect, store).submit(starter, 'legacy.txt', legacy_content)
+                legacy_upload = {'filename':'legacy.txt', 'content_base64':base64.b64encode(legacy_content).decode()}
+                self.assertEqual(post('/api/intake/submit', legacy_upload, tokens['starter'])[1]['id'], legacy)
+                self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+                legacy_item = post('/api/intake/promote', {'id':legacy}, tokens['starter'])[1]['id']
+                self.assertEqual(post('/api/review/start', {'id':legacy_item}, tokens['starter'])[0], 200)
+                decision['id'] = legacy_item
+                self.assertEqual(post('/api/review/decide', decision, tokens['reviewer'])[0], 403)
+                self.assertEqual(post('/api/review/show', {'id':legacy_item}, tokens['reviewer'])[1]['revision'], 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+
     def test_http_synthetic_session_to_postgres_result(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))
