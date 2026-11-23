@@ -6,6 +6,7 @@ import subprocess
 import sys
 from .core import extract
 from .intake_pdf import open_pdf
+from .intake_limits import MAX_PARSER_RESULT_BYTES
 from .intake_promotion_guard import require_text_only_result
 
 
@@ -66,8 +67,8 @@ def process_one(jobs, store, tenant, *, worker='synthetic-worker', max_attempts=
                 subprocess.run([sys.executable, '-m', 'nawa_demo.intake_parser', str(path)],
                                stdout=stream, stderr=subprocess.DEVNULL, check=True, timeout=timeout)
             with output.open('rb') as stream:
-                encoded = stream.read(2 * 1024 * 1024 + 1)
-            if len(encoded) > 2 * 1024 * 1024:
+                encoded = stream.read(MAX_PARSER_RESULT_BYTES + 1)
+            if len(encoded) > MAX_PARSER_RESULT_BYTES:
                 raise ValueError('Parser result too large')
             result = json.loads(encoded.decode('utf-8'))
         require_text_only_result(result)

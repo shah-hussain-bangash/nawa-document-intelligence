@@ -14,13 +14,45 @@ from .dashboard import MAX_BODY, make_handler
 from .session_draft import SessionError
 from .scoped_state import AccessDenied, ReviewNotInitialized
 from .intake_postgres import IntakeRejected
+from .synthetic_request_gate import GateClosed, SyntheticRequestGate
+from .synthetic_live_retrieval import EvidenceUnavailable, SyntheticLiveRetrieval
+from .grounded_qa import format_review_handoff
+from .synthetic_review_queue import SyntheticReviewQueue
+
+
+def _unique_json_pairs(pairs):
+    if len({key for key, _ in pairs}) != len(pairs):
+        raise ValueError('Duplicate JSON field')
+    return dict(pairs)
 
 
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
-                           allowed_origin='http://127.0.0.1:8765', intake=None):
+                           allowed_origin='http://127.0.0.1:8765', intake=None,
+                           synthetic_request_gate=None, synthetic_retrieval=None, synthetic_review_queue=None):
+    if synthetic_request_gate is not None and not isinstance(synthetic_request_gate, SyntheticRequestGate):
+        raise ValueError('Invalid synthetic request gate')
+    if synthetic_retrieval is not None and not isinstance(synthetic_retrieval, SyntheticLiveRetrieval):
+        raise ValueError('Invalid synthetic retrieval')
+    if (synthetic_review_queue is not None and
+            (not isinstance(synthetic_review_queue, SyntheticReviewQueue)
+             or not synthetic_review_queue.uses_retrieval(synthetic_retrieval))):
+        raise ValueError('Invalid synthetic review queue')
     Base = make_handler(health_state)
 
     class Handler(Base):
+        def _body_length(self, maximum):
+            lengths = self.headers.get_all('Content-Length', [])
+            if (len(lengths) != 1 or self.headers.get_all('Transfer-Encoding', [])
+                    or not lengths[0].isascii() or not lengths[0].isdecimal()
+                    or len(lengths[0]) > 10):
+                self.close_connection = True
+                raise ValueError('Invalid request')
+            length = int(lengths[0])
+            if length < 1 or length > maximum:
+                self.close_connection = True
+                raise ValueError('Invalid request')
+            return length
+
         def _cookie(self, name):
             raw = self.headers.get('Cookie', '')
             if sum(part.strip().startswith(name + '=') for part in raw.split(';')) != 1:
@@ -56,7 +88,10 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 flags += '; Secure'
             return name + '=' + value + flags
 
-        def _principal(self, action):
+        def _principal(self, action, *, require_csrf=False):
+            if require_csrf:
+                return sessions.authorize_current(self._session(), action, csrf=self.headers.get('X-NAWA-CSRF'),
+                                                  require_csrf=True)
             return sessions.authorize_current(self._session(), action, csrf=self.headers.get('X-NAWA-CSRF'))
 
         def do_GET(self):
@@ -149,6 +184,55 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
 
         def do_POST(self):
             path = urlsplit(self.path).path
+            evidence_path = path in ('/api/synthetic-evidence/search', '/api/synthetic-evidence/source',
+                                     '/api/synthetic-evidence/review') and synthetic_retrieval is not None
+            task_path = path in ('/api/synthetic-review/create', '/api/synthetic-review/show') and synthetic_review_queue is not None
+            if evidence_path or task_path:
+                try:
+                    if (urlsplit(self.path).query or self.headers.get_content_type() != 'application/json'
+                            or self.headers.get('Transfer-Encoding')):
+                        self.close_connection = True
+                        raise ValueError('Invalid request')
+                    length = self._body_length(1024)
+                    self.connection.settimeout(10)
+                    raw = self.rfile.read(length)
+                    if len(raw) != length:
+                        raise ValueError('Invalid request')
+                    if self.headers.get('Origin') != allowed_origin:
+                        raise SessionError('Request denied')
+                    principal = self._principal('review_start' if path.endswith('/create') else 'view', require_csrf=True)
+                    payload = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_json_pairs)
+                    if task_path:
+                        fields = {'request_key','question','passage_id'} if path.endswith('/create') else {'id'}
+                        if not isinstance(payload, dict) or set(payload) != fields:
+                            raise ValueError('Invalid request')
+                        if path.endswith('/create'):
+                            return self._json(synthetic_review_queue.create(principal, payload['request_key'],
+                                                                           payload['question'], payload['passage_id']))
+                        return self._json(synthetic_review_queue.get(principal, payload['id']))
+                    field = 'id' if path.endswith('/source') else 'q'
+                    if not isinstance(payload, dict) or set(payload) != {field}:
+                        raise ValueError('Invalid request')
+                    value = payload[field]
+                    if not isinstance(value, str) or not value.strip() or len(value) > 200:
+                        raise ValueError('Invalid request')
+                    if field == 'q':
+                        hits = synthetic_retrieval.search(principal.subject, principal.tenant, value,
+                                                          expected_principal=principal)
+                        return self._json(format_review_handoff(hits) if path.endswith('/review') else {'passages':hits})
+                    passage = synthetic_retrieval.resolve(principal.subject, principal.tenant, value,
+                                                          expected_principal=principal)
+                    return self._json({'passage':{'passage_id':passage.passage_id, 'document_id':passage.document_id,
+                        'version':passage.version, 'page':passage.page, 'source':passage.source,
+                        'method':passage.method, 'text':passage.text}})
+                except (SessionError, AccessDenied):
+                    return self._json({'error': 'Authentication or permission required'}, 403)
+                except EvidenceUnavailable:
+                    return self._json({'error': 'Evidence unavailable'}, 503)
+                except (ValueError, TypeError, UnicodeError):
+                    return self._json({'error': 'Invalid request'}, 400)
+                except Exception:
+                    return self._json({'error': 'Evidence unavailable'}, 503)
             if path == '/auth/logout':
                 try:
                     if self.headers.get('Origin') != allowed_origin:
@@ -185,9 +269,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
             try:
                 if self.headers.get_content_type() != 'application/json':
                     raise ValueError('Content-Type must be application/json')
-                length = int(self.headers.get('Content-Length', '-1'))
-                if length < 1 or length > MAX_BODY or self.headers.get('Transfer-Encoding'):
-                    raise ValueError('Request body size invalid')
+                length = self._body_length(MAX_BODY)
                 # Consume a bounded body before returning an authorization error.
                 # Otherwise Windows can reset the connection instead of delivering
                 # the 403 when unread bytes remain in the socket.
@@ -200,7 +282,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 if self.headers.get('Origin') != allowed_origin:
                     return self._json({'error': 'Request denied'}, 403)
                 principal = self._principal(action)
-                payload = json.loads(raw.decode('utf-8'))
+                payload = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_json_pairs)
                 if not isinstance(payload, dict):
                     raise ValueError('Expected JSON object')
                 if action == 'load':
@@ -272,5 +354,29 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
             except Exception:
                 return self._json({'error': 'Quotation storage unavailable'}, 503)
 
-    return Handler
+    if synthetic_request_gate is None:
+        return Handler
 
+    class SyntheticGatedHandler(Handler):
+        """Opt-in single-process QA handler; not a recovery service."""
+        def _gated(self, method):
+            operation = synthetic_request_gate.operation()
+            try:
+                operation.__enter__()
+            except GateClosed:
+                # A rejected POST may have an unread body. Close the connection
+                # so it cannot be interpreted as another HTTP request.
+                self.close_connection = True
+                return self._json({'error': 'Synthetic recovery in progress'}, 503)
+            try:
+                return method()
+            finally:
+                operation.__exit__(None, None, None)
+
+        def do_GET(self):
+            return self._gated(super().do_GET)
+
+        def do_POST(self):
+            return self._gated(super().do_POST)
+
+    return SyntheticGatedHandler

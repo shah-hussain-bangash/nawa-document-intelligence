@@ -1,0 +1,5 @@
+# Examining synthetic historical review event links
+
+`nawa_demo.synthetic_legacy_review.inspect_event_links` checks the existing event order, previous-hash links and event hashes in one already-loaded synthetic ledger without replaying its financial values. This allows an operator to gather a narrow signal even when a historical value no longer passes current parsing rules. It does not fetch records, modify them or approve a quotation.
+
+The hashes are unkeyed and can be recomputed by anyone who can change the data. The outer document name is not covered by the event hashes. A matching chain therefore does not authenticate a reviewer, protect the document name, establish valid events or decisions, verify source evidence, prove financial accuracy, or allow a review to resume. A mismatch requires investigation; a match still requires human review of the original evidence. Do not use this to bypass validation, rewrite history, or migrate production data. No connection to the separate running NAWA portal is made.

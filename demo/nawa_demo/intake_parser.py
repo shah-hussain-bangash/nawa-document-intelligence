@@ -6,7 +6,7 @@ import json
 import os
 import sys
 
-from .intake_limits import apply_parser_limits
+from .intake_limits import MAX_PARSER_RESULT_BYTES, apply_parser_limits
 
 # Only the repository's exact mixed Arabic–English synthetic PDF fixture,
 # in its known LF and Windows CRLF forms, uses the Phase 3 extractor.
@@ -18,6 +18,18 @@ SYNTHETIC_ARABIC_PDF_HASHES=frozenset({
 
 def is_synthetic_arabic_pdf(content):
     return sha256(content).hexdigest() in SYNTHETIC_ARABIC_PDF_HASHES
+
+
+def encode_result(result):
+    """Limit normal synthetic parser output before writing it to disk."""
+    encoded = bytearray()
+    encoder = json.JSONEncoder(ensure_ascii=False, allow_nan=False)
+    for part in encoder.iterencode(result):
+        chunk = part.encode('utf-8')
+        if len(encoded) + len(chunk) > MAX_PARSER_RESULT_BYTES:
+            raise ValueError('Parser result too large')
+        encoded.extend(chunk)
+    return bytes(encoded)
 
 
 def main():
@@ -46,7 +58,7 @@ def main():
                     result=extract_pdf(path,ocr=False,max_pages=50,max_text_chars=1024*1024)
     else:
         result = extract(path)
-    sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8'))
+    sys.stdout.buffer.write(encode_result(result))
 
 
 if __name__ == '__main__':

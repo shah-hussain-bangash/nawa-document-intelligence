@@ -3,13 +3,15 @@ from tempfile import TemporaryDirectory
 import os
 import unittest
 import subprocess
+import sys
 from unittest.mock import patch
 
 from nawa_demo.intake_jobs import IntakeJobs
 from nawa_demo.intake_pipeline import SyntheticIntakePipeline
 from nawa_demo.intake_store import LocalIntakeStore
 from nawa_demo.intake_worker import process_one
-from nawa_demo.intake_parser import is_synthetic_arabic_pdf
+from nawa_demo.intake_parser import is_synthetic_arabic_pdf, encode_result
+from nawa_demo.intake_limits import MAX_PARSER_RESULT_BYTES
 
 
 def synthetic_fixture(name):
@@ -19,6 +21,29 @@ def synthetic_fixture(name):
 
 
 class IntakeWorkerTests(unittest.TestCase):
+    def test_parser_output_limit_counts_encoded_bytes(self):
+        self.assertEqual(encode_result({'value':'valid'}), b'{"value": "valid"}')
+        with self.assertRaises(ValueError):
+            encode_result({'value':'\u0627' * MAX_PARSER_RESULT_BYTES})
+
+    def test_oversized_result_is_not_written_or_promoted(self):
+        with TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = (b'Supplier: ' + b'x' * (MAX_PARSER_RESULT_BYTES // 2)
+                      + b'\nCurrency: AED\nSubtotal: 1000\nVAT Rate: 5\n'
+                        b'VAT Amount: 50\nGrand Total: 1050\n')
+            path = root / 'synthetic.txt'
+            path.write_bytes(source)
+            parsed = subprocess.run([sys.executable, '-m', 'nawa_demo.intake_parser', str(path)],
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=20)
+            self.assertNotEqual(parsed.returncode, 0)
+            self.assertEqual(parsed.stdout, b'')
+            store = LocalIntakeStore(root / 'files')
+            jobs = IntakeJobs(root / 'jobs.db')
+            document, _ = SyntheticIntakePipeline(store, jobs).submit('a', 'synthetic.txt', source)
+            self.assertEqual(process_one(jobs, store, 'a', max_attempts=1), 'failed')
+            self.assertIsNone(jobs.result('a', document))
+
     def test_arabic_pdf_route_is_exact_fixture_only(self):
         sample=synthetic_fixture('arabic_text_supplier.pdf')
         self.assertTrue(is_synthetic_arabic_pdf(sample))

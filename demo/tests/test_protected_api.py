@@ -103,6 +103,38 @@ class ProtectedApiTests(unittest.TestCase):
         status, _ = self.request('/api/quotations', extra={'X-Role': 'reviewer', 'X-Tenant': 'tenant-a'})
         self.assertEqual(status, 403)
 
+    def test_ambiguous_json_and_length_headers_do_not_reach_intake(self):
+        origin = 'http://127.0.0.1:8765'
+        headers = {'Content-Type':'application/json', 'Origin':origin,
+                   'Cookie':'nawa_session='+self.analyst['session'], 'X-NAWA-CSRF':self.analyst['csrf']}
+        for body in (b'{"filename":"one.txt","filename":"two.txt","content_base64":"eA=="}',
+                     b'{"files":[{"filename":"one.txt","filename":"two.txt","content_base64":"eA=="}]}'):
+            path = '/api/intake/batch' if b'"files"' in body else '/api/intake/submit'
+            request = Request(self.url + path, data=body, headers=headers)
+            with self.assertRaises(HTTPError) as result:
+                urlopen(request, timeout=3)
+            self.assertEqual(result.exception.code, 400)
+            result.exception.close()
+        self.assertEqual(self.intake.calls, [])
+        connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
+        try:
+            connection.putrequest('POST', '/api/intake/submit')
+            for name, value in headers.items():
+                connection.putheader(name, value)
+            connection.putheader('Content-Length', '2')
+            connection.putheader('Content-Length', '2')
+            connection.endheaders(b'{}')
+            response = connection.getresponse()
+            self.assertEqual(response.status, 400)
+            response.read()
+        finally:
+            connection.close()
+        self.assertEqual(self.intake.calls, [])
+        body = {'filename':'ok.txt', 'content_base64':base64.b64encode(b'synthetic').decode()}
+        self.assertEqual(self.request('/api/intake/submit', payload=body,
+            cookie=headers['Cookie'], csrf=headers['X-NAWA-CSRF'], origin=origin)[0], 200)
+        self.assertEqual(len(self.intake.calls), 1)
+
     def test_intake_requires_session_origin_csrf_and_analyst_role(self):
         path = '/api/intake/submit'
         body = {'filename': 'sample.txt', 'content_base64': base64.b64encode(b'synthetic').decode()}
@@ -299,4 +331,3 @@ class ProtectedApiTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
