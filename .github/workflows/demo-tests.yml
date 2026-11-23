@@ -271,4 +271,25 @@ jobs:
           PYTHONPATH: demo
         run: python -m nawa_demo.phase13_browser_oidc_check
 
+      - name: Verify strict synthetic uploader separation in browser
+        env:
+          NAWA_PHASE13_CI_QA: '1'
+          PYTHONPATH: demo
+          NAWA_SYNTHETIC_SUBMITTER_POLICY: require_tracked
+          NAWA_PHASE13_TENANT_A: tenant-strict-ui
+        run: |
+          set -eu
+          cleanup() { docker stop nawa-phase13-strict-worker >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml up -d --no-deps --force-recreate nawa
+          docker compose -p nawa-phase13-ci -f compose.phase13-qa.yaml run -d --rm --no-deps \
+            --name nawa-phase13-strict-worker -e NAWA_TENANT_ID=tenant-strict-ui worker-a
+          ready=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent --max-time 5 http://127.0.0.1:19765/api/ready >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1
+          python -m nawa_demo.phase13_strict_browser_check
+
 
