@@ -29,7 +29,7 @@ async function fetch(url,opts={}) {
   else if(url==='/api/review/show')data=structuredClone(saved);
   else if(url==='/api/review/correct'){
     if(failSave){ok=false;status=503;data={error:'Storage unavailable'};}
-    else {const p=JSON.parse(opts.body);saved.fields[p.field]=p.value;saved.checks.total_matches_components=false;saved.revision++;data=structuredClone(saved);}
+    else {const p=JSON.parse(opts.body);assert.equal(p.expected_revision,2);saved.fields[p.field]=p.value;saved.checks.total_matches_components=false;saved.revision++;data=structuredClone(saved);}
   }else throw Error('Unexpected '+url);
   return {ok,status,json:async()=>data};
 }
@@ -50,15 +50,22 @@ async function run(){
   await byText(review,'Save correction').events.click();
   assert.match(flatten(review).find(x=>x.className.includes('review-feedback')).textContent,/Could not save.*try again/i);
   assert.equal(byId(review,'correction-value').value,'1049.00');
+  saved.revision=2;
+  const reload=byText(review,'Reload saved review');assert.equal(reload.hidden,false);
+  reload.events.click();await tick();await tick();
+  assert.equal(byId(review,'correction-field').value,'total');
+  assert.equal(byId(review,'correction-value').value,'1049.00');
+  assert.equal(byId(review,'correction-reason').value,'Source checked');
+  assert.ok(flatten(review).some(x=>x.textContent.includes('revision 2')));
   failSave=false;await byText(review,'Save correction').events.click();
   assert.ok(flatten(get('details')).some(x=>x.textContent==='1049.00'));
   assert.ok(flatten(get('details')).some(x=>x.textContent==='Originally extracted: 1050.00'));
   assert.ok(flatten(get('details')).some(x=>x.textContent.includes('Original source')));
   assert.ok(flatten(get('details')).some(x=>x.textContent.includes('Financial checks need review')));
-  assert.ok(flatten(review).some(x=>x.textContent.includes('revision 2')));
+  assert.ok(flatten(review).some(x=>x.textContent.includes('revision 3')));
   await flatten(get('items')).find(x=>x.tag==='button').events.click();await tick();await tick();
   assert.ok(flatten(get('details')).some(x=>x.textContent==='1049.00'));
-  assert.ok(flatten(get('review')).some(x=>x.textContent.includes('revision 2')));
+  assert.ok(flatten(get('review')).some(x=>x.textContent.includes('revision 3')));
   console.log('PASS: saved review reopens with original evidence; failed save keeps inputs for retry');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

@@ -17,6 +17,12 @@ async function request(path, payload) {
 async function task(action){try{await action();}catch(e){message(e.message,true);}}
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=String(text);if(className)node.className=className;return node;}
 function clear(node){node.replaceChildren();}
+function showUnsaved(root,draft){
+  if(!draft)return;
+  root.append(el('p','Your entries below were not confirmed as saved.','review-error'));
+  if(draft.correction)for(const [label,value] of Object.entries(draft.correction))root.append(el('p',`${label}: ${value}`,'muted'));
+  if(draft.reason)root.append(el('p',`Decision notes: ${draft.reason}`,'muted'));
+}
 function loaded(row){records.set(row.id,row.quotation);selected=row.id;$('count').textContent=records.size;renderItems();renderDetails();renderReview();message(`Loaded ${row.quotation.document}`);}
 function renderItems(){
   const root=$('items');clear(root);
@@ -55,7 +61,7 @@ function renderDetails(review=null){
   const valid=checks.vat_matches_rate===true&&checks.total_matches_components===true;
   root.append(el('p',valid?'✓ Financial checks passed':'⚠ Financial checks need review','notice'));
 }
-async function renderReview(){
+async function renderReview(draft=null){
   const root=$('review');clear(root);if(!selected){root.append(el('p','Select a quotation.','empty'));return;}
   const itemId=selected;root.append(el('p','Loading saved review…','muted'));let review;
   try{review=await request('/api/review/show',{id:itemId});}
@@ -63,26 +69,41 @@ async function renderReview(){
     if(selected!==itemId)return;clear(root);
     if(error.message!=='Review is not initialized'){
       root.append(el('p',`Could not open the review: ${error.message}. Try again.`,'review-error'));
-      const retry=el('button','Retry opening review','secondary');retry.addEventListener('click',()=>renderReview());root.append(retry);return;
+      showUnsaved(root,draft);
+      const retry=el('button','Retry opening review','secondary');retry.addEventListener('click',()=>renderReview(draft));root.append(retry);return;
     }
     if(authMode==='oidc'&&workspaceRole!=='analyst'){
-      root.append(el('p','An Analyst must start and prepare this review before a Reviewer can record a decision.','muted'));return;
+      root.append(el('p','An Analyst must start and prepare this review before a Reviewer can record a decision.','muted'));showUnsaved(root,draft);return;
     }
     const start=el('button','Start review');
     const feedback=el('p','','review-feedback');feedback.setAttribute('role','status');
-    start.addEventListener('click',async()=>{try{await request('/api/review/start',{id:itemId});message('Review created. You can now correct a field.');await renderReview();}catch(error){feedback.textContent=`Could not start the review: ${error.message}. Try again.`;feedback.className='review-feedback review-error';}});
-    root.append(el('p','Start a synthetic review, then select a field and provide source evidence.','muted'),start,feedback);return;
+    start.addEventListener('click',async()=>{try{await request('/api/review/start',{id:itemId});message('Review created. You can now correct a field.');await renderReview(draft);}catch(error){feedback.textContent=`Could not start the review: ${error.message}. Try again.`;feedback.className='review-feedback review-error';}});
+    root.append(el('p','Start a synthetic review, then select a field and provide source evidence.','muted'));showUnsaved(root,draft);root.append(start,feedback);return;
   }
   if(selected!==itemId)return;clear(root);renderDetails(review);
   root.append(el('p',`Status: ${review.status} · revision ${review.revision}`,'muted'));
   root.append(el('p','Saved review loaded. Compare the saved values with the original evidence.','review-guidance'));
   const history=el('div',undefined,'history');for(const h of review.history){history.append(el('div',`#${h.sequence} ${h.type} · ${h.actor} · ${h.timestamp}`,'row'));}
-  if(review.status==='approved'||review.status==='rejected'){root.append(history);return;}
+  if(review.status==='approved'||review.status==='rejected'){
+    if(draft){
+      root.append(el('p','This review is final. Your unsaved input was not recorded.','review-error'));
+      showUnsaved(root,draft);
+    }
+    root.append(history);return;
+  }
+  if(draft)root.append(el('p','Latest review loaded. Your unsaved entries are still below; check the revision before saving.','review-guidance'));
   const feedback=el('p','','review-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');root.append(feedback);
-  const reviewTask=async(action)=>{try{feedback.textContent='';await action();}catch(error){feedback.textContent=`Could not save: ${error.message}. Check the details and try again.`;feedback.className='review-feedback review-error';}};
+  const reload=el('button','Reload saved review','secondary');reload.hidden=true;root.append(reload);
+  let correctionInputs=null, decisionReason=null;
+  const reviewTask=async(action)=>{try{feedback.textContent='';reload.hidden=true;await action();}catch(error){feedback.textContent=`Could not save: ${error.message}. Check the details and try again, or reload the latest review.`;feedback.className='review-feedback review-error';reload.hidden=false;}};
   const form=el('div',undefined,'review-form');const actor=el('input');actor.placeholder='Reviewer ID (demo only)';actor.value=authMode==='oidc'?'Signed-in user':'reviewer-1';actor.disabled=authMode==='oidc';form.append(el('label',authMode==='oidc'?'Review identity':'Reviewer ID'),actor);
+  if(draft && authMode!=='oidc')actor.value=draft.actor;
+  reload.addEventListener('click',()=>{
+    const entries=correctionInputs?Object.fromEntries(Object.entries(correctionInputs).map(([key,input])=>[key,input.value])):null;
+    renderReview({actor:actor.value,reason:decisionReason?decisionReason.value:'',correction:entries});
+  });
   if(authMode!=='oidc'||workspaceRole==='reviewer'){
-    const reason=el('textarea');reason.placeholder='Explain your decision';form.append(el('label','Reason / review notes'),reason);
+    const reason=el('textarea');reason.placeholder='Explain your decision';if(draft)reason.value=draft.reason;decisionReason=reason;form.append(el('label','Reason / review notes'),reason);
     const controls=el('div',undefined,'horizontal');
     for(const [decision,label] of [['approve','Approve'],['request_changes','Request changes'],['reject','Reject']]){
       const button=el('button',label,decision==='approve'?'':'secondary');
@@ -101,6 +122,8 @@ async function renderReview(){
   const note=el('input');inputLabel('Reason for correction',note,'correction-reason');
   const evidenceLine=el('input');evidenceLine.type='number';evidenceLine.min='1';inputLabel('Original source line',evidenceLine,'correction-line');
   const quote=el('textarea');inputLabel('Exact source excerpt',quote,'correction-quote');
+  correctionInputs={field:fields,value,note,line:evidenceLine,quote};
+  if(draft&&draft.correction)for(const [key,input] of Object.entries(correctionInputs))input.value=draft.correction[key]||'';
   const save=el('button','Save correction','secondary');
   save.addEventListener('click',()=>reviewTask(async()=>{
     const result=await request('/api/review/correct',{id:itemId,actor:actor.value,field:fields.value,value:value.value,reason:note.value,source:review.document,line:Number(evidenceLine.value),quote:quote.value,expected_revision:review.revision});

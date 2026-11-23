@@ -47,13 +47,34 @@ def main():
             page.get_by_label('Reason for correction').fill('Normalize the synthetic rate')
             page.get_by_label('Original source line').fill('4')
             page.get_by_label('Exact source excerpt').fill('VAT Rate: 5')
+            # Simulate another request changing the saved revision after this
+            # browser loaded it; the pending form must survive the reload.
+            status = page.evaluate('''async () => {
+              const list = await (await fetch('/api/quotations')).json();
+              const item = list.quotations.find(x => x.quotation.document === 'browser-synthetic.txt');
+              if (!item) return 0;
+              const csrf = (document.cookie.split('; ').find(x => x.startsWith('nawa_csrf=')) || '').slice(10);
+              const response = await fetch('/api/review/correct', {method:'POST',
+                headers:{'Content-Type':'application/json', 'X-NAWA-CSRF':csrf},
+                body:JSON.stringify({id:item.id,field:'total',value:'1050',reason:'Synthetic concurrent formatting',
+                  source:'browser-synthetic.txt',line:6,quote:'Grand Total: 1050.00',expected_revision:1})});
+              return response.status;
+            }''')
+            if status != 200:
+                raise AssertionError('Synthetic concurrent review update failed')
             page.get_by_role('button', name='Save correction').click()
+            page.locator('#review .review-error').wait_for(state='visible', timeout=15000)
+            page.get_by_role('button', name='Reload saved review').click()
             page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+            if page.get_by_label('Corrected value').input_value() != '5.0':
+                raise AssertionError('Unsaved correction was not retained after reload')
+            page.get_by_role('button', name='Save correction').click()
+            page.locator('#review').get_by_text('Status: pending_review · revision 3').wait_for(state='visible', timeout=15000)
             if 'Originally extracted: 5' not in page.locator('#details').inner_text():
                 raise AssertionError('Original extracted value was not shown')
             page.reload(wait_until='domcontentloaded')
             page.get_by_role('button', name='Open review for browser-synthetic.txt').click(timeout=15000)
-            page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+            page.locator('#review').get_by_text('Status: pending_review · revision 3').wait_for(state='visible', timeout=15000)
             details = page.locator('#details').inner_text()
             if '5.0' not in details or 'VAT Rate: 5' not in details:
                 raise AssertionError('Saved value and source evidence were not restored')
