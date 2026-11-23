@@ -20,6 +20,12 @@ from .grounded_qa import format_review_handoff
 from .synthetic_review_queue import SyntheticReviewQueue
 
 
+def _unique_json_pairs(pairs):
+    if len({key for key, _ in pairs}) != len(pairs):
+        raise ValueError('Duplicate JSON field')
+    return dict(pairs)
+
+
 def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_cookies=False,
                            allowed_origin='http://127.0.0.1:8765', intake=None,
                            synthetic_request_gate=None, synthetic_retrieval=None, synthetic_review_queue=None):
@@ -34,6 +40,19 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
     Base = make_handler(health_state)
 
     class Handler(Base):
+        def _body_length(self, maximum):
+            lengths = self.headers.get_all('Content-Length', [])
+            if (len(lengths) != 1 or self.headers.get_all('Transfer-Encoding', [])
+                    or not lengths[0].isascii() or not lengths[0].isdecimal()
+                    or len(lengths[0]) > 10):
+                self.close_connection = True
+                raise ValueError('Invalid request')
+            length = int(lengths[0])
+            if length < 1 or length > maximum:
+                self.close_connection = True
+                raise ValueError('Invalid request')
+            return length
+
         def _cookie(self, name):
             raw = self.headers.get('Cookie', '')
             if sum(part.strip().startswith(name + '=') for part in raw.split(';')) != 1:
@@ -174,10 +193,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                             or self.headers.get('Transfer-Encoding')):
                         self.close_connection = True
                         raise ValueError('Invalid request')
-                    length = int(self.headers.get('Content-Length', '-1'))
-                    if length < 1 or length > 1024:
-                        self.close_connection = True
-                        raise ValueError('Invalid request')
+                    length = self._body_length(1024)
                     self.connection.settimeout(10)
                     raw = self.rfile.read(length)
                     if len(raw) != length:
@@ -185,11 +201,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                     if self.headers.get('Origin') != allowed_origin:
                         raise SessionError('Request denied')
                     principal = self._principal('review_start' if path.endswith('/create') else 'view', require_csrf=True)
-                    def unique_pairs(pairs):
-                        if len({key for key, _ in pairs}) != len(pairs):
-                            raise ValueError('Invalid request')
-                        return dict(pairs)
-                    payload = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_pairs)
+                    payload = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_json_pairs)
                     if task_path:
                         fields = {'request_key','question','passage_id'} if path.endswith('/create') else {'id'}
                         if not isinstance(payload, dict) or set(payload) != fields:
@@ -257,9 +269,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
             try:
                 if self.headers.get_content_type() != 'application/json':
                     raise ValueError('Content-Type must be application/json')
-                length = int(self.headers.get('Content-Length', '-1'))
-                if length < 1 or length > MAX_BODY or self.headers.get('Transfer-Encoding'):
-                    raise ValueError('Request body size invalid')
+                length = self._body_length(MAX_BODY)
                 # Consume a bounded body before returning an authorization error.
                 # Otherwise Windows can reset the connection instead of delivering
                 # the 403 when unread bytes remain in the socket.
@@ -272,7 +282,7 @@ def make_protected_handler(scoped, sessions, health_state, *, flow=None, secure_
                 if self.headers.get('Origin') != allowed_origin:
                     return self._json({'error': 'Request denied'}, 403)
                 principal = self._principal(action)
-                payload = json.loads(raw.decode('utf-8'))
+                payload = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_json_pairs)
                 if not isinstance(payload, dict):
                     raise ValueError('Expected JSON object')
                 if action == 'load':
