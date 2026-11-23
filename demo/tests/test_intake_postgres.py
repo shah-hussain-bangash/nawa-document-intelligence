@@ -230,6 +230,90 @@ class PostgresIntakeTests(unittest.TestCase):
                          hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()) for principal in principals}
             self.assertEqual({(tenant, document.hex, actor.strip()) for tenant, document, actor in rows}, expected)
 
+    def test_strict_synthetic_approval_rejects_submitters_and_unknown_history(self):
+        from nawa_demo.identity_repository import membership
+        from nawa_demo.scoped_state import AccessDenied
+        issuer = 'https://synthetic-separation.example'
+        names = {key:key + '-' + uuid4().hex for key in ('uploader', 'duplicate', 'starter', 'reviewer')}
+        with self.connect() as conn:
+            for key, subject in names.items():
+                role = 'reviewer' if key == 'reviewer' else 'analyst'
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, self.tenant, role))
+            users = {key:membership(conn, issuer=issuer, subject=subject, tenant=self.tenant)
+                     for key, subject in names.items()}
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            tracked = ScopedIntake(self.connect, store, track_submitters=True)
+            untracked = ScopedIntake(self.connect, store)
+            state = ScopedState(self.connect, require_tracked_submitters=True)
+            sample = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, created = tracked.submit(users['uploader'], 'tracked.txt', sample)
+            self.assertTrue(created)
+            self.assertEqual(tracked.submit(users['duplicate'], 'tracked.txt', sample), (document, False))
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            item = tracked.promote(users['starter'], document)['id']
+            state.review_start(users['starter'], item)
+            with self.connect() as conn:
+                for key in ('uploader', 'duplicate'):
+                    conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                                 (issuer, names[key], self.tenant))
+                    users[key] = membership(conn, issuer=issuer, subject=names[key], tenant=self.tenant)
+            decision = {'id':item, 'decision':'approve', 'reason':'Synthetic review', 'expected_revision':1}
+            for key in ('uploader', 'duplicate'):
+                with self.subTest(submitter=key), self.assertRaises(AccessDenied):
+                    state.review_decision(users[key], decision)
+            self.assertEqual(state.review_show(users['reviewer'], item)['revision'], 1)
+            self.assertEqual(state.review_decision(users['reviewer'], decision)['status'], 'approved')
+
+            # Turning tracking on for a pre-existing source does not establish
+            # who submitted it before tracking began.
+            legacy_content = sample + b'\n# synthetic legacy source\n'
+            legacy, _ = untracked.submit(users['starter'], 'legacy.txt', legacy_content)
+            self.assertEqual(tracked.submit(users['starter'], 'legacy.txt', legacy_content), (legacy, False))
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            legacy_item = tracked.promote(users['starter'], legacy)['id']
+            state.review_start(users['starter'], legacy_item)
+            decision['id'] = legacy_item
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+
+            # A later submission through an untracked writer permanently
+            # invalidates the completeness marker.
+            incomplete_content = sample + b'\n# synthetic incomplete source\n'
+            incomplete, _ = tracked.submit(users['starter'], 'incomplete.txt', incomplete_content)
+            self.assertEqual(untracked.submit(users['starter'], 'incomplete.txt', incomplete_content), (incomplete, False))
+            self.assertEqual(tracked.submit(users['starter'], 'incomplete.txt', incomplete_content), (incomplete, False))
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            incomplete_item = tracked.promote(users['starter'], incomplete)['id']
+            state.review_start(users['starter'], incomplete_item)
+            decision['id'] = incomplete_item
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+            with self.connect() as conn:
+                complete = conn.execute('''SELECT complete FROM nawa_synthetic_intake_tracking
+                    WHERE tenant_id=%s AND document_id=%s''', (self.tenant, incomplete)).fetchone()[0]
+                self.assertFalse(complete)
+
+            missing_content = sample + b'\n# synthetic missing submitters\n'
+            missing, _ = tracked.submit(users['starter'], 'missing.txt', missing_content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            missing_item = tracked.promote(users['starter'], missing)['id']
+            state.review_start(users['starter'], missing_item)
+            with self.connect() as conn:
+                conn.execute('DELETE FROM nawa_synthetic_intake_submitters WHERE tenant_id=%s AND document_id=%s',
+                             (self.tenant, missing))
+            decision['id'] = missing_item
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+
+            direct = state.add_sample(users['starter'], 'arabic_quote.txt')['id']
+            state.review_start(users['starter'], direct)
+            decision['id'] = direct
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+
     def test_registration_dedup_and_claim_boundary(self):
         meta = check_document('عرض.txt', 'عرض سعر'.encode('utf-8'))
         document = uuid4().hex
@@ -1374,13 +1458,14 @@ print('Synthetic request found in a fresh process')
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 8)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 9)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_withdrawals')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_document_grants')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_grant_generation_seq')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_review_requests')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_intake_submitters')").fetchone()[0])
+            self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_intake_tracking')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
             with self.assertRaisesRegex(ValueError, 'history mismatch'):

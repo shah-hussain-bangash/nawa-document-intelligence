@@ -49,10 +49,19 @@ class ScopedIntake:
                 registration_attempted = True
                 registered, created = jobs.register(principal.tenant, document_id, metadata)
                 if self.track_submitters:
+                    if created:
+                        conn.execute('''INSERT INTO nawa_synthetic_intake_tracking (tenant_id,document_id,complete)
+                            VALUES (%s,%s,true)''', (principal.tenant, UUID(registered)))
                     actor_hash = hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
                     conn.execute('''INSERT INTO nawa_synthetic_intake_submitters (tenant_id,document_id,actor_hash)
                         VALUES (%s,%s,%s) ON CONFLICT (tenant_id,document_id,actor_hash) DO NOTHING''',
                         (principal.tenant, UUID(registered), actor_hash))
+                else:
+                    # An untracked submission makes any earlier completeness
+                    # claim unusable, even if tracking is enabled again later.
+                    conn.execute('''UPDATE nawa_synthetic_intake_tracking SET complete=false
+                        WHERE tenant_id=%s AND document_id=%s AND complete''',
+                        (principal.tenant, UUID(registered)))
         except IntakeRejected:
             # This explicit rejection occurs before insertion or commit.
             self.store.discard(document_id)
