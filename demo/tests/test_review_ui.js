@@ -24,6 +24,7 @@ let saved={document:'synthetic.txt',status:'pending_review',revision:1,fields:{s
 let failSave=true,holdNextShow=false,finishHeldShow=null,holdNextSave=false,finishHeldSave=null;
 let reloadCount=0;
 let correctionRequests=0;
+let uninitializedQ1=false,finishHeldStart=null;
 const windowEvents={};
 async function fetch(url,opts={}) {
   let data,ok=true,status=200;
@@ -31,9 +32,13 @@ async function fetch(url,opts={}) {
   else if(url==='/auth/me')data={role:'analyst'};
   else if(url==='/api/quotations')data={quotations:[{id:'q1',quotation},{id:'q2',quotation:quotation2}],storage:'postgres'};
   else if(url==='/api/review/show'){
+    if(uninitializedQ1&&JSON.parse(opts.body).id==='q1')return {ok:false,status:400,json:async()=>({error:'Review is not initialized'})};
     data=structuredClone(saved);
     if(JSON.parse(opts.body).id==='q2')data.document='second-synthetic.txt';
     if(holdNextShow){holdNextShow=false;await new Promise(resolve=>{finishHeldShow=resolve;});}
+  }
+  else if(url==='/api/review/start'){
+    await new Promise(resolve=>{finishHeldStart=resolve;});uninitializedQ1=false;data={};
   }
   else if(url==='/api/review/correct'){
     correctionRequests++;
@@ -110,6 +115,15 @@ async function run(){
   finishHeldShow();await tick();await tick();
   assert.ok(flatten(review).some(x=>x.textContent.includes('revision 5')));
   assert.equal(flatten(review).some(x=>x.textContent.includes('revision 4')),false);
+  byId(review,'correction-value').value='First draft';
+  uninitializedQ1=true;byText(review,'Reopen saved review').events.click();await tick();await tick();
+  const start=byText(review,'Start review');const pendingStart=start.events.click();await tick();
+  assert.equal(start.disabled,true);
+  flatten(get('items')).filter(x=>x.tag==='button')[1].events.click();await tick();await tick();
+  assert.equal(byId(review,'correction-value').value,'222.00');
+  finishHeldStart();await pendingStart;await tick();
+  assert.equal(byId(review,'correction-value').value,'222.00');
+  assert.match(get('message').textContent,/Review created for synthetic\.txt/);
   document.cookie='nawa_csrf=different-session';
   const requestsBefore=correctionRequests;
   await byText(review,'Save correction').events.click();
