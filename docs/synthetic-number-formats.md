@@ -1,0 +1,5 @@
+# Number formats in the synthetic quotation prototype
+
+The deterministic text parser uses a fixed number convention: a period is the decimal separator, and commas are grouping separators in groups of three. Arabic-Indic and Persian digits are normalized; Arabic decimal and grouping separators are treated like a period and comma respectively. For example, `1,234.50` and `١٬٢٣٤٫٥٠` both mean 1234.50. A comma followed by exactly three digits is interpreted as grouping, so `1,234` means 1234 under this convention. This is a policy, not locale detection.
+
+Inputs that do not follow the convention, including decimal-comma formats such as `1,23` and `1.000,00`, are rejected for human review. The system cannot infer the intended locale from an otherwise valid value: reviewers must compare the source and identify its number convention before entering a supported value. Scientific notation and underscores are also unsupported. This behavior applies to new parsing and review corrections in the synthetic prototype; it does not establish the correctness of previously stored values or the separate NAWA portal.

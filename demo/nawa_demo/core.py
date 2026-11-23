@@ -20,10 +20,15 @@ MONEY = Decimal("0.01")
 
 
 def normalized_number(value: str) -> str:
-    """Convert Arabic-Indic digits to ASCII and remove thousands separators."""
+    """Normalize supported digits and validate separators before removing grouping."""
     mapping = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫٬", "01234567890123456789.,")
-    value = value.strip().translate(mapping).replace(",", "")
-    return value
+    value = value.strip().translate(mapping)
+    suffix = "%" if value.endswith("%") else ""
+    if suffix:
+        value = value[:-1].strip()
+    if not re.fullmatch(r"[+-]?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?", value):
+        raise ValueError("Unsupported or ambiguous number format; review the source")
+    return value.replace(",", "") + suffix
 
 
 def decimal_value(raw: str, field: str) -> Decimal:
