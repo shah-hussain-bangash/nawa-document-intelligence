@@ -50,6 +50,12 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(inspect(changed)['fields']['total'], '900.00')
         self.assertEqual(inspect(changed)['history'][-1]['type'], 'correction')
 
+    def test_unsupported_number_correction_preserves_ledger(self):
+        before = copy.deepcopy(self.ledger)
+        with self.assertRaises(ValueError):
+            self.correction(value='1,23')
+        self.assertEqual(self.ledger, before)
+
     def test_bad_math_blocks_approval(self):
         changed = self.correction(value='900.00')
         with self.assertRaisesRegex(ValueError, 'Cannot approve'):
