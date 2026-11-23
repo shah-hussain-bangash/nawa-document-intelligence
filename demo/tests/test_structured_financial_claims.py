@@ -27,7 +27,9 @@ class StructuredFinancialClaimsTests(unittest.TestCase):
     def test_ambiguous_or_unsupported_evidence_is_withheld(self):
         for line in ('Subtotal AED 1,000.00', 'Subtotal USD 1000.00',
                      'Subtotal AED 1000.00 but excludes delivery', 'Not subtotal AED 1000.00',
-                     'Subtotal AED 1000.00\nSubtotal AED 2000.00', 'Subtotal AED NaN'):
+                     'Subtotal AED 1000.00\nSubtotal AED 2000.00', 'Subtotal AED NaN',
+                     'Subtotal\nAED 1000.00', 'Subtotal\r\nAED 1000.00',
+                     'Subtotal\u2028AED 1000.00', 'Subtotal AED 1000.00\n'):
             with self.subTest(line=line):
                 self.assertFalse(self.check('subtotal', '1000', line)['field_value_match'])
         self.assertFalse(self.check('subtotal', '-1000', 'Subtotal AED 1000')['field_value_match'])
