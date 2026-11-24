@@ -84,9 +84,9 @@ function renderDetails(review=null){
     const evidence=q.evidence[field]||q.evidence[field==='vat_rate_percent'?'vat_rate':field];
     if(evidence){
       const location=evidence.page?`Page ${evidence.page}, line ${evidence.page_line||evidence.line} (global line ${evidence.line})`:`Line ${evidence.line}`;
-      content.append(el('div',`Original source · ${location}: ${evidence.source_text}`,'evidence'));
+      const source=el('div',`Original source · ${location}: ${evidence.source_text}`,'evidence source-reference');source.setAttribute('dir','auto');content.append(source);
       if(typeof evidence.raw_extracted_text==='string'&&evidence.raw_extracted_text!==evidence.source_text){
-        const raw=el('div',`Raw PDF text for matching: ${evidence.raw_extracted_text}`,'evidence');raw.style.whiteSpace='pre-wrap';content.append(raw);
+        const raw=el('div',`Raw PDF text for matching: ${evidence.raw_extracted_text}`,'evidence source-reference');raw.style.whiteSpace='pre-wrap';raw.setAttribute('dir','auto');content.append(raw);
       }
     }
     line.append(content);root.append(line);
@@ -125,7 +125,7 @@ async function renderReview(draft=null,reopened=false){
     root.append(el('p','Start a synthetic review, then select a field and provide source evidence.','muted'));showUnsaved(root,draft);root.append(start,feedback);return;
   }
   if(!sameDraftSession()||selected!==itemId||reviewRequestVersion!==requestVersion)return;clear(root);renderDetails(review);
-  root.append(el('p',`Status: ${review.status} · revision ${review.revision}`,'muted'));
+  root.append(el('p',`Status: ${review.status} · revision ${review.revision}`,'review-status'));
   const guidance=el('p',reopened?`Saved review reopened from the server at revision ${review.revision}.`:'Saved review loaded. Compare the saved values with the original evidence.','review-guidance');guidance.setAttribute('role','status');root.append(guidance);
   let captureDraft=()=>null;
   const reopen=el('button','Reopen saved review','secondary');reopen.addEventListener('click',()=>renderReview(captureDraft(),true));root.append(reopen);
