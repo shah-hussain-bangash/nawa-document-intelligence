@@ -26,6 +26,10 @@ class ReviewNotInitialized(ValueError):
     pass
 
 
+def _review_actor(principal):
+    return 'oidc:' + hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+
+
 def validate_correction_source_policy(value):
     if value not in ('legacy_asserted', 'require_intake_txt', 'require_intake_fixture', 'require_intake_text_layer'):
         raise ValueError('Invalid synthetic correction source policy')
@@ -33,8 +37,12 @@ def validate_correction_source_policy(value):
 
 
 class ScopedState:
-    def __init__(self, connect, *, correction_source_policy='legacy_asserted', correction_source_store=None):
+    def __init__(self, connect, *, correction_source_policy='legacy_asserted', correction_source_store=None,
+                 require_tracked_submitters=False):
         self._connect = connect
+        if type(require_tracked_submitters) is not bool:
+            raise ValueError('Synthetic submitter policy must be boolean')
+        self.require_tracked_submitters = require_tracked_submitters
         self.correction_source_policy = validate_correction_source_policy(correction_source_policy)
         if self.correction_source_policy != 'legacy_asserted' and correction_source_store is None:
             raise ValueError('Synthetic correction source store required')
@@ -160,6 +168,23 @@ class ScopedState:
                     for evidence in corrections]
         return []
 
+    @staticmethod
+    def _require_independent_submitter(conn, principal, item_id):
+        # Serialize this check with the updated synthetic intake writer. The
+        # marker is created only when tracking began with source registration.
+        row = conn.execute('''SELECT d.id FROM nawa_intake_promotions p
+            JOIN nawa_intake_documents d ON d.tenant_id=p.tenant_id AND d.id=p.document_id
+            JOIN nawa_synthetic_intake_tracking t ON t.tenant_id=d.tenant_id AND t.document_id=d.id
+            WHERE p.tenant_id=%s AND p.quotation_id=%s AND t.complete
+            FOR UPDATE OF d,t''', (principal.tenant, item_id)).fetchone()
+        if row is None:
+            raise AccessDenied('Request denied')
+        submitters = conn.execute('''SELECT actor_hash FROM nawa_synthetic_intake_submitters
+            WHERE tenant_id=%s AND document_id=%s''', (principal.tenant, row[0])).fetchall()
+        actor_hash = hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+        if not submitters or any(value[0].strip() == actor_hash for value in submitters):
+            raise AccessDenied('Request denied')
+
     def review_start(self, principal, item_id):
         self._require(principal, 'review_start')
         with self._connect() as conn:
@@ -167,7 +192,7 @@ class ScopedState:
             quote = self._quote(conn, principal, item_id, lock=True)
             if conn.execute('SELECT 1 FROM nawa_reviews WHERE quotation_id = %s', (item_id,)).fetchone():
                 raise ValueError('Review already initialized')
-            ledger = begin(quote)
+            ledger = begin(quote, preparer=_review_actor(principal))
             conn.execute('INSERT INTO nawa_reviews (quotation_id, revision, ledger) VALUES (%s, %s, %s::jsonb)',
                          (item_id, 1, json.dumps(ledger, ensure_ascii=False)))
         return inspect(ledger)
@@ -197,10 +222,18 @@ class ScopedState:
                 raise ValueError('Review is not initialized')
             if inspect(row[1])['revision'] != row[0]:
                 raise ValueError('Review revision mismatch')
-            actor = 'oidc:' + hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()
+            actor = _review_actor(principal)
             source_checks = []
             if action == 'decide':
                 if payload.get('decision') == 'approve':
+                    # A later role change must not let the same provisioned
+                    # identity approve its own earlier correction.
+                    if (row[1]['events'][0]['data'].get('preparer') == actor or
+                            any(event['type'] == 'correction' and event['actor'] == actor
+                                for event in row[1]['events'])):
+                        raise AccessDenied('Request denied')
+                    if self.require_tracked_submitters:
+                        self._require_independent_submitter(conn, principal, item_id)
                     source_checks = self._verify_corrections(conn, principal, item_id, original, row[1])
                 updated = decide(row[1], actor=actor, decision=payload.get('decision'),
                                  reason=payload.get('reason'), expected_revision=payload.get('expected_revision'))
@@ -227,4 +260,5 @@ class ScopedState:
 
     def review_correction(self, principal, payload):
         return self._change(principal, payload, 'correct')
+
 

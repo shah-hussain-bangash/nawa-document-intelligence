@@ -18,6 +18,8 @@ const nodes = new Map();
 const get = id => { if (!nodes.has(id)) nodes.set(id, element()); return nodes.get(id); };
 const main = element();
 const calls = [];
+let statusUnavailable = true;
+let jobState = 'failed';
 const document = {
   cookie: 'nawa_csrf=synthetic-csrf',
   getElementById: get,
@@ -35,13 +37,16 @@ async function fetch(pathname, options = {}) {
     const file = JSON.parse(options.body).files[0];
     data = file.filename === 'quota.txt' ? {files:[{error:'Synthetic document limit reached'}]} : {files:[{id:'abc123', created:true}]};
   }
-  else if (pathname === '/api/intake/status?id=abc123') data = {state:'completed', attempts:1};
+  else if (pathname === '/api/intake/status?id=abc123') {
+    if (statusUnavailable) { statusUnavailable=false; return {ok:false,status:503,json:async()=>({error:'Status unavailable'})}; }
+    data = {state:jobState, attempts:1};
+  }
   else if (pathname === '/api/intake/documents') data = {documents:[{id:'abc123',filename:'synthetic.txt',state:'completed',attempts:1}]};
   else if (pathname === '/api/intake/result?id=abc123') data = {result:{supplier:'Synthetic supplier', total:'1050.00'}};
   else if (pathname === '/api/intake/version') data = {family_id:'synthetic-family', version:1};
   else if (pathname === '/api/intake/versions?family=synthetic-family') data = {versions:[{version:1,id:'abc123'}]};
   else if (pathname === '/api/intake/promote') data = {id:'quote1',created:true,quotation:{document:'synthetic.txt',supplier:'Synthetic',total:'1050.00',checks:{valid:true},evidence:{}}};
-  else if (pathname === '/api/intake/retry') data = {id:'abc123', state:'validated'};
+  else if (pathname === '/api/intake/retry') { jobState='completed'; data = {id:'abc123', state:'validated'}; }
   else if (pathname === '/api/review/show') data = {status:'approved',revision:1,history:[]};
   else throw new Error('Unexpected request: ' + pathname);
   return {ok:true, status:200, json:async () => data};
@@ -51,11 +56,21 @@ async function mainTest() {
   const source = fs.readFileSync(path.join(__dirname, '../web/app.js'), 'utf8');
   const context = {document, fetch, TextEncoder, Uint8Array, Map, Array, String, JSON,
                    btoa: value => Buffer.from(value, 'binary').toString('base64'),
-                   window:{location:{reload(){}}}};
+                   window:{addEventListener(){},location:{reload(){}}}};
   vm.runInNewContext(source, context, {filename:'app.js'});
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(main.hidden, false);
   assert.equal(get('intakePanel').hidden, false);
+  get('upload').files = [{name:'synthetic.txt', size:4, arrayBuffer:async () => Uint8Array.from([116,101,115,116]).buffer}];
+  await get('uploadBtn').events.click();
+  assert.match(get('uploadFeedback').textContent, /Could not confirm processing/);
+  await get('uploadRecovery').children[0].events.click();
+  assert.match(get('uploadFeedback').textContent, /Processing failed/);
+  get('uploadRecovery').children.find(node=>node.id==='upload-retry-reason').value='Synthetic retry';
+  await get('uploadRecovery').children.find(node=>node.textContent==='Retry processing').events.click();
+  assert.match(get('uploadFeedback').textContent, /Retry requested/);
+  await get('uploadRecovery').children[0].events.click();
+  assert.match(get('uploadFeedback').textContent, /Quotation loaded/);
   get('intakeFiles').files = [{name:'synthetic.txt', size:4, arrayBuffer:async () => Uint8Array.from([116,101,115,116]).buffer}];
   await get('intakeSubmit').events.click();
   const submission = calls.find(x => x.pathname === '/api/intake/batch');
@@ -87,4 +102,5 @@ async function mainTest() {
 }
 
 mainTest().catch(error => { console.error(error); process.exitCode = 1; });
+
 

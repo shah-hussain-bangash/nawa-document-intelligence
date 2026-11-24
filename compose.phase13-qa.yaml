@@ -50,11 +50,12 @@ services:
       NAWA_AUTH: oidc
       NAWA_INTAKE: synthetic
       NAWA_SYNTHETIC_EVIDENCE: ${NAWA_SYNTHETIC_EVIDENCE:-off}
+      NAWA_SYNTHETIC_SUBMITTER_POLICY: ${NAWA_SYNTHETIC_SUBMITTER_POLICY:-off}
       GITHUB_ACTIONS: ${GITHUB_ACTIONS:-false}
       NAWA_SYNTHETIC_ORIGIN_POLICY: require_recorded
       NAWA_SYNTHETIC_CORRECTION_SOURCE: require_intake_text_layer
       NAWA_INTAKE_DIR: /intake
-      NAWA_TENANT_ID: tenant-a
+      NAWA_TENANT_ID: ${NAWA_PHASE13_TENANT_A:-tenant-a}
       NAWA_WEB_ORIGIN: http://127.0.0.1:19765
       POSTGRES_HOST: db
       OIDC_ISSUER: https://localhost:19443/realms/nawa-phase13
@@ -181,3 +182,4 @@ services:
 volumes:
   qa13_database:
   qa13_documents:
+

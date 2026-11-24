@@ -31,6 +31,19 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual((state['status'], state['revision']), ('pending_review', 1))
         self.assertEqual(state['source_evidence']['total']['line'], 6)
 
+    def test_preparer_is_hash_linked_and_legacy_reviews_still_replay(self):
+        self.assertNotIn('preparer', self.ledger['events'][0]['data'])
+        self.assertEqual(inspect(self.ledger)['revision'], 1)
+        prepared = begin(self.quotation, preparer='oidc:' + 'a' * 64)
+        self.assertEqual(prepared['events'][0]['data']['preparer'], 'oidc:' + 'a' * 64)
+        self.assertEqual(inspect(prepared)['revision'], 1)
+        tampered = copy.deepcopy(prepared)
+        tampered['events'][0]['data']['preparer'] = 'oidc:' + 'b' * 64
+        with self.assertRaisesRegex(ValueError, 'hash mismatch'):
+            inspect(tampered)
+        with self.assertRaisesRegex(ValueError, 'preparer identity'):
+            begin(self.quotation, preparer='synthetic-user')
+
     def test_approve_valid_quotation(self):
         state = inspect(decide(self.ledger, actor='reviewer-1', decision='approve',
                                reason='Verified values', expected_revision=1))
@@ -49,6 +62,16 @@ class ReviewTests(unittest.TestCase):
         self.assertFalse(inspect(changed)['checks']['total_matches_components'])
         self.assertEqual(inspect(changed)['fields']['total'], '900.00')
         self.assertEqual(inspect(changed)['history'][-1]['type'], 'correction')
+
+    def test_reopened_review_includes_the_cited_correction_evidence(self):
+        changed = self.correction(value='900.00', reason='Compare against source',
+                                  line=3, quote='Subtotal: 1000.00')
+        record = json.loads(json.dumps(changed))
+        self.assertEqual(inspect(record)['corrections'], [{
+            'sequence': 2, 'field': 'total', 'from': '1050.00', 'to': '900.00',
+            'reason': 'Compare against source',
+            'evidence': {'source': record['document'], 'line': 3, 'quote': 'Subtotal: 1000.00'},
+        }])
 
     def test_unsupported_number_correction_preserves_ledger(self):
         before = copy.deepcopy(self.ledger)
@@ -147,3 +170,4 @@ class ReviewTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

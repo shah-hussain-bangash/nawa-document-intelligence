@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
+import re
 
 from .core import decimal_value
 
@@ -65,6 +66,7 @@ def _apply(record):
     status = 'pending_review'
     last_hash = 'GENESIS'
     history = []
+    corrections = []
     for i, event in enumerate(events, 1):
         if not isinstance(event, dict) or set(event) != {'sequence', 'type', 'actor', 'timestamp', 'data', 'previous_hash', 'hash'}:
             raise ValueError('Invalid event structure')
@@ -79,8 +81,12 @@ def _apply(record):
             raise ValueError('Invalid event data')
         kind = event['type']
         if i == 1:
-            if kind != 'created' or set(data) != {'fields', 'evidence'} or actor != 'system':
+            if (kind != 'created' or set(data) not in ({'fields', 'evidence'}, {'fields', 'evidence', 'preparer'})
+                    or actor != 'system'):
                 raise ValueError('First event must be system-created')
+            if 'preparer' in data and (not isinstance(data['preparer'], str)
+                    or not re.fullmatch(r'oidc:[0-9a-f]{64}', data['preparer'])):
+                raise ValueError('Invalid synthetic preparer identity')
             if not isinstance(data['fields'], dict) or not isinstance(data['evidence'], dict):
                 raise ValueError('Invalid source data')
             fields = deepcopy(data['fields'])
@@ -112,6 +118,8 @@ def _apply(record):
                 raise ValueError('Correction source must match original document')
             fields[field] = data['to']
             _financial(fields)
+            corrections.append({'sequence': i, 'field': field, 'from': data['from'], 'to': data['to'],
+                                'reason': data['reason'], 'evidence': deepcopy(provenance)})
             status = 'pending_review'
         elif kind == 'decision':
             if set(data) != {'decision', 'reason'} or data['decision'] not in DECISIONS:
@@ -128,7 +136,7 @@ def _apply(record):
         last_hash = event['hash']
     return {'document': document, 'fields': fields, 'source_evidence': evidence,
             'checks': _financial(fields), 'status': status, 'revision': len(events),
-            'last_hash': last_hash, 'history': history}
+            'last_hash': last_hash, 'history': history, 'corrections': corrections}
 
 
 def inspect(record):
@@ -156,7 +164,7 @@ def _append(record, kind, actor, data, *, expected_revision, timestamp=None):
     return updated
 
 
-def begin(quotation, *, actor='system', timestamp='2026-01-01T00:00:00+00:00'):
+def begin(quotation, *, actor='system', timestamp='2026-01-01T00:00:00+00:00', preparer=None):
     if not isinstance(quotation, dict):
         raise ValueError('Invalid quotation')
     document = _check_str(quotation.get('document'), 'document')
@@ -164,8 +172,11 @@ def begin(quotation, *, actor='system', timestamp='2026-01-01T00:00:00+00:00'):
     evidence = quotation.get('evidence')
     if not isinstance(evidence, dict):
         raise ValueError('Quotation evidence required')
+    data = {'fields': fields, 'evidence': evidence}
+    if preparer is not None:
+        data['preparer'] = preparer
     event = {'sequence': 1, 'type': 'created', 'actor': actor, 'timestamp': timestamp,
-             'data': {'fields': fields, 'evidence': evidence}, 'previous_hash': 'GENESIS'}
+             'data': data, 'previous_hash': 'GENESIS'}
     event['hash'] = _digest(event)
     record = {'schema': 'nawa-review-v1', 'document': document, 'events': [event]}
     inspect(record)
@@ -185,3 +196,4 @@ def correct(record, *, actor, field, value, reason, source, line, quote, expecte
 def decide(record, *, actor, decision, reason, expected_revision, timestamp=None):
     return _append(record, 'decision', actor, {'decision': decision, 'reason': reason},
                    expected_revision=expected_revision, timestamp=timestamp)
+

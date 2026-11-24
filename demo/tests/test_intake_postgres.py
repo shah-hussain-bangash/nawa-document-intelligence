@@ -198,6 +198,165 @@ class PostgresIntakeTests(unittest.TestCase):
             conn.execute('INSERT INTO nawa_tenants (id) VALUES (%s),(%s)', (self.tenant, self.other))
         self.jobs = PostgresIntakeJobs(self.connect)
 
+    def test_submitter_tracking_records_each_synthetic_duplicate_without_cross_tenant_leakage(self):
+        issuer = 'https://synthetic-uploader.example'
+        subjects = ['first-' + uuid4().hex, 'second-' + uuid4().hex, 'other-' + uuid4().hex]
+        with self.connect() as conn:
+            for subject, tenant in zip(subjects, [self.tenant, self.tenant, self.other]):
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, tenant, 'analyst'))
+        principals = [make_principal(self.connect, json.dumps([issuer, subject], separators=(',', ':')), tenant, 'analyst')
+                      for subject, tenant in zip(subjects, [self.tenant, self.tenant, self.other])]
+        with TemporaryDirectory() as folder:
+            service = ScopedIntake(self.connect, LocalIntakeStore(folder), track_submitters=True)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(service.submit, principal, 'synthetic.txt', b'Synthetic quotation')
+                           for principal in principals[:2]]
+                first, second = [future.result() for future in futures]
+            self.assertEqual(first[0], second[0])
+            self.assertEqual({first[1], second[1]}, {True, False})
+            self.assertEqual(service.submit(principals[0], 'synthetic.txt', b'Synthetic quotation'), (first[0], False))
+            other = service.submit(principals[2], 'synthetic.txt', b'Synthetic quotation')
+            self.assertNotEqual(first[0], other[0])
+            untracked = ScopedIntake(self.connect, LocalIntakeStore(folder)).submit(
+                principals[0], 'untracked.txt', b'Different synthetic quotation')
+            with self.connect() as conn:
+                rows = conn.execute('''SELECT tenant_id,document_id,actor_hash FROM nawa_synthetic_intake_submitters
+                    WHERE tenant_id IN (%s,%s) ORDER BY tenant_id,actor_hash''', (self.tenant, self.other)).fetchall()
+                self.assertEqual(conn.execute('''SELECT count(*) FROM nawa_synthetic_intake_submitters
+                    WHERE tenant_id=%s AND document_id=%s''', (self.tenant, untracked[0])).fetchone()[0], 0)
+            expected = {(principal.tenant, first[0] if principal.tenant == self.tenant else other[0],
+                         hashlib.sha256(principal.subject.encode('utf-8')).hexdigest()) for principal in principals}
+            self.assertEqual({(tenant, document.hex, actor.strip()) for tenant, document, actor in rows}, expected)
+
+    def test_strict_synthetic_approval_rejects_submitters_and_unknown_history(self):
+        from nawa_demo.identity_repository import membership
+        from nawa_demo.scoped_state import AccessDenied
+        issuer = 'https://synthetic-separation.example'
+        names = {key:key + '-' + uuid4().hex for key in ('uploader', 'duplicate', 'starter', 'reviewer')}
+        with self.connect() as conn:
+            for key, subject in names.items():
+                role = 'reviewer' if key == 'reviewer' else 'analyst'
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, self.tenant, role))
+            users = {key:membership(conn, issuer=issuer, subject=subject, tenant=self.tenant)
+                     for key, subject in names.items()}
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            tracked = ScopedIntake(self.connect, store, track_submitters=True)
+            untracked = ScopedIntake(self.connect, store)
+            state = ScopedState(self.connect, require_tracked_submitters=True)
+            sample = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, created = tracked.submit(users['uploader'], 'tracked.txt', sample)
+            self.assertTrue(created)
+            self.assertEqual(tracked.submit(users['duplicate'], 'tracked.txt', sample), (document, False))
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            item = tracked.promote(users['starter'], document)['id']
+            state.review_start(users['starter'], item)
+            with self.connect() as conn:
+                for key in ('uploader', 'duplicate'):
+                    conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                                 (issuer, names[key], self.tenant))
+                    users[key] = membership(conn, issuer=issuer, subject=names[key], tenant=self.tenant)
+            decision = {'id':item, 'decision':'approve', 'reason':'Synthetic review', 'expected_revision':1}
+            for key in ('uploader', 'duplicate'):
+                with self.subTest(submitter=key), self.assertRaises(AccessDenied):
+                    state.review_decision(users[key], decision)
+            self.assertEqual(state.review_show(users['reviewer'], item)['revision'], 1)
+            self.assertEqual(state.review_decision(users['reviewer'], decision)['status'], 'approved')
+
+            # Turning tracking on for a pre-existing source does not establish
+            # who submitted it before tracking began.
+            legacy_content = sample + b'\n# synthetic legacy source\n'
+            legacy, _ = untracked.submit(users['starter'], 'legacy.txt', legacy_content)
+            self.assertEqual(tracked.submit(users['starter'], 'legacy.txt', legacy_content), (legacy, False))
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            legacy_item = tracked.promote(users['starter'], legacy)['id']
+            state.review_start(users['starter'], legacy_item)
+            decision['id'] = legacy_item
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+
+            # A later submission through an untracked writer permanently
+            # invalidates the completeness marker.
+            incomplete_content = sample + b'\n# synthetic incomplete source\n'
+            incomplete, _ = tracked.submit(users['starter'], 'incomplete.txt', incomplete_content)
+            self.assertEqual(untracked.submit(users['starter'], 'incomplete.txt', incomplete_content), (incomplete, False))
+            self.assertEqual(tracked.submit(users['starter'], 'incomplete.txt', incomplete_content), (incomplete, False))
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            incomplete_item = tracked.promote(users['starter'], incomplete)['id']
+            state.review_start(users['starter'], incomplete_item)
+            decision['id'] = incomplete_item
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+            with self.connect() as conn:
+                complete = conn.execute('''SELECT complete FROM nawa_synthetic_intake_tracking
+                    WHERE tenant_id=%s AND document_id=%s''', (self.tenant, incomplete)).fetchone()[0]
+                self.assertFalse(complete)
+
+            missing_content = sample + b'\n# synthetic missing submitters\n'
+            missing, _ = tracked.submit(users['starter'], 'missing.txt', missing_content)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            missing_item = tracked.promote(users['starter'], missing)['id']
+            state.review_start(users['starter'], missing_item)
+            with self.connect() as conn:
+                conn.execute('DELETE FROM nawa_synthetic_intake_submitters WHERE tenant_id=%s AND document_id=%s',
+                             (self.tenant, missing))
+            decision['id'] = missing_item
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+
+            direct = state.add_sample(users['starter'], 'arabic_quote.txt')['id']
+            state.review_start(users['starter'], direct)
+            decision['id'] = direct
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], decision)
+
+    def test_strict_synthetic_approval_lock_blocks_duplicate_submitter_updates(self):
+        from nawa_demo.identity_repository import membership
+        from nawa_demo.scoped_state import AccessDenied
+        issuer = 'https://synthetic-locks.example'
+        names = {key:key + '-' + uuid4().hex for key in ('uploader', 'duplicate', 'reviewer')}
+        with self.connect() as conn:
+            for key, subject in names.items():
+                role = 'reviewer' if key == 'reviewer' else 'analyst'
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, self.tenant, role))
+            users = {key:membership(conn, issuer=issuer, subject=subject, tenant=self.tenant)
+                     for key, subject in names.items()}
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            tracked = ScopedIntake(self.connect, store, track_submitters=True)
+            state = ScopedState(self.connect, require_tracked_submitters=True)
+            sample = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+            document, _ = tracked.submit(users['uploader'], 'locking.txt', sample)
+            self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+            item = tracked.promote(users['uploader'], document)['id']
+            state.review_start(users['uploader'], item)
+            limited_connect = lambda: psycopg.connect(DSN, options='-c lock_timeout=300ms')
+            competing_tracked = ScopedIntake(limited_connect, store, track_submitters=True)
+            competing_untracked = ScopedIntake(limited_connect, store)
+            # Hold the same source and tracking locks as the approval check.
+            # Each competing submission must time out rather than pass the lock.
+            with self.connect() as conn:
+                state._quote(conn, users['reviewer'], item, lock=True)
+                state._require_independent_submitter(conn, users['reviewer'], item)
+                with self.assertRaises(psycopg.errors.LockNotAvailable):
+                    competing_tracked.submit(users['duplicate'], 'locking.txt', sample)
+                with self.assertRaises(psycopg.errors.LockNotAvailable):
+                    competing_untracked.submit(users['duplicate'], 'locking.txt', sample)
+            # After the locks release, updated writers can proceed, and an
+            # untracked submission makes later strict approval fail closed.
+            self.assertEqual(tracked.submit(users['duplicate'], 'locking.txt', sample), (document, False))
+            self.assertEqual(ScopedIntake(self.connect, store).submit(users['duplicate'], 'locking.txt', sample),
+                             (document, False))
+            with self.assertRaises(AccessDenied):
+                state.review_decision(users['reviewer'], {'id':item, 'decision':'approve',
+                    'reason':'Synthetic review', 'expected_revision':1})
+
     def test_registration_dedup_and_claim_boundary(self):
         meta = check_document('عرض.txt', 'عرض سعر'.encode('utf-8'))
         document = uuid4().hex
@@ -1164,6 +1323,85 @@ print('Synthetic request found in a fresh process')
             with self.assertRaisesRegex(ValueError, 'integrity'):
                 service.promote(principal, document)
 
+    def test_http_strict_synthetic_approval_checks_uploader_and_unknown_history(self):
+        issuer = 'https://synthetic-http-separation.example'
+        names = {key:key + '-' + uuid4().hex for key in ('uploader', 'starter', 'reviewer', 'outsider')}
+        tenants = {'uploader':self.tenant, 'starter':self.tenant, 'reviewer':self.tenant, 'outsider':self.other}
+        with self.connect() as conn:
+            for key, subject in names.items():
+                role = 'reviewer' if key in ('reviewer', 'outsider') else 'analyst'
+                conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                             (issuer, subject, tenants[key], role))
+        def lookup(key, tenant):
+            with self.connect() as conn:
+                return membership_by_key(conn, identity_key=key, tenant=tenant)
+        sessions = SessionStore(lookup)
+        keys = {key:json.dumps([issuer, subject], separators=(',', ':')) for key, subject in names.items()}
+        tokens = {key:sessions.issue(identity, tenants[key]) for key, identity in keys.items()}
+        with TemporaryDirectory() as folder:
+            store = LocalIntakeStore(folder)
+            intake = ScopedIntake(self.connect, store, track_submitters=True)
+            state = ScopedState(self.connect, require_tracked_submitters=True)
+            handler = make_protected_handler(state, sessions, DashboardState(), intake=intake)
+            server = HTTPServer(('127.0.0.1', 0), handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base = f'http://127.0.0.1:{server.server_port}'
+            def post(path, payload, token, *, csrf=None):
+                headers = {'Content-Type':'application/json', 'Origin':'http://127.0.0.1:8765',
+                           'Cookie':'nawa_session=' + token['session'],
+                           'X-NAWA-CSRF':token['csrf'] if csrf is None else csrf}
+                request = Request(base + path, data=json.dumps(payload).encode(), headers=headers)
+                try:
+                    with urlopen(request, timeout=10) as response:
+                        return response.status, json.load(response)
+                except HTTPError as error:
+                    with error:
+                        return error.code, json.load(error)
+            try:
+                content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+                upload = {'filename':'synthetic-http.txt', 'content_base64':base64.b64encode(content).decode()}
+                status, result = post('/api/intake/submit', upload, tokens['uploader'])
+                self.assertEqual(status, 200)
+                document = result['id']
+                self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+                status, result = post('/api/intake/promote', {'id':document}, tokens['starter'])
+                self.assertEqual(status, 200)
+                item = result['id']
+                self.assertEqual(post('/api/review/start', {'id':item}, tokens['starter'])[0], 200)
+                with self.connect() as conn:
+                    conn.execute("UPDATE nawa_memberships SET role='reviewer' WHERE issuer=%s AND subject=%s AND tenant_id=%s",
+                                 (issuer, names['uploader'], self.tenant))
+                decision = {'id':item, 'decision':'approve', 'reason':'Synthetic review', 'expected_revision':1,
+                            'actor':'forged-independent-reviewer'}
+                self.assertEqual(post('/api/review/decide', decision, tokens['uploader'])[0], 403)
+                tokens['uploader'] = sessions.issue(keys['uploader'], self.tenant)
+                self.assertEqual(post('/api/review/decide', decision, tokens['uploader'])[0], 403)
+                self.assertEqual(post('/api/review/decide', decision, tokens['reviewer'], csrf='wrong')[0], 403)
+                self.assertEqual(post('/api/review/decide', decision, tokens['outsider'])[0], 400)
+                self.assertEqual(post('/api/review/show', {'id':item}, tokens['reviewer'])[1]['revision'], 1)
+                status, result = post('/api/review/decide', decision, tokens['reviewer'])
+                self.assertEqual((status, result['status'], result['revision']), (200, 'approved', 2))
+
+                # A duplicate uploaded after an untracked first registration
+                # cannot create complete history retroactively.
+                legacy_content = content + b'\n# synthetic unknown history\n'
+                starter = make_principal(self.connect, keys['starter'], self.tenant, 'analyst')
+                legacy, _ = ScopedIntake(self.connect, store).submit(starter, 'legacy.txt', legacy_content)
+                legacy_upload = {'filename':'legacy.txt', 'content_base64':base64.b64encode(legacy_content).decode()}
+                self.assertEqual(post('/api/intake/submit', legacy_upload, tokens['starter'])[1]['id'], legacy)
+                self.assertEqual(process_one(self.jobs, store, self.tenant), 'completed')
+                legacy_item = post('/api/intake/promote', {'id':legacy}, tokens['starter'])[1]['id']
+                self.assertEqual(post('/api/review/start', {'id':legacy_item}, tokens['starter'])[0], 200)
+                decision['id'] = legacy_item
+                self.assertEqual(post('/api/review/decide', decision, tokens['reviewer'])[0], 403)
+                self.assertEqual(post('/api/review/show', {'id':legacy_item}, tokens['reviewer'])[1]['revision'], 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+
     def test_http_synthetic_session_to_postgres_result(self):
         issuer, subject = 'https://synthetic-issuer', uuid4().hex
         identity_key = json.dumps([issuer, subject], separators=(',', ':'))
@@ -1342,18 +1580,109 @@ print('Synthetic request found in a fresh process')
             apply_intake_migrations(conn)
             apply_intake_migrations(conn)
             verify_intake_migrations(conn)
-            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 7)
+            self.assertEqual(conn.execute('SELECT count(*) FROM nawa_intake_schema_migrations').fetchone()[0], 9)
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_intake_versions')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_withdrawals')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_document_grants')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_grant_generation_seq')").fetchone()[0])
             self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_review_requests')").fetchone()[0])
+            self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_intake_submitters')").fetchone()[0])
+            self.assertIsNotNone(conn.execute("SELECT to_regclass('nawa_synthetic_intake_tracking')").fetchone()[0])
             conn.execute("UPDATE nawa_intake_schema_migrations SET checksum='altered'")
             conn.commit()
             with self.assertRaisesRegex(ValueError, 'history mismatch'):
                 verify_intake_migrations(conn)
             with self.assertRaisesRegex(RuntimeError, 'history mismatch'):
                 apply_intake_migrations(conn)
+
+    def test_007_backup_restores_then_upgrades_without_changing_original(self):
+        """Rehearse only against newly created databases on the disposable QA cluster."""
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        if (params.get('host') != '127.0.0.1' or 'hostaddr' in params
+                or not params.get('dbname', '').startswith('nawa_phase13_qa_')):
+            raise ValueError('Disposable localhost QA database required')
+        token = uuid4().hex[:12]
+        names = ['nawa_phase13_qa_old_' + token, 'nawa_phase13_qa_upgrade_' + token,
+                 'nawa_phase13_qa_rollback_' + token]
+        created = []
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        pg_bin = Path(r'C:\Program Files\PostgreSQL\18\bin')
+        def pg_tool(name):
+            return shutil.which(name) or str(pg_bin / (name + '.exe'))
+        common = ['-h', params['host'], '-p', params.get('port', '5432'), '-U', params['user']]
+        env = os.environ.copy()
+        env['PGPASSWORD'] = params.get('password', '')
+        try:
+            with psycopg.connect(DSN, autocommit=True) as admin:
+                for name in names:
+                    admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(name)))
+                    created.append(name)
+            connect = lambda name: psycopg.connect(**dict(params, dbname=name))
+            with TemporaryDirectory() as folder:
+                root = Path(folder)
+                old_migrations = root / 'old-migrations'
+                old_migrations.mkdir()
+                migrations = Path(__file__).resolve().parents[1] / 'nawa_demo/intake_migrations'
+                old_files = sorted(migrations.glob('00[1-7]_*.sql'))
+                self.assertEqual(len(old_files), 7)
+                for path in old_files:
+                    shutil.copy2(path, old_migrations / path.name)
+                tenant, issuer, subject = 'tenant-backup', 'https://synthetic-upgrade', uuid4().hex
+                with connect(names[0]) as conn:
+                    migrate(conn)
+                    with patch('nawa_demo.intake_migrate.MIGRATIONS', old_migrations):
+                        apply_intake_migrations(conn)
+                    conn.execute('INSERT INTO nawa_tenants(id) VALUES (%s)', (tenant,))
+                    conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                    conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                                 (issuer, subject, tenant, 'analyst'))
+                source = LocalIntakeStore(root / 'source')
+                content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+                document, metadata = source.save('synthetic-upgrade.txt', content)
+                with connect(names[0]) as conn:
+                    conn.execute('''INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes)
+                                    VALUES (%s,%s,%s,%s,%s)''',
+                                 (document,tenant,metadata.filename,metadata.sha256,metadata.size))
+                    conn.execute('INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state) VALUES (%s,%s,%s,%s)',
+                                 (uuid4(),tenant,document,'received'))
+                identity = json.dumps([issuer,subject], separators=(',',':'))
+                analyst = make_principal(lambda: connect(names[0]), identity, tenant, 'analyst')
+                old_state = ScopedState(lambda: connect(names[0]))
+                quotation = old_state.add_sample(analyst, 'english_quote.txt')['id']
+                expected_review = old_state.review_start(analyst, quotation)
+                with connect(names[0]) as conn:
+                    old_history = conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall()
+                    with self.assertRaisesRegex(ValueError, 'not installed'):
+                        verify_intake_migrations(conn)
+                dump = root / 'pre-upgrade.dump'
+                subprocess.run([pg_tool('pg_dump'), *common, '-Fc', '-f', str(dump), names[0]],
+                               check=True, capture_output=True, env=env, creationflags=flags)
+                shutil.copytree(source.directory, root / 'backup-files')
+                for name in names[1:]:
+                    subprocess.run([pg_tool('pg_restore'), *common, '-d', name, '--no-owner', str(dump)],
+                                   check=True, capture_output=True, env=env, creationflags=flags)
+                with connect(names[1]) as conn:
+                    apply_intake_migrations(conn)
+                    verify_intake_migrations(conn)
+                    history = conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall()
+                    self.assertEqual(history[:7], old_history)
+                    self.assertEqual(len(history), 9)
+                restored_source = LocalIntakeStore(root / 'backup-files')
+                self.assertEqual(restored_source.read_verified(document, metadata.sha256), content)
+                self.assertEqual(PostgresIntakeJobs(lambda: connect(names[1])).state(tenant, document), ('received', 0))
+                restored_analyst = make_principal(lambda: connect(names[1]), identity, tenant, 'analyst')
+                self.assertEqual(ScopedState(lambda: connect(names[1])).review_show(restored_analyst, quotation), expected_review)
+                # Rollback is modeled as an isolated restore, never as a downgrade.
+                for name in (names[0], names[2]):
+                    with connect(name) as conn:
+                        self.assertEqual(conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall(), old_history)
+                        self.assertIsNone(conn.execute("SELECT to_regclass('nawa_synthetic_intake_tracking')").fetchone()[0])
+                    restored_principal = make_principal(lambda: connect(name), identity, tenant, 'analyst')
+                    self.assertEqual(ScopedState(lambda: connect(name)).review_show(restored_principal, quotation), expected_review)
+        finally:
+            with psycopg.connect(DSN, autocommit=True) as admin:
+                for name in created:
+                    admin.execute(psycopg.sql.SQL('DROP DATABASE {}').format(psycopg.sql.Identifier(name)))
 
     def test_old_synthetic_schema_upgrades_without_losing_records(self):
         name = 'nawa_phase13_qa_' + uuid4().hex[:12]
@@ -1477,4 +1806,5 @@ print('Synthetic request found in a fresh process')
             (Path(folder) / doc).write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 snapshot(self.connect, folder)
+
 

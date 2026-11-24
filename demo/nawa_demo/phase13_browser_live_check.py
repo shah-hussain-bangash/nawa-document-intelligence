@@ -6,8 +6,6 @@ does not test browser OIDC login or modify any operating-system trust store.
 import json
 import os
 from pathlib import Path
-import re
-import time
 from uuid import uuid4
 
 from playwright.sync_api import sync_playwright
@@ -38,37 +36,54 @@ def main():
             page = context.new_page()
             page.goto(oidc.APP, wait_until='domcontentloaded', timeout=15000)
             page.locator('#intakePanel').wait_for(state='visible', timeout=15000)
-            page.locator('#intakeFiles').set_input_files({'name':'browser-synthetic.txt',
-                                                          'mimeType':'text/plain','buffer':sample})
-            page.locator('#intakeSubmit').click()
-            result = page.locator('#intakeResults .row').first
-            result.wait_for(state='visible', timeout=15000)
-            match = re.search(r'ID: ([0-9a-f]{32})', result.inner_text())
-            if not match:
-                raise AssertionError('Synthetic browser submission did not return an ID')
-            document_id = match.group(1)
-            page.locator('#intakeRefresh').click()
-            row = page.locator('#intakeJobs .row').filter(has_text=document_id)
-            row.wait_for(state='visible', timeout=15000)
-            row.get_by_role('button', name='Use document').click()
-            if page.locator('#intakeId').input_value() != document_id:
-                raise AssertionError('Synthetic browser selection failed')
-            for _ in range(60):
-                page.locator('#intakeCheck').click()
-                page.wait_for_timeout(500)
-                if 'completed' in page.locator('#intakeStatus').inner_text():
-                    break
-                time.sleep(0.5)
-            else:
-                raise AssertionError('Synthetic browser document did not complete')
-            page.locator('#intakePromote').click()
-            page.locator('#items').get_by_text('browser-synthetic.txt').wait_for(state='visible', timeout=15000)
+            page.locator('#upload').set_input_files({'name':'browser-synthetic.txt',
+                                                     'mimeType':'text/plain','buffer':sample})
+            page.get_by_role('button', name='Add selected file').click()
+            page.locator('#items').get_by_text('browser-synthetic.txt').wait_for(state='visible', timeout=50000)
             page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
             page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+            page.get_by_label('Field to correct').select_option('vat_rate_percent')
+            page.get_by_label('Corrected value').fill('5.0')
+            page.get_by_label('Reason for correction').fill('Normalize the synthetic rate')
+            page.get_by_label('Original source line').fill('4')
+            page.get_by_label('Exact source excerpt').fill('VAT Rate: 5')
+            # Simulate another request changing the saved revision after this
+            # browser loaded it; the pending form must survive the reload.
+            status = page.evaluate('''async () => {
+              const list = await (await fetch('/api/quotations')).json();
+              const item = list.quotations.find(x => x.quotation.document === 'browser-synthetic.txt');
+              if (!item) return 0;
+              const csrf = (document.cookie.split('; ').find(x => x.startsWith('nawa_csrf=')) || '').slice(10);
+              const response = await fetch('/api/review/correct', {method:'POST',
+                headers:{'Content-Type':'application/json', 'X-NAWA-CSRF':csrf},
+                body:JSON.stringify({id:item.id,field:'total',value:'1050',reason:'Synthetic concurrent formatting',
+                  source:'browser-synthetic.txt',line:6,quote:'Grand Total: 1050.00',expected_revision:1})});
+              return response.status;
+            }''')
+            if status != 200:
+                raise AssertionError('Synthetic concurrent review update failed')
+            page.get_by_role('button', name='Save correction').click()
+            page.locator('#review .review-error').wait_for(state='visible', timeout=15000)
+            page.get_by_role('button', name='Reload saved review').click()
+            page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+            if page.get_by_label('Corrected value').input_value() != '5.0':
+                raise AssertionError('Unsaved correction was not retained after reload')
+            page.get_by_role('button', name='Save correction').click()
+            page.locator('#review').get_by_text('Status: pending_review · revision 3').wait_for(state='visible', timeout=15000)
+            page.get_by_role('button', name='Reopen saved review').click()
+            page.get_by_text('Saved review reopened from the server at revision 3.').wait_for(state='visible', timeout=15000)
+            if 'Originally extracted: 5' not in page.locator('#details').inner_text():
+                raise AssertionError('Original extracted value was not shown')
+            page.reload(wait_until='domcontentloaded')
+            page.get_by_role('button', name='Open review for browser-synthetic.txt').click(timeout=15000)
+            page.locator('#review').get_by_text('Status: pending_review · revision 3').wait_for(state='visible', timeout=15000)
+            details = page.locator('#details').inner_text()
+            if '5.0' not in details or 'VAT Rate: 5' not in details:
+                raise AssertionError('Saved value and source evidence were not restored')
             context.close()
         finally:
             browser.close()
-    print('PASS: real browser used synthetic session with live intake, worker, PostgreSQL and review.')
+    print('PASS: synthetic browser intake, correction and reopen with worker and PostgreSQL.')
 
 
 if __name__ == '__main__':
@@ -77,4 +92,5 @@ if __name__ == '__main__':
     except Exception as exc:
         print('Synthetic live-browser check failed:', type(exc).__name__, '(details withheld).')
         raise SystemExit(1) from None
+
 

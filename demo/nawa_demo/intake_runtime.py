@@ -6,10 +6,12 @@ from .intake_store import LocalIntakeStore
 from .intake_migrate import verify_intake_migrations
 
 
-def build_synthetic_intake(connect, directory, *, origin_policy='legacy_compatible'):
+def build_synthetic_intake(connect, directory, *, origin_policy='legacy_compatible', track_submitters=False):
     origin_policy = validate_origin_policy(origin_policy)
     if not directory or not Path(directory).is_absolute():
         raise ValueError('Synthetic intake requires an absolute storage directory')
     with connect() as conn:
         verify_intake_migrations(conn)
-    return ScopedIntake(connect, LocalIntakeStore(directory), origin_policy=origin_policy)
+    return ScopedIntake(connect, LocalIntakeStore(directory), origin_policy=origin_policy,
+                        track_submitters=track_submitters)
+

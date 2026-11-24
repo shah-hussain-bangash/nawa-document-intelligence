@@ -9,6 +9,14 @@ from nawa_demo import dashboard_container
 
 
 class DockerEntrypointTests(unittest.TestCase):
+    def test_strict_submitter_policy_requires_disposable_ci(self):
+        with patch.dict(os.environ, {'NAWA_SYNTHETIC_SUBMITTER_POLICY':'require_tracked'}, clear=True):
+            with self.assertRaisesRegex(ValueError, 'disposable CI'):
+                dashboard_container.serve()
+        with patch.dict(os.environ, {'NAWA_SYNTHETIC_SUBMITTER_POLICY':'unexpected'}, clear=True):
+            with self.assertRaisesRegex(ValueError, 'Invalid synthetic submitter'):
+                dashboard_container.serve()
+
     def test_synthetic_evidence_requires_disposable_ci_stack(self):
         with patch.dict(os.environ, {'NAWA_SYNTHETIC_EVIDENCE':'ci'}, clear=True):
             with self.assertRaisesRegex(ValueError, 'disposable CI'):
@@ -75,3 +83,4 @@ class DockerEntrypointTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -25,6 +25,17 @@ def require_ci():
         raise ValueError('Only the disposable GitHub Phase 13 QA stack is supported')
 
 
+def capture_review_evidence(page, name):
+    """Capture only the synthetic quotation panels, never sign-in screens or cookies."""
+    require_ci()
+    output = os.environ.get('NAWA_REVIEW_EVIDENCE_DIR')
+    if output:
+        destination = Path(output)
+        destination.mkdir(parents=True, exist_ok=True)
+        page.locator('#review').screenshot(path=str(destination / (name + '-review.png')))
+        page.locator('#details').screenshot(path=str(destination / (name + '-source.png')))
+
+
 def login(browser, user, *, app=APP, tenant='tenant-a', role=None):
     context = browser.new_context(ignore_https_errors=False)
     page = context.new_page()
@@ -239,7 +250,7 @@ def browser_tenant_isolation(browser, analyst_page, reviewer_page, reviewer_user
             raise AssertionError('Browser identity reauthentication failed')
         fresh_reviewer.close()
         reviewer_page.context.close()
-        return newest_reviewer, newest_page
+        return newest_reviewer, newest_page, ids[0]
     finally:
         other.close()
 
@@ -292,27 +303,43 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     analyst_page.locator('#items').get_by_text(filename).wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
-    analyst_page.locator('#details').get_by_text('Line 6: Grand Total: 1051.00').wait_for(state='visible', timeout=15000)
+    analyst_page.locator('#details').get_by_text('Original source · Line 6: Grand Total: 1051.00').wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review select').select_option('total')
-    analyst_page.get_by_placeholder('Corrected value').fill('1050.00')
-    analyst_page.get_by_placeholder('Reason for correction').fill('Synthetic arithmetic correction')
-    analyst_page.get_by_placeholder('Evidence line number').fill('3')
-    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('Forged synthetic source line')
-    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
-    analyst_page.get_by_text('Invalid or unavailable request', exact=True).wait_for(state='visible', timeout=15000)
+    analyst_page.get_by_label('Corrected value').fill('1050.00')
+    analyst_page.get_by_label('Reason for correction').fill('Synthetic arithmetic correction')
+    analyst_page.get_by_label('Original source line').fill('3')
+    analyst_page.get_by_label('Exact source excerpt').fill('Forged synthetic source line')
+    analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
+    analyst_page.locator('#review .review-error').wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
-    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('Subtotal: 1000.00')
-    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
+    if (analyst_page.get_by_label('Corrected value').input_value() != '1050.00'
+            or analyst_page.get_by_label('Reason for correction').input_value() != 'Synthetic arithmetic correction'
+            or analyst_page.get_by_label('Exact source excerpt').input_value() != 'Forged synthetic source line'):
+        raise AssertionError('Failed save did not retain the English correction')
+    capture_review_evidence(analyst_page, 'english-failed-save')
+    analyst_page.get_by_label('Exact source excerpt').fill('Subtotal: 1000.00')
+    analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    if analyst_page.locator('#review').get_by_role('button', name='Approve', exact=True).count():
+        raise AssertionError('Analyst should not see the approval control')
     reviewer_page.reload(wait_until='domcontentloaded')
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    reviewer_page.get_by_text('Cited excerpt: Subtotal: 1000.00', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Reason: Synthetic arithmetic correction', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Source: browser-oidc-review.txt · line 3', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#details').get_by_text('1050.00', exact=True).wait_for(state='visible', timeout=15000)
+    capture_review_evidence(reviewer_page, 'english-reviewer-reopen-r2')
+    print('EVIDENCE: English browser-oidc-review.txt pending_review revision 2; total 1050.00; line 3 Subtotal: 1000.00; reason Synthetic arithmetic correction.')
+    if reviewer_page.locator('#review').get_by_role('button', name='Save correction').count():
+        raise AssertionError('Reviewer should not see the correction control')
     reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked correction')
     reviewer_page.locator('#review').get_by_role('button', name='Approve', exact=True).click()
     reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
     reviewer_page.reload(wait_until='domcontentloaded')
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
+    reviewer_page.get_by_text('Cited excerpt: Subtotal: 1000.00', exact=True).wait_for(state='visible', timeout=15000)
     # Compare the approved correction with a second synthetic quotation.
     analyst_page.locator('#sample').select_option('arabic_quote.txt')
     analyst_page.locator('#loadSample').click()
@@ -363,19 +390,29 @@ def synthetic_arabic_text_journey(analyst_page, reviewer_page):
     analyst_page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review select').select_option('total')
-    analyst_page.get_by_placeholder('Corrected value').fill('945.00')
-    analyst_page.get_by_placeholder('Reason for correction').fill('Synthetic arithmetic correction')
-    analyst_page.get_by_placeholder('Evidence line number').fill('3')
-    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('نص عربي غير موجود')
-    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
-    analyst_page.get_by_text('Invalid or unavailable request', exact=True).wait_for(state='visible', timeout=15000)
+    analyst_page.get_by_label('Corrected value').fill('945.00')
+    analyst_page.get_by_label('Reason for correction').fill('Synthetic arithmetic correction')
+    analyst_page.get_by_label('Original source line').fill('3')
+    analyst_page.get_by_label('Exact source excerpt').fill('نص عربي غير موجود')
+    analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
+    analyst_page.locator('#review .review-error').wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
-    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('المجموع الفرعي: ٩٠٠٫٠٠')
-    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
+    if (analyst_page.get_by_label('Corrected value').input_value() != '945.00'
+            or analyst_page.get_by_label('Reason for correction').input_value() != 'Synthetic arithmetic correction'
+            or analyst_page.get_by_label('Exact source excerpt').input_value() != 'نص عربي غير موجود'):
+        raise AssertionError('Failed save did not retain the Arabic correction')
+    analyst_page.get_by_label('Exact source excerpt').fill('المجموع الفرعي: ٩٠٠٫٠٠')
+    analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
     reviewer_page.reload(wait_until='domcontentloaded')
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Cited excerpt: المجموع الفرعي: ٩٠٠٫٠٠', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Reason: Synthetic arithmetic correction', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Source: browser-arabic-reviewed.txt · line 3', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#details').get_by_text('945.00', exact=True).wait_for(state='visible', timeout=15000)
+    capture_review_evidence(reviewer_page, 'arabic-reviewer-reopen-r2')
+    print('EVIDENCE: Arabic browser-arabic-reviewed.txt pending_review revision 2; total 945.00; line 3 المجموع الفرعي: ٩٠٠٫٠٠; reason Synthetic arithmetic correction.')
     reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked Arabic correction')
     reviewer_page.locator('#review').get_by_role('button', name='Approve', exact=True).click()
     reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
@@ -500,13 +537,13 @@ def synthetic_pdf_review_journey(analyst_page, reviewer_page, *, filename, globa
     analyst_page.locator('#review').get_by_role('button', name='Start review').click(timeout=15000)
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review select').select_option('total')
-    analyst_page.get_by_placeholder('Corrected value').fill('945')
-    analyst_page.get_by_placeholder('Reason for correction').fill('Synthetic format correction')
-    analyst_page.get_by_placeholder('Evidence line number').fill(str(global_line))
-    analyst_page.get_by_placeholder('Verbatim excerpt from source (reviewer assertion)').fill('Grand Total: 945.00')
-    analyst_page.locator('#review').get_by_role('button', name='Record correction').click()
+    analyst_page.get_by_label('Corrected value').fill('945')
+    analyst_page.get_by_label('Reason for correction').fill('Synthetic format correction')
+    analyst_page.get_by_label('Original source line').fill(str(global_line))
+    analyst_page.get_by_label('Exact source excerpt').fill('Grand Total: 945.00')
+    analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
-    analyst_page.get_by_text(f'Correction recorded, revision 2 · retained PDF text matched: page {page}, line 6',
+    analyst_page.get_by_text(f'Correction saved, revision 2. Reopen the quotation to check it. · retained PDF text matched: page {page}, line 6',
                              exact=True).wait_for(state='visible', timeout=15000)
     reviewer_page.reload(wait_until='domcontentloaded')
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
@@ -576,8 +613,17 @@ def main():
                 analyst_page.locator('#comparison').get_by_text(
                     'Browser New Supplier — AED 945 — Valid · approved review revision 3 · retained PDF text matched: page 2, line 6',
                     exact=True).wait_for(state='visible', timeout=15000)
-                reviewer, reviewer_page = browser_tenant_isolation(
+                reviewer, reviewer_page, pending_item = browser_tenant_isolation(
                     browser, analyst_page, reviewer_page, users['reviewer'], users['outsider'])
+                # Keep an unsaved synthetic correction open while the analyst
+                # session is invalidated, then exercise the on-screen recovery.
+                analyst_page.reload(wait_until='domcontentloaded')
+                pending_row = analyst_page.locator('#items input[data-id="' + pending_item + '"]').locator('..')
+                pending_row.locator('button.item-main').click(timeout=15000)
+                analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+                analyst_page.get_by_label('Field to correct').select_option('total')
+                analyst_page.get_by_label('Corrected value').fill('1048.00')
+                analyst_page.get_by_label('Reason for correction').fill('Synthetic unsaved correction')
                 # Logout invalidates the server-side session, including a replayed cookie.
                 old = next(cookie for cookie in analyst.cookies() if cookie['name'] == 'nawa_session')
                 status = analyst_page.evaluate('''async () => {
@@ -589,6 +635,12 @@ def main():
                 }''')
                 if status != 200 or analyst_page.request.get(APP + '/auth/me').status != 403:
                     raise AssertionError('Synthetic browser logout failed')
+                analyst_page.get_by_role('button', name='Save correction').click()
+                analyst_page.get_by_text('Your session has ended or your access has changed.', exact=False).wait_for(state='visible', timeout=15000)
+                if analyst_page.get_by_label('Corrected value').input_value() != '1048.00':
+                    raise AssertionError('Unsaved synthetic correction was lost')
+                if analyst_page.get_by_role('link', name='Sign in again').get_attribute('href') != '/auth/login':
+                    raise AssertionError('Synthetic sign-in recovery link unavailable')
                 replay = browser.new_context(ignore_https_errors=False)
                 try:
                     replay.add_cookies([{'name':'nawa_session', 'value':old['value'], 'url':APP, 'httpOnly':True}])
@@ -616,5 +668,6 @@ if __name__ == '__main__':
     except Exception as exc:
         print('Synthetic browser OIDC check failed:', type(exc).__name__, '(details withheld).')
         raise SystemExit(1) from None
+
 
 

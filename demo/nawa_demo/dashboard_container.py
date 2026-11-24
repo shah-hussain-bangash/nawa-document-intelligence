@@ -30,6 +30,11 @@ def serve():
             or os.environ.get('POSTGRES_DB') != 'nawa_phase13_qa_demo'
             or intake_mode != 'synthetic' or auth_mode != 'oidc' or mode != 'postgres'):
         raise ValueError('Synthetic evidence requires the disposable CI stack')
+    submitter_policy = os.environ.get('NAWA_SYNTHETIC_SUBMITTER_POLICY', 'off')
+    if submitter_policy not in ('off', 'require_tracked'):
+        raise ValueError('Invalid synthetic submitter policy')
+    if submitter_policy == 'require_tracked' and evidence_mode != 'ci':
+        raise ValueError('Synthetic submitter policy requires the disposable CI stack')
     from .scoped_state import validate_correction_source_policy
     correction_policy = validate_correction_source_policy(
         os.environ.get('NAWA_SYNTHETIC_CORRECTION_SOURCE', 'legacy_asserted'))
@@ -94,9 +99,11 @@ def serve():
         intake = None
         if intake_mode == 'synthetic':
             from .intake_runtime import build_synthetic_intake
-            intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'), origin_policy=origin_policy)
+            intake = build_synthetic_intake(connect, os.environ.get('NAWA_INTAKE_DIR'), origin_policy=origin_policy,
+                                             track_submitters=(evidence_mode == 'ci'))
         scoped = ScopedState(connect, correction_source_policy=correction_policy,
-                             correction_source_store=intake.store if intake is not None else None)
+                             correction_source_store=intake.store if intake is not None else None,
+                             require_tracked_submitters=(submitter_policy == 'require_tracked'))
         retrieval = None
         review_queue = None
         if evidence_mode == 'ci':
@@ -121,3 +128,4 @@ def serve():
 
 if __name__ == '__main__':
     serve()
+
