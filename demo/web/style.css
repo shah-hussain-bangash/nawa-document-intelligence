@@ -32,7 +32,7 @@ main{max-width:1280px;padding:25px 32px 64px}
 .intro{position:relative;overflow:hidden;min-height:255px;margin:28px 0 20px;padding:34px 38px;gap:30px;border-radius:16px;background:#e6eeec;border:1px solid #d7e3df}
 .intro::after{content:'';position:absolute;right:20%;top:-110px;width:320px;height:320px;border:1px solid #b6ccc3;border-radius:50%;box-shadow:0 0 0 38px #dce8e3,0 0 0 39px #bfd1ca;opacity:.5;pointer-events:none}
 .intro>div{position:relative;z-index:1}.intro .eyebrow{color:#537970}
-.intro h1{color:#153542;font-size:clamp(32px,3.6vw,46px);letter-spacing:-1.4px;line-height:1.12;margin:12px 0}
+.intro h1{max-width:550px;color:#153542;font-size:clamp(32px,3.6vw,46px);letter-spacing:-1.4px;line-height:1.12;margin:12px 0}
 .sub{max-width:610px;margin:0;color:#536a71;font-size:14px;line-height:1.7}
 .intro-note{margin:20px 0 0;color:#356257;font-size:12px;font-weight:700}.intro-note span{color:#ad8752;margin-right:6px}
 .counter{min-width:190px;padding:19px 22px;text-align:left;border-radius:13px;background:#fff;border:1px solid #d7e3df;box-shadow:0 12px 30px #234a3f0c}
