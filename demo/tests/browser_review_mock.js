@@ -42,8 +42,9 @@ const server=http.createServer(async(req,res)=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser=await chromium.launch({headless:true,executablePath:process.env.NAWA_CHROMIUM});
   try{
-    const page=await browser.newPage({viewport:{width:1280,height:900}});
+    const page=await browser.newPage({viewport:process.env.NAWA_UI_MOBILE?{width:390,height:844}:{width:1280,height:900}});
     await page.goto(`http://127.0.0.1:${server.address().port}`);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
     await page.locator('#upload').setInputFiles({name:'synthetic.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic')});
     await page.getByRole('button',{name:'Add selected file'}).click();
     await page.getByText(/Could not confirm processing.*Check processing/i).waitFor();
