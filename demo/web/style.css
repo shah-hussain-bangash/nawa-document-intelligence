@@ -62,3 +62,25 @@ footer{color:#657d7c;border-color:#dce5e2;font-size:11px}
 .review-status::before{content:'';width:6px;height:6px;border-radius:50%;background:#829490}
 .correction-evidence-entry strong{color:#244c48}.correction-evidence-entry p:last-child{padding:8px 10px;border-left:2px solid #b6cec6;background:#edf4f1;white-space:pre-wrap;unicode-bidi:plaintext}
 
+/* Editorial workspace treatment */
+body{background:#f4f4f0}
+.top{background:#102d31;border-bottom-color:#c4a16d}
+.workspace-nav{padding-bottom:13px;border-color:#dedfda}
+.workspace-nav-title{color:#61716d;letter-spacing:1.5px}
+.workspace-nav-links a{color:#455b59}
+.intro{min-height:238px;margin-top:24px;padding:36px 42px;border:0;border-radius:14px;background:linear-gradient(115deg,#123b3c 0%,#164b46 58%,#225a50 100%);box-shadow:0 18px 34px #173d361a}
+.intro::after{right:19%;top:-125px;width:300px;height:300px;border:1px solid #c6d8c74d;box-shadow:0 0 0 36px #ffffff08,0 0 0 37px #d0dfd04a,0 0 0 72px #ffffff05,0 0 0 73px #d0dfd02e;opacity:1}
+.intro .eyebrow{color:#d3bd92}.intro h1{max-width:620px;color:#fff;font-size:clamp(33px,3.7vw,48px);letter-spacing:-1.5px}
+.intro .sub{max-width:570px;color:#d0e2da}.intro-note{color:#dcebe2;font-weight:600}.intro-note span{color:#dfbb78}
+.counter{min-width:195px;background:#f9f8f2;border-color:#f2f0e6;box-shadow:0 12px 30px #0d282124}.counter .counter-label{color:#6f8279}.counter strong{color:#16473d}.counter .counter-note{border-color:#e5ebe3}
+.summary article,.panel{border-color:#e2e5dc;box-shadow:0 7px 20px #19383009}
+.summary article{background:#fcfcf9}.summary article::before{background:#be9b63}
+.panel{border-radius:12px}.panel-title{border-color:#e9ede7}.panel-title h2{color:#183b38}
+.panel-title .eyebrow{color:#956b35;letter-spacing:1.4px}
+.empty{background:#f8faf7;border-color:#edf1e9}
+.review-guidance{background:#eaf5ee;color:#1c5b41}.source-reference{background:#f0f5ef;border-color:#a5c4b3}
+.item.active{background:#edf7f0;box-shadow:inset 3px 0 #388972}
+.notice{background:#fbf6ea;border-color:#bf9756;color:#6f5736}
+button{background:#125149}button:hover{background:#1c6b5f}button.secondary{background:#eaf1ed;color:#235d50}button.secondary:hover{background:#d8e8df}
+@media(max-width:760px){.intro{min-height:0;padding:26px 22px}.intro::after{right:-170px}.intro h1{font-size:32px}.counter{margin-top:22px}.workspace-nav-links{padding-bottom:3px}}
+
