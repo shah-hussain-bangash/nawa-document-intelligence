@@ -66,8 +66,8 @@ function renderItems(){
     const body=el('button',undefined,'item-main');body.type='button';body.append(el('b',q.supplier),el('span',q.document));
     body.setAttribute('aria-label',`Open review for ${q.document}`);
     body.addEventListener('click',()=>{if(!rememberDraft())return;selected=id;renderItems();renderDetails();renderReview();});item.append(body);
-    const right=el('div');right.append(el('div',`AED ${q.total}`,'amount'));
-    right.append(el('span',Object.values(q.checks).every(Boolean)?'Original VAT valid':'Original VAT needs review','tag'+(Object.values(q.checks).every(Boolean)?'':' bad')));
+    const right=el('div');right.append(el('div',`Original total: AED ${q.total}`,'amount'));
+    right.append(el('span',Object.values(q.checks).every(Boolean)?'Original checks passed':'Original checks need review','tag'+(Object.values(q.checks).every(Boolean)?'':' bad')));
     item.append(right);root.append(item);
   }
 }
