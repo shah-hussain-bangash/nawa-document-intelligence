@@ -1595,6 +1595,95 @@ print('Synthetic request found in a fresh process')
             with self.assertRaisesRegex(RuntimeError, 'history mismatch'):
                 apply_intake_migrations(conn)
 
+    def test_007_backup_restores_then_upgrades_without_changing_original(self):
+        """Rehearse only against newly created databases on the disposable QA cluster."""
+        params = psycopg.conninfo.conninfo_to_dict(DSN)
+        if (params.get('host') != '127.0.0.1' or 'hostaddr' in params
+                or not params.get('dbname', '').startswith('nawa_phase13_qa_')):
+            raise ValueError('Disposable localhost QA database required')
+        token = uuid4().hex[:12]
+        names = ['nawa_phase13_qa_old_' + token, 'nawa_phase13_qa_upgrade_' + token,
+                 'nawa_phase13_qa_rollback_' + token]
+        created = []
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        pg_bin = Path(r'C:\Program Files\PostgreSQL\18\bin')
+        def pg_tool(name):
+            return shutil.which(name) or str(pg_bin / (name + '.exe'))
+        common = ['-h', params['host'], '-p', params.get('port', '5432'), '-U', params['user']]
+        env = os.environ.copy()
+        env['PGPASSWORD'] = params.get('password', '')
+        try:
+            with psycopg.connect(DSN, autocommit=True) as admin:
+                for name in names:
+                    admin.execute(psycopg.sql.SQL('CREATE DATABASE {}').format(psycopg.sql.Identifier(name)))
+                    created.append(name)
+            connect = lambda name: psycopg.connect(**dict(params, dbname=name))
+            with TemporaryDirectory() as folder:
+                root = Path(folder)
+                old_migrations = root / 'old-migrations'
+                old_migrations.mkdir()
+                migrations = Path(__file__).resolve().parents[1] / 'nawa_demo/intake_migrations'
+                old_files = sorted(migrations.glob('00[1-7]_*.sql'))
+                self.assertEqual(len(old_files), 7)
+                for path in old_files:
+                    shutil.copy2(path, old_migrations / path.name)
+                tenant, issuer, subject = 'tenant-backup', 'https://synthetic-upgrade', uuid4().hex
+                with connect(names[0]) as conn:
+                    migrate(conn)
+                    with patch('nawa_demo.intake_migrate.MIGRATIONS', old_migrations):
+                        apply_intake_migrations(conn)
+                    conn.execute('INSERT INTO nawa_tenants(id) VALUES (%s)', (tenant,))
+                    conn.execute('INSERT INTO nawa_identities (issuer,subject) VALUES (%s,%s)', (issuer, subject))
+                    conn.execute('INSERT INTO nawa_memberships (issuer,subject,tenant_id,role) VALUES (%s,%s,%s,%s)',
+                                 (issuer, subject, tenant, 'analyst'))
+                source = LocalIntakeStore(root / 'source')
+                content = (Path(__file__).resolve().parents[1] / 'samples/english_quote.txt').read_bytes()
+                document, metadata = source.save('synthetic-upgrade.txt', content)
+                with connect(names[0]) as conn:
+                    conn.execute('''INSERT INTO nawa_intake_documents(id,tenant_id,filename,sha256,size_bytes)
+                                    VALUES (%s,%s,%s,%s,%s)''',
+                                 (document,tenant,metadata.filename,metadata.sha256,metadata.size))
+                    conn.execute('INSERT INTO nawa_intake_jobs(id,tenant_id,document_id,state) VALUES (%s,%s,%s,%s)',
+                                 (uuid4(),tenant,document,'received'))
+                identity = json.dumps([issuer,subject], separators=(',',':'))
+                analyst = make_principal(lambda: connect(names[0]), identity, tenant, 'analyst')
+                old_state = ScopedState(lambda: connect(names[0]))
+                quotation = old_state.add_sample(analyst, 'english_quote.txt')['id']
+                expected_review = old_state.review_start(analyst, quotation)
+                with connect(names[0]) as conn:
+                    old_history = conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall()
+                    with self.assertRaisesRegex(ValueError, 'not installed'):
+                        verify_intake_migrations(conn)
+                dump = root / 'pre-upgrade.dump'
+                subprocess.run([pg_tool('pg_dump'), *common, '-Fc', '-f', str(dump), names[0]],
+                               check=True, capture_output=True, env=env, creationflags=flags)
+                shutil.copytree(source.directory, root / 'backup-files')
+                for name in names[1:]:
+                    subprocess.run([pg_tool('pg_restore'), *common, '-d', name, '--no-owner', str(dump)],
+                                   check=True, capture_output=True, env=env, creationflags=flags)
+                with connect(names[1]) as conn:
+                    apply_intake_migrations(conn)
+                    verify_intake_migrations(conn)
+                    history = conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall()
+                    self.assertEqual(history[:7], old_history)
+                    self.assertEqual(len(history), 9)
+                restored_source = LocalIntakeStore(root / 'backup-files')
+                self.assertEqual(restored_source.read_verified(document, metadata.sha256), content)
+                self.assertEqual(PostgresIntakeJobs(lambda: connect(names[1])).state(tenant, document), ('received', 0))
+                restored_analyst = make_principal(lambda: connect(names[1]), identity, tenant, 'analyst')
+                self.assertEqual(ScopedState(lambda: connect(names[1])).review_show(restored_analyst, quotation), expected_review)
+                # Rollback is modeled as an isolated restore, never as a downgrade.
+                for name in (names[0], names[2]):
+                    with connect(name) as conn:
+                        self.assertEqual(conn.execute('SELECT name,checksum FROM nawa_intake_schema_migrations ORDER BY name').fetchall(), old_history)
+                        self.assertIsNone(conn.execute("SELECT to_regclass('nawa_synthetic_intake_tracking')").fetchone()[0])
+                    restored_principal = make_principal(lambda: connect(name), identity, tenant, 'analyst')
+                    self.assertEqual(ScopedState(lambda: connect(name)).review_show(restored_principal, quotation), expected_review)
+        finally:
+            with psycopg.connect(DSN, autocommit=True) as admin:
+                for name in created:
+                    admin.execute(psycopg.sql.SQL('DROP DATABASE {}').format(psycopg.sql.Identifier(name)))
+
     def test_old_synthetic_schema_upgrades_without_losing_records(self):
         name = 'nawa_phase13_qa_' + uuid4().hex[:12]
         params = psycopg.conninfo.conninfo_to_dict(DSN)
