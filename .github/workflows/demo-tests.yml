@@ -268,8 +268,18 @@ jobs:
       - name: Verify browser-driven synthetic sign-in and logout
         env:
           NAWA_PHASE13_CI_QA: '1'
+          NAWA_REVIEW_EVIDENCE_DIR: '${{ runner.temp }}/nawa-review-evidence'
           PYTHONPATH: demo
         run: python -m nawa_demo.phase13_browser_oidc_check
+
+      - name: Save synthetic review walkthrough screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-bilingual-review-walkthrough
+          path: ${{ runner.temp }}/nawa-review-evidence/*.png
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify strict synthetic uploader separation in browser
         env:

@@ -1,0 +1,10 @@
+# Synthetic bilingual quotation review: two-minute walkthrough
+
+This walkthrough uses the disposable Phase 13 CI stack: a synthetic identity provider, separate Analyst and Reviewer accounts, a worker and PostgreSQL. It does not use company identities, real supplier documents or the running NAWA portal. See the `phase13-local-oidc-integration` job in `.github/workflows/demo-tests.yml`; the job creates the fixture and starts the isolated services. Its `Verify browser-driven synthetic sign-in and logout` step runs `python -m nawa_demo.phase13_browser_oidc_check` after trusting the generated test CA only on the disposable runner.
+
+1. Sign in as the synthetic Analyst. Upload the modified `demo/samples/english_quote.txt` fixture as `browser-oidc-review.txt`, process it, and start its review at revision 1. Inspect the original line 6, `Grand Total: 1051.00`.
+2. Enter total `1050.00`, reason `Synthetic arithmetic correction`, and an invalid source excerpt. The failed save leaves those entries visible. Replace the excerpt with `Subtotal: 1000.00` on line 3 and save. The stored review reaches pending revision 2.
+3. In a separate synthetic Reviewer session, reopen the quotation. Check revision 2, saved total `1050.00`, reason, document name, line 3 and cited excerpt. The cited subtotal is **context for human review**, not proof that the changed total is supported by the source. The test also exercises an independent approval at revision 3.
+4. Repeat with modified `demo/samples/arabic_quote.txt` as `browser-arabic-reviewed.txt`: original total `٩٤٦٫٠٠`, saved total `945.00`, cited line 3 `المجموع الفرعي: ٩٠٠٫٠٠`, and the same synthetic reason. The Reviewer reopens pending revision 2. A separate approval reaches revision 3.
+
+The CI job saves screenshots of the failed English save and the separate Reviewer’s reopened English and Arabic panels as the `synthetic-bilingual-review-walkthrough` artifact for 14 days. The filename, amount, line and revision are synthetic. Screenshots omit sign-in screens and do not establish a production deployment or the correctness of an unsupported correction.

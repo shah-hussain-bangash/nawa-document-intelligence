@@ -25,6 +25,17 @@ def require_ci():
         raise ValueError('Only the disposable GitHub Phase 13 QA stack is supported')
 
 
+def capture_review_evidence(page, name):
+    """Capture only the synthetic quotation panels, never sign-in screens or cookies."""
+    require_ci()
+    output = os.environ.get('NAWA_REVIEW_EVIDENCE_DIR')
+    if output:
+        destination = Path(output)
+        destination.mkdir(parents=True, exist_ok=True)
+        page.locator('#review').screenshot(path=str(destination / (name + '-review.png')))
+        page.locator('#details').screenshot(path=str(destination / (name + '-source.png')))
+
+
 def login(browser, user, *, app=APP, tenant='tenant-a', role=None):
     context = browser.new_context(ignore_https_errors=False)
     page = context.new_page()
@@ -301,6 +312,11 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
     analyst_page.locator('#review .review-error').wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+    if (analyst_page.get_by_label('Corrected value').input_value() != '1050.00'
+            or analyst_page.get_by_label('Reason for correction').input_value() != 'Synthetic arithmetic correction'
+            or analyst_page.get_by_label('Exact source excerpt').input_value() != 'Forged synthetic source line'):
+        raise AssertionError('Failed save did not retain the English correction')
+    capture_review_evidence(analyst_page, 'english-failed-save')
     analyst_page.get_by_label('Exact source excerpt').fill('Subtotal: 1000.00')
     analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
@@ -310,6 +326,11 @@ def synthetic_review_journey(analyst_page, reviewer_page):
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
     reviewer_page.get_by_text('Cited excerpt: Subtotal: 1000.00', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Reason: Synthetic arithmetic correction', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Source: browser-oidc-review.txt · line 3', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#details').get_by_text('1050.00', exact=True).wait_for(state='visible', timeout=15000)
+    capture_review_evidence(reviewer_page, 'english-reviewer-reopen-r2')
+    print('EVIDENCE: English browser-oidc-review.txt pending_review revision 2; total 1050.00; line 3 Subtotal: 1000.00; reason Synthetic arithmetic correction.')
     if reviewer_page.locator('#review').get_by_role('button', name='Save correction').count():
         raise AssertionError('Reviewer should not see the correction control')
     reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked correction')
@@ -376,12 +397,22 @@ def synthetic_arabic_text_journey(analyst_page, reviewer_page):
     analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
     analyst_page.locator('#review .review-error').wait_for(state='visible', timeout=15000)
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 1').wait_for(state='visible', timeout=15000)
+    if (analyst_page.get_by_label('Corrected value').input_value() != '945.00'
+            or analyst_page.get_by_label('Reason for correction').input_value() != 'Synthetic arithmetic correction'
+            or analyst_page.get_by_label('Exact source excerpt').input_value() != 'نص عربي غير موجود'):
+        raise AssertionError('Failed save did not retain the Arabic correction')
     analyst_page.get_by_label('Exact source excerpt').fill('المجموع الفرعي: ٩٠٠٫٠٠')
     analyst_page.locator('#review').get_by_role('button', name='Save correction').click()
     analyst_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
     reviewer_page.reload(wait_until='domcontentloaded')
     reviewer_page.locator('#items').get_by_text(filename).click(timeout=15000)
     reviewer_page.locator('#review').get_by_text('Status: pending_review · revision 2').wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Cited excerpt: المجموع الفرعي: ٩٠٠٫٠٠', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Reason: Synthetic arithmetic correction', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#review').get_by_text('Source: browser-arabic-reviewed.txt · line 3', exact=True).wait_for(state='visible', timeout=15000)
+    reviewer_page.locator('#details').get_by_text('945.00', exact=True).wait_for(state='visible', timeout=15000)
+    capture_review_evidence(reviewer_page, 'arabic-reviewer-reopen-r2')
+    print('EVIDENCE: Arabic browser-arabic-reviewed.txt pending_review revision 2; total 945.00; line 3 المجموع الفرعي: ٩٠٠٫٠٠; reason Synthetic arithmetic correction.')
     reviewer_page.get_by_placeholder('Explain your decision').fill('Synthetic reviewer checked Arabic correction')
     reviewer_page.locator('#review').get_by_role('button', name='Approve', exact=True).click()
     reviewer_page.locator('#review').get_by_text('Status: approved · revision 3').wait_for(state='visible', timeout=15000)
