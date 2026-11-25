@@ -1,0 +1,321 @@
+{
+  "version": "1.0",
+  "status": "Proposed; all implementation and validation pending",
+  "stages": [
+    {
+      "title": "Define the security scope and data boundary",
+      "entry": "Complete before adding providers or sensitive data. The current repository is a documented design, not a secured deployed application.",
+      "steps": [
+        "Create an asset register covering identities, documents, extracted text, embeddings, cases, approvals, model requests, logs, backups and build artifacts. Name an owner for each.",
+        "Classify data as public/synthetic, internal, confidential or restricted using an organisation-approved scheme. Do not present these suggested labels as a legal standard.",
+        "Select the operating profile: public/synthetic sandbox, verified UAE-residency-constrained deployment, or restricted/private inference. Document which destinations are allowed per classification.",
+        "Map storage, OCR, embeddings, inference, telemetry, recovery and support access separately. Record region/country, provider, retention, subprocessors and operator access evidence.",
+        "Threat-model cross-tenant disclosure, prompt injection, malicious files, forged/stale approvals, secret leakage, duplicate effects and supply-chain compromise. Assign mitigation and verification owners.",
+        "Keep real awards, payments and government integrations outside the sandbox. Any production processing requires its own data-owner, security and applicable legal authorisation.",
+        "Create a security backlog with control IDs, owner, dependency, implementation status and test evidence. Mark every control pending until demonstrated."
+      ],
+      "verification": "Review the full architecture data flow with a second reader. Every asset and outbound destination has an owner, classification and processing decision; unresolved routes remain denied.",
+      "evidence": "Asset register; classification/residency matrix; threat model; decision log; security acceptance checklist."
+    },
+    {
+      "title": "Secure developer access and repository hygiene",
+      "entry": "Requires scope decisions. Apply before creating credentials, sample uploads or deployment pipelines.",
+      "steps": [
+        "Use named developer accounts with MFA and least privilege. Restrict repository/cloud administration and document account recovery without sharing a single privileged identity.",
+        "Use a supported operating system and tools. Pin supported runtime/dependency versions during implementation and install from approved sources with TLS/checksum verification enabled.",
+        "Add ignore rules for environment secrets, local databases, uploads, indexes, model caches, logs and private artifacts. Track a non-secret configuration example instead.",
+        "Enable secret scanning where available, and scan proposed commits and repository history using a vetted tool. A local ignore file cannot remove a previously committed secret.",
+        "If a secret was exposed, revoke/rotate it first, identify use and access, then handle history cleanup through repository procedure. Deleting the file is insufficient.",
+        "Require relevant CI checks and review before merging to the protected release branch. Keep user changes intact and inspect diffs before staging or committing.",
+        "Use synthetic/public fixtures, never real identity or banking documents as convenient test data. Review third-party model/parser licences for the intended distribution."
+      ],
+      "verification": "Run a secret scan over the intended publication scope. Confirm local secret files are ignored, release permissions are limited and dependency verification is not bypassed.",
+      "evidence": "Repository rules; access/MFA record; scan results; locked dependency plan; developer onboarding checklist."
+    },
+    {
+      "title": "Set up configuration, secrets and service identities",
+      "entry": "Requires an inventory of applications, providers and their actual permissions. Never enter secret values in this PDF, source control or chat.",
+      "steps": [
+        "Separate public settings from credentials. URLs containing passwords are secrets too. Define required setting names, validation, owners and scope.",
+        "Inspect existing environment bindings by name and readiness only. Test the specific authorised operation before requesting a new credential; proxy-backed authentication may not appear as a raw token.",
+        "For local development use a supported local secret mechanism or an ignored, access-restricted file. Bind local services to loopback; avoid broad credential sharing.",
+        "For deployed services use an approved secret manager and short-lived workload identities where possible. Give API, worker, migration job and CI distinct permissions.",
+        "Grant the model route only its required provider permission. Use separate development, staging and production-like bindings and spending controls.",
+        "Implement configuration validation and log redaction. Errors must identify the missing setting name without printing values, connection strings, headers or entire environment dumps.",
+        "Document rotation: create replacement, deploy binding, verify new use, revoke old credential and inspect failures. Maintain an emergency revocation route."
+      ],
+      "verification": "Search logs, image configuration and CI artifacts for accidental values using approved tooling. Revoke a test service permission and confirm the affected operation fails safely.",
+      "evidence": "Secret-name inventory; service-permission matrix; safe environment example; configuration validation and rotation test."
+    },
+    {
+      "title": "Configure network boundaries and TLS",
+      "entry": "Requires selected deployment profile and service inventory. Local loopback development and public HTTPS deployment have different controls.",
+      "steps": [
+        "Draw permitted ingress/egress: browser to gateway, gateway to API, API/worker to private data services, and governed routes to approved inference/OCR/telemetry.",
+        "Expose only intended ingress. Keep database, queue, object management and identity administration off the public Internet. Use explicit security groups/firewall rules.",
+        "Terminate trusted HTTPS at the supported gateway and encrypt internal connections where the threat model/profile requires it. Configure certificate renewal and expiry alerts.",
+        "Preserve cloud-session proxy/CA settings. Never bypass a destination denial by direct networking or disable TLS verification to make a provider call succeed.",
+        "Validate outbound destinations and redirects, block metadata/private service access for untrusted URL fetches and omit remote-import features until SSRF controls are tested.",
+        "Set proxy request/body/time limits and trusted forwarded-header handling. Do not trust arbitrary X-Forwarded-* headers from public clients.",
+        "Use exact environment origins for CORS and OIDC redirects. Enable HSTS only after HTTPS and subdomain implications have been validated; do not blindly preload local/demo domains."
+      ],
+      "verification": "From permitted and forbidden network locations, test required service reachability and denial. Verify certificates and provider calls through the approved route with validation enabled.",
+      "evidence": "Network flow matrix; ingress/egress rules; TLS renewal configuration; connectivity tests and exceptions."
+    },
+    {
+      "title": "Configure OIDC identity and privileged accounts",
+      "entry": "Requires private identity administration and exact application URLs. Keycloak is one candidate; equivalent approved OIDC providers can satisfy the same controls.",
+      "steps": [
+        "Create separate development/staging/deployed realms or equivalent isolation. Use named administrators, MFA and least privilege; remove bootstrap access after setup.",
+        "Register the application using the appropriate confidential-backend or public-client design. Set exact redirect/logout URIs; avoid broad wildcard redirects.",
+        "Use Authorization Code flow with PKCE where appropriate. Do not use deprecated implicit/password flows as a shortcut for browser login.",
+        "Configure access/session lifetime and refresh behaviour from risk and usability needs. Protect recovery flows and administrative endpoints.",
+        "In the backend verify signature against trusted keys, permitted algorithms, issuer, audience, expiry and relevant claims. Distinguish an access token from an ID token.",
+        "Map identity by stable issuer/subject. Resolve tenant memberships and business roles server-side; do not trust a mutable email or browser-selected tenant alone.",
+        "Test signing-key rotation, provider unavailability, expired/revoked membership and wrong-audience/issuer tokens. Define revocation semantics for existing sessions and queued work."
+      ],
+      "verification": "Log in with each synthetic role, then demonstrate that wrong-issuer, wrong-audience, expired and tampered tokens cannot access protected resources. Confirm key rotation does not disable verification.",
+      "evidence": "Identity-provider configuration export without secrets; client settings; claim mapping; authentication integration tests."
+    },
+    {
+      "title": "Secure browser sessions, CSRF and web delivery",
+      "entry": "Requires a chosen browser-auth design. This guide recommends evaluating a backend-for-frontend session for the same-origin console.",
+      "steps": [
+        "If using backend sessions, exchange tokens server-side and keep them out of routine browser storage. Use opaque, rotated session identifiers with server-side invalidation.",
+        "Set cookies Secure on HTTPS, HttpOnly, an appropriate SameSite policy and narrow path/domain. Avoid sharing session cookies across unrelated subdomains.",
+        "Protect cookie-authenticated state-changing requests with the framework-supported CSRF mechanism and origin validation. SameSite alone is not a complete CSRF design.",
+        "If a public-client token design is selected, document XSS exposure, token storage and renewal controls. Never claim localStorage is a secure token vault.",
+        "Restrict CORS to exact origins and required methods/headers. Never combine arbitrary origin reflection with credentialed access.",
+        "Set a tested content security policy, frame protection, nosniff and appropriate referrer policy. Remove inline/eval permissions where feasible rather than copying a permissive template.",
+        "Escape model/document content and sanitise any rendered HTML/Markdown. Treat filenames, extracted text, comments and citations as untrusted; isolate unsafe document previews."
+      ],
+      "verification": "Test missing/invalid CSRF tokens, cross-origin credentialed requests, stored-script payloads and logout/session revocation. Verify cookie/security headers in the actual deployed browser flow.",
+      "evidence": "Session design ADR; cookie/CORS/CSRF configuration; browser security tests; CSP findings and fixes."
+    },
+    {
+      "title": "Implement tenant and resource authorisation",
+      "entry": "Requires verified identity and stored membership. Apply to every API, worker, tool, download, citation and export.",
+      "steps": [
+        "Define a deny-by-default matrix for requester, analyst, reviewer, tenant administrator and auditor. Separate platform administration from permission to read all tenant contents.",
+        "Construct trusted request scope from the verified identity and current membership. A tenant ID in a URL/header/body requests scope; it does not prove access.",
+        "Authorise both action and resource. Check document ACL/classification, case membership and reviewer duties rather than relying only on broad role names.",
+        "Use tenant-aware database references and repository APIs. Carry validated scope into jobs and reconstruct it from trusted records rather than serialising a browser claim.",
+        "Scope caches, search results, signed downloads, analytics, evaluation runs and feedback. Recheck access when a citation or original file is opened.",
+        "Handle revocation and long-running runs: revalidate membership and evidence permissions on resume and before tool/approval execution.",
+        "Test ID substitution, enumeration, cross-tenant list/search/export, administrator overreach and membership changes. Use independent identities, not only mock role strings."
+      ],
+      "verification": "All cross-tenant attempts deny contents across API, worker, cache, retrieval and storage paths. Deactivated users cannot resume work or approve an old pending case.",
+      "evidence": "Permission matrix; central policy API; scoped repository contracts; negative-access test suite."
+    },
+    {
+      "title": "Harden PostgreSQL, database roles and row policies",
+      "entry": "Requires trusted scope and tenant-aware schema. Row-level security is defence in depth, not a substitute for application authorisation.",
+      "steps": [
+        "Separate migration owner, runtime API/worker and reporting roles. Runtime roles must not be superusers, table owners or BYPASSRLS roles.",
+        "Restrict network connections, require appropriate transport security and manage authentication via the selected secret/workload identity mechanism. Avoid shared administrative connections.",
+        "Use parameterised queries, validated filters and least-privilege grants. Apply tenant-aware foreign keys/constraints and indexes to prevent unintended cross-tenant references.",
+        "Add row policies to each relevant tenant table and test reads, writes, joins and vector queries. Consider FORCE ROW LEVEL SECURITY while understanding owner/superuser bypass behaviour.",
+        "Set tenant context transaction-locally from server-verified scope and clear it through transaction lifecycle. Test pooled connections, background tasks and missing scope.",
+        "Scope object keys, audit tables and checkpoint stores too. Document necessary privileged maintenance paths and prevent them from becoming ordinary request paths.",
+        "Back up through approved roles and locations, audit administrative access and test schema migrations in an isolated database before promotion."
+      ],
+      "verification": "Run isolation tests using the actual non-owner runtime role. With no tenant context, no rows are accessible; after connection reuse, previous tenant rows remain inaccessible.",
+      "evidence": "Role/grant inventory; RLS migrations; pool/reset tests; privileged-path exceptions; tested recovery account process."
+    },
+    {
+      "title": "Secure uploads, object storage and parser execution",
+      "entry": "Requires authorisation and private storage. Uploaded files are hostile inputs even when their filenames look harmless.",
+      "steps": [
+        "Create private storage with public access blocked, encryption and version/lifecycle rules. Service identities receive only required object actions and prefixes.",
+        "Generate storage keys server-side. Validate actual media content, configured size/page limits and supported parsers; never use a client filename as a filesystem path.",
+        "Quarantine uploads pending validation/scanning policy. Reject unsupported/encrypted/unsafe files according to the documented contract without exposing parser internals.",
+        "Run parsing/OCR with least privilege, restricted network/filesystem access and CPU/memory/time limits. Do not mount cloud credentials or privileged container sockets into parser jobs.",
+        "Issue short-lived signed downloads only after current resource authorisation. URLs are bearer access until expiry; keep them out of logs and avoid overly long validity.",
+        "Protect preview rendering: safe content type/disposition and isolation as needed. Do not execute macros/scripts or trust text/HTML from extracted files.",
+        "Test malformed PDFs, large scans, archive expansion where supported, path-like names, cross-tenant object references and interrupted uploads. Keep failed versions non-searchable."
+      ],
+      "verification": "An unauthorised user cannot obtain or reuse another tenant file link through the application. Unsafe files fail within limits and parser failure cannot reach secrets or private metadata endpoints.",
+      "evidence": "Upload limits; storage/IAM rules; parser isolation profile; scanning policy; malicious-file and download tests."
+    },
+    {
+      "title": "Protect RAG, embeddings, evidence and deletion",
+      "entry": "Requires document provenance and tested tenant authorisation. Derived AI data retains the source data sensitivity.",
+      "steps": [
+        "Apply tenant, ACL, classification and policy-effective-date restrictions before passages enter model context. Recheck permissions when resolving citations.",
+        "Keep immutable document/pipeline/model versions and evidence page/table spans. Track superseded policies and surface conflicting evidence instead of merging it silently.",
+        "Govern embedding and reranking destinations separately from chat inference. Vectors and extracted text can carry sensitive information and need access/retention controls.",
+        "Treat retrieved passages as data, never instructions. Enforce tool and approval boundaries independently of prompt wording.",
+        "Validate every citation against permitted retrieved evidence. Refuse fabricated references and distinguish insufficient evidence from technical failure.",
+        "Propagate ACL revocation, withdrawal and deletion to text, chunks, vectors, caches and derived outputs. Verify results stop appearing rather than trusting a job status alone.",
+        "Define backup retention/legal-hold exceptions separately. After restore, reapply deletion and revocation records; do not promise immediate erasure from every historical backup."
+      ],
+      "verification": "Adversarial queries cannot retrieve another tenant or withdrawn document. Cached answers and citation links honour current access. Source changes do not silently preserve outdated approval evidence.",
+      "evidence": "Retrieval filter tests; provenance/citation validator; revocation/deletion verification; derived-data retention map."
+    },
+    {
+      "title": "Secure model routes, prompts and sensitive outputs",
+      "entry": "Requires the classification/destination matrix and approved provider credentials. Use synthetic prompts for initial connectivity tests.",
+      "steps": [
+        "Enforce an allowlist of provider, model, endpoint and permitted classification at one controlled gateway. Reject unknown or unapproved routes.",
+        "Verify actual inference, embeddings, OCR and telemetry processing terms/location. A product name or application region alone is not a residency guarantee.",
+        "Use structured output and independent schema/business validation. Bound input size, output length, calls, token use, elapsed time and spend per tenant/run.",
+        "Use bounded retries for transient errors; malformed output receives limited correction then failure/review. Do not retry forbidden requests indefinitely.",
+        "Keep instructions versioned in trusted code/configuration. Delimit user/document data, but assume prompt injection can still influence the model and enforce permissions elsewhere.",
+        "Redact sensitive telemetry and minimise submitted data. Never reveal secrets, raw headers or private operational context in model-readable prompts.",
+        "Allow only classification-compatible fallbacks and fail visibly otherwise. For private inference, review model licence/artifact integrity, network exposure and hardware isolation."
+      ],
+      "verification": "A restricted request cannot reach an unapproved endpoint through normal or fallback paths. Invalid model output cannot change permissions, totals or case state.",
+      "evidence": "Provider suitability record; gateway policy; prompt/schema versions; budget/fallback tests; live synthetic integration evidence."
+    },
+    {
+      "title": "Constrain agents, tools and MCP integrations",
+      "entry": "Requires working deterministic services. Orchestration exposes existing permitted capabilities; it does not create authority.",
+      "steps": [
+        "Define typed workflow state and an explicit graph. Persist case/evidence revisions, permission context references, budgets and cancellation state.",
+        "Register tools with exact schemas, server-side required permissions, allowed destinations, scoped identities, timeout, retry rule and output validation.",
+        "Treat tool names/arguments emitted by the model as proposals. Reject unknown tools, forbidden resources, arbitrary shell/SQL execution and user-controlled destinations.",
+        "For MCP, authorise the selected server and every tool separately, validate remote responses and manage credentials. Protocol support is not a trust decision.",
+        "Bound graph steps, calls, wall time and spend. Use sandboxed execution where computation is required; never give agents broad cloud/database administrator credentials.",
+        "On checkpoint resume, revalidate membership, document access, case revision and pending approval. Old persisted context must not grant permanent authority.",
+        "Use idempotency and reconciliation for effects, and make cancellation explicit. Test malicious documents that request secrets, cross-tenant reads, arbitrary URLs or approval bypass."
+      ],
+      "verification": "Forbidden calls fail before execution, including via injected passages. Worker restart/cancellation is safe and duplicate messages do not produce duplicate simulated outcomes.",
+      "evidence": "Tool contracts/allowlist; agent budget configuration; resume checks; injection/tool-abuse and recovery test records."
+    },
+    {
+      "title": "Protect approvals, arithmetic and concurrent decisions",
+      "entry": "Requires case revisions, deterministic rules and an explicit reviewer authority matrix.",
+      "steps": [
+        "Keep permissions, eligibility rules, Decimal calculations and state transitions in tested application code. Do not ask a model to authorise its own proposal.",
+        "Bind approval to tenant, case revision, evidence-version set, rule/policy/checklist versions and proposed action digest. Preserve the snapshot shown to the reviewer.",
+        "Require an authorised reviewer, decision and reason. Enforce separation of duties when the workflow requires independent review.",
+        "At decision time revalidate membership, resource scope, snapshot freshness and expected revision. Reject stale or conflicting requests instead of silently regenerating approval.",
+        "Invalidate pending approval after a relevant evidence/rule/comparison change. Keep historical decisions immutable and distinguish them from current approval.",
+        "Commit decision, case transition and audit atomically where possible. Use scoped idempotency keys and optimistic concurrency for duplicate/concurrent requests.",
+        "Keep sandbox outcomes visibly simulated. A future real connector needs explicit action scope, destination idempotency/reconciliation and separate operating authorisation."
+      ],
+      "verification": "Change a quotation after review request, issue two decisions concurrently and replay an old key. Only the valid current transition succeeds and all attempts are auditable.",
+      "evidence": "Approval digest contract; transition rules; independent calculation fixtures; stale/concurrent/revoked-reviewer tests."
+    },
+    {
+      "title": "Harden API validation and application output",
+      "entry": "Requires identity and resource policy. Apply these checks to new endpoints as they are introduced.",
+      "steps": [
+        "Validate request/response schemas, length/range bounds, enum values, pagination and upload sizes. Reject unexpected sensitive fields and mass assignment of server-owned state.",
+        "Use parameterised database access and safe object-key construction. Avoid dynamic SQL/shell templates and never interpolate model output into executable commands.",
+        "Return consistent safe errors and correlation IDs. Apply a deliberate 404/403 resource-existence policy without exposing other tenants identifiers.",
+        "Rate-limit expensive operations and constrain concurrency per tenant/user. Handle 429/retry behaviour without accidentally creating duplicate work.",
+        "Escape HTML and sanitise Markdown. Handle CSV/spreadsheet formula injection in exported reports and restrict unsafe hyperlink protocols.",
+        "Authorise exports, search filters, evaluation jobs and operational endpoints. Health/readiness must avoid secret details; management/debug endpoints stay restricted.",
+        "Test insecure object references, unexpected fields, huge filters, injection payloads, pagination abuse and server-side URL fetching. Keep public OpenAPI exposure a deliberate choice."
+      ],
+      "verification": "Invalid inputs fail safely, expensive operations are bounded and output rendering cannot execute stored user/model content. Protected endpoints cannot be accessed through alternate routes.",
+      "evidence": "API schema/limit specification; negative-input tests; output-encoding rules; endpoint access inventory."
+    },
+    {
+      "title": "Secure queues, workers, checkpoints and caches",
+      "entry": "Requires distinct service identities and durable business state. Queue/cache products are not access-control boundaries on their own.",
+      "steps": [
+        "Keep queues and caches private, authenticated and encrypted where required. Use separate environment credentials and restrict administrative commands.",
+        "Use safe serialisation and validated job schemas; do not accept arbitrary pickled objects or untrusted task names. Resolve sensitive state from trusted records.",
+        "Include verified tenant/resource scope and idempotency identity. Recheck access when a job executes rather than assuming submission-time permission lasts indefinitely.",
+        "Scope cache keys/results to tenant, resource permissions and relevant evidence versions. Define expiration and explicit invalidation for ACL/source changes.",
+        "Use bounded retries, dead-letter/manual recovery and visible failure state. Apply parser/model resource budgets and stop retry storms.",
+        "Persist checkpoints securely and minimise sensitive content. Reconcile uncertain effects before replay; cancellation stops future work but cannot erase completed effects.",
+        "Test duplicate job delivery, connection loss, poisoned payloads, revoked membership and connection-pool reuse. Monitor queue age and stalled workflows."
+      ],
+      "verification": "Replaying a message or restoring a worker does not leak data or repeat an outcome. Cache hits cannot bypass current permissions and failed work is discoverable.",
+      "evidence": "Queue/worker permissions; payload schema; idempotency/retry policy; cache invalidation and restart tests."
+    },
+    {
+      "title": "Set up redacted telemetry and protected audit evidence",
+      "entry": "Requires correlation IDs, classification policy and named operational users.",
+      "steps": [
+        "Separate business audit events from diagnostic logs and AI traces. Define event schemas with actor/service, tenant, resource, revision, timestamp, action and outcome.",
+        "Avoid raw documents, prompts, credentials, headers, signed URLs and full connection strings in routine logs. Implement redaction before export, including failure paths.",
+        "Choose approved telemetry destinations and retention. Self-host if the selected profile requires it; observability SaaS is another data-processing provider.",
+        "Restrict log/audit readers and writers. An append-only application interface is insufficient for tamper protection; use separately protected integrity evidence or immutable retention where required.",
+        "Instrument authentication failures, denied tools, stale approvals, deletion failures, provider routing, spending, queue backlog and unusual downloads without exposing contents.",
+        "Configure alerts with recipients and escalation. Protect correlation IDs and user-facing error messages from becoming a resource enumeration channel.",
+        "Verify clock synchronisation and audit continuity across API/worker/release. Test that administrative modification is denied or detected under the selected integrity design."
+      ],
+      "verification": "Inspect synthetic success/failure traces for redaction. Demonstrate an alert reaches its owner and auditors can reconstruct a review without unnecessary document contents.",
+      "evidence": "Audit schema; retention/access rules; redaction tests; integrity-control design; alert exercises."
+    },
+    {
+      "title": "Secure containers, dependencies and CI/CD",
+      "entry": "Requires locked dependencies and defined deployment identity. Build integrity protects every runtime security control.",
+      "steps": [
+        "Use supported minimal base images and pinned tested dependencies. Keep package signatures, checksums and TLS verification enabled; review model/parser artifact sources too.",
+        "Run containers as non-root with minimal capabilities and resource limits. Use read-only filesystems where feasible and writable paths only for intended state.",
+        "Do not expose the Docker socket or privileged mode to parsers/agents. Keep build secrets out of layers; use supported ephemeral secret injection.",
+        "Scan dependencies/images and generate an SBOM using vetted tooling. Triage vulnerabilities; critical unresolved findings block release under the project gate.",
+        "Restrict CI job permissions and third-party actions, pin action revisions according to policy and protect release workflows. Do not expose secrets to untrusted pull-request code.",
+        "Use short-lived deployment identity where available and exact trust conditions. Separate test, staging and production-like credentials and approvals.",
+        "Promote the same tested artifact digest. Run schema compatibility and deployed smoke tests; preserve signing/provenance evidence appropriate to the environment."
+      ],
+      "verification": "Image history/configuration contains no credentials; runtime is non-root and resource-limited; CI cannot deploy from an untrusted change; scan findings and artifact identity are recorded.",
+      "evidence": "Container policy; SBOM/scan report; CI trust settings; artifact digest/provenance; pipeline permission review."
+    },
+    {
+      "title": "Configure cloud IAM, storage, keys and private services",
+      "entry": "Requires approved region/services, budget and deployment authorisation. AWS examples map to equivalent approved cloud/private controls.",
+      "steps": [
+        "Use a dedicated account/project/environment with named administrators and MFA. Define emergency access and review it; avoid daily root/owner operation.",
+        "Provision using reviewed IaC with encrypted/restricted state. Separate staging and production-like data and protect plans from leaking sensitive values.",
+        "Keep databases, queues and management ports private. Expose only intended TLS ingress; restrict security-group/service-to-service paths and outbound destinations.",
+        "Use workload roles for API, worker, migration, CI and recovery. Grant least-privilege actions/resources and constrain role trust; avoid universal wildcard policies.",
+        "For object storage block public access, configure encryption, versioning, lifecycle and logging. Prefix scoping helps only when trusted code/identity establishes the correct tenant.",
+        "Manage secrets and encryption keys with approved services and access separation. Define key rotation and recovery; losing a key can make backups unrecoverable.",
+        "Verify inference, backup, telemetry, support and DR locations/terms. Test actual identity and network permissions from the deployed runtime, not only desired IaC configuration."
+      ],
+      "verification": "Unauthorised public access and cross-service roles fail, runtime reaches only required destinations and the deployed configuration matches recorded residency assumptions.",
+      "evidence": "IAM/trust review; network/storage/key configuration; actual runtime tests; cloud audit and residency evidence."
+    },
+    {
+      "title": "Run security tests, adversarial evaluation and release gates",
+      "entry": "Testing starts per feature; this stage assembles independent evidence for release.",
+      "steps": [
+        "Freeze code/artifact, dependencies, schema, configuration, prompt/model/rule versions and dataset manifest. Use an isolated synthetic environment for adversarial tests.",
+        "Run authentication, cross-tenant, database RLS, download, cache, export, worker and reviewer tests using real runtime roles and independent identities.",
+        "Test malicious PDFs, parser exhaustion bounds, stored scripts, API injection, SSRF/redirect behaviour and unsafe tool proposals without attacking unrelated services.",
+        "Inject documents that request secrets, tool execution or approval bypass. Verify action checks hold even when a model repeats the malicious request.",
+        "Test stale/concurrent approvals, revoked membership, duplicate requests, process restarts, forbidden model fallback and deleted-source retrieval.",
+        "Review scans and sampled logs for leaked sensitive data. Track issue severity, owner, fix, regression and any explicitly accepted noncritical risk.",
+        "Block release on any mandatory authorisation/approval/isolation failure or unresolved critical finding. Report failed, skipped and unrun checks separately; passing finite tests is not proof of perfect security."
+      ],
+      "verification": "All mandatory scenarios pass with reproducible evidence and known limitations. An independent reviewer can follow findings to code/configuration and retest the fix.",
+      "evidence": "Security test report; red-team results; vulnerability register; release decision with artifact/environment identifiers."
+    },
+    {
+      "title": "Test backups, restore, rollback and incident response",
+      "entry": "Requires operational ownership, approved backup locations and encryption key recovery.",
+      "steps": [
+        "Define RTO/RPO and retention from business needs, then configure database/object backups, recovery credentials and monitoring. Do not invent achieved guarantees.",
+        "Restore into an isolated environment and verify document versions, ACLs, memberships, case revisions, approval snapshots and checkpoint consistency.",
+        "Reapply deletion, access revocation and legal-hold obligations. Prevent restored queues from replaying uncertain effects before reconciliation.",
+        "Exercise application rollback against a compatible schema. Use expand/migrate/contract changes and a documented alternative when database rollback is unsafe.",
+        "Write incident playbooks for credential leak, tenant disclosure, malicious upload, compromised model route and deployment failure. Assign containment, evidence, communication and recovery owners.",
+        "On a credential incident revoke/rotate promptly, scope access, preserve authorised evidence and redeploy clean bindings. Do not publish raw sensitive logs in issue trackers.",
+        "Run a tabletop and practical restore exercise. Record actual recovery times, data loss, alert delivery, decisions and gaps; fix gaps before describing the system as operationally ready."
+      ],
+      "verification": "An operator restores a representative case, permissions and review integrity from backups and executes a tested rollback. An incident alert reaches accountable people.",
+      "evidence": "Restore/rollback report; measured recovery; incident playbooks; emergency-access test; key recovery and deletion reapplication evidence."
+    },
+    {
+      "title": "Launch safely and maintain the security baseline",
+      "entry": "Requires passing security gates and operator/data-owner approval for the actual deployment scope.",
+      "steps": [
+        "Complete a launch checklist for identity, permissions, source use, model route, network, secrets, scans, backups, logging, alerting, budget and known limitations.",
+        "Run a deployed synthetic canary: login, case upload, cited answer, comparison, approval and audit. Confirm forbidden operations fail in the deployed environment too.",
+        "Start with bounded users/data and a manual fallback. A portfolio remains a sandbox until authorised for another use; do not advertise compliance from a demo.",
+        "Review alerts, denials, spending, failures and quality frequently during stabilisation. Set rollback/disable triggers and keep release artifacts recoverable.",
+        "Schedule dependency patches, credential rotation, access reviews, provider-term checks, backup restores and model/red-team regression tests according to risk.",
+        "Reassess threats when adding a domain, connector, model, region or classification. HR/service desk/forecasting inherit controls but need separate access/evaluation scenarios.",
+        "Plan retirement: revoke identities/keys, stop jobs, export authorised records, apply retention/deletion, remove infrastructure safely and confirm charges stop."
+      ],
+      "verification": "Named operators maintain tested runbooks, access and alerts. Security status reflects actual observations and outstanding risks rather than a one-time installation claim.",
+      "evidence": "Signed-off launch record; maintenance calendar; change/review process; handover and retirement checklist."
+    }
+  ]
+}

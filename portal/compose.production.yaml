@@ -1,0 +1,37 @@
+# Reference deployment override; requires a real domain, trusted OIDC and review.
+# docker compose -f compose.yaml -f compose.production.yaml --profile production up -d --build
+services:
+  api:
+    environment:
+      APP_ENV: production
+      AUTH_MODE: oidc
+      SEED_DEMO: "false"
+      WEB_ORIGIN: https://${PUBLIC_HOST:?Set a domain you control}
+      OIDC_ISSUER: ${OIDC_ISSUER:?Set a trusted HTTPS issuer}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Set the registered OIDC client}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: https://${PUBLIC_HOST}/auth/callback
+      MODEL_MODE: ${MODEL_MODE:-extractive}
+      MODEL_BASE_URL: ${MODEL_BASE_URL:-}
+      MODEL_NAME: ${MODEL_NAME:-}
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+      MODEL_ALLOWED_HOSTS: ${MODEL_ALLOWED_HOSTS:-}
+      MODEL_ALLOWED_CLASSIFICATIONS: ${MODEL_ALLOWED_CLASSIFICATIONS:-synthetic}
+  web:
+    ports: !reset []
+  gateway:
+    image: caddy:2-alpine
+    profiles: [production]
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - gateway_data:/data
+      - gateway_config:/config
+    depends_on: [web]
+    restart: unless-stopped
+volumes:
+  gateway_data:
+  gateway_config:
+

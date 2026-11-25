@@ -1,0 +1,40 @@
+digraph architecture {
+graph [rankdir=LR, bgcolor="#F5F8FC", fontname="DejaVu Sans", fontsize=22, fontcolor="#12374A", pad=0.45, nodesep=0.34, ranksep=0.65, compound=true, splines=polyline, labelloc=t, labeljust=l];
+node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#C3D1DD", fontname="DejaVu Sans", fontsize=12, fontcolor="#18374A", margin="0.18,0.12", penwidth=1.2];
+edge [color="#58738A", fontname="DejaVu Sans", fontsize=9, fontcolor="#426077", arrowsize=0.7, penwidth=1.2];
+
+label="03  /  PROCUREMENT, DURABLE AGENTS & HUMAN REVIEW\lState is persisted; authorisation is rechecked on tool execution, review and resume\l";
+start [label="Requester submits case\nTenant • Case revision\nChecklist / policy effective date",fillcolor="#DCEAF7"];
+subgraph cluster_workflow {
+label="BOUNDED WORKFLOW RUNTIME  /  EXPLICIT GRAPH NODES";style="rounded,filled";fillcolor="#EAF6F4";color="#74ABA9";
+intake [label="Intake & validation\nRequired fields • Submission scope"];
+retrieve [label="Retrieve approved evidence\nACL / dates / source versions"];
+extract [label="Structured extraction\nFields + source spans\nUnknowns remain unknown"];
+rules [label="Deterministic rules\nCompleteness • Expiry • Consistency\nDecimal totals • Currency / units",fillcolor="#FFE9BD"];
+draft [label="Comparison + cited draft\nAssumptions • Exclusions\nNo automatic winning-supplier decision"];
+snapshot [label="Approval snapshot / pause\nCase revision + evidence set\nRule version + action digest",fillcolor="#FFE9BD"];
+intake -> retrieve -> extract -> rules -> draft -> snapshot;
+}
+subgraph cluster_review {
+label="HUMAN AUTHORITY BOUNDARY";style="rounded,filled";fillcolor="#FFF5DF";color="#D6AC54";
+review [label="Authorised independent reviewer\nInspect sources • Record reason\nApprove / reject / request changes"];
+check [shape=diamond,label="Current scope, revision\nand approval digest?",fillcolor="#FFE9BD"];
+decision [label="Atomic decision + audit\nOptimistic concurrency\nIdempotent decision request"];
+result [label="SIMULATED outcome / report\nApproved simulation OR rejection\nNo payment / actual award",fillcolor="#D6EAD7"];
+review -> check;check -> decision [label="valid"];decision -> result;
+}
+start -> intake;snapshot -> review;
+changes [label="Needs information / corrections\nNew case revision\nInvalidate pending approval",fillcolor="#F7E0DC"];
+rules -> changes [label="missing / uncertain"];
+review -> changes [label="request changes"];
+check -> changes [label="stale / no longer authorised"];
+changes -> intake [label="resubmit"];
+state [shape=cylinder,label="Persisted runs / checkpoints\nTenant • Revision • Inputs / outputs\nRetry limits • Cancellation status",fillcolor="#DCE4F6"];
+tools [label="Permissioned tool boundary\nAllowlisted schemas • Scoped identity\nTimeout • Output validation\nMCP optional, not an access control",fillcolor="#E7DFF8"];
+recovery [label="RECOVERY CONTRACT\nRestart → load checkpoint → revalidate\nUncertain effect → reconcile before retry\nOutbox / destination idempotency for later integrations",fillcolor="#E1E8EF"];
+extract -> tools [style=dashed,label="model / tool proposals"];
+snapshot -> state [style=dashed,label="persist / interrupt"];
+state -> recovery [style=dashed];
+decision -> state [style=dashed,label="persist outcome"];
+
+}

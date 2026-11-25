@@ -1,0 +1,38 @@
+digraph architecture {
+graph [rankdir=LR, bgcolor="#F5F8FC", fontname="DejaVu Sans", fontsize=22, fontcolor="#12374A", pad=0.45, nodesep=0.34, ranksep=0.65, compound=true, splines=polyline, labelloc=t, labeljust=l];
+node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#C3D1DD", fontname="DejaVu Sans", fontsize=12, fontcolor="#18374A", margin="0.18,0.12", penwidth=1.2];
+edge [color="#58738A", fontname="DejaVu Sans", fontsize=9, fontcolor="#426077", arrowsize=0.7, penwidth=1.2];
+
+label="05  /  SHARED-DOMAIN EXTENSIONS & PREDICTIVE INTELLIGENCE\lBuild after the procurement reference workflow; each extension has separate acceptance tests\l";
+platform [label="SHARED PLATFORM PRIMITIVES\nIdentity / tenant policy • Cases / revisions\nEvidence / citations • Approval • Audit",fillcolor="#CCE9E4"];
+subgraph cluster_hr {
+label="HR KNOWLEDGE";style="rounded,filled";fillcolor="#EBF2FA";color="#91A6C9";
+hrdata [shape=cylinder,label="Authorised HR policies\nEmployee / role ACLs"];
+hr [label="Policy Q&A / advisory skills support\nCitations • Unknown / conflict states"];
+hrreview [label="Human oversight\nNo automated hiring / discipline"];
+hrdata -> hr -> hrreview;
+}
+subgraph cluster_desk {
+label="SERVICE DESK";style="rounded,filled";fillcolor="#EAF6F4";color="#74ABA9";
+ticket [label="Ticket intake\nCategory / priority suggestions"];
+route [label="Deterministic escalation + routing\nApproved knowledge retrieval"];
+response [label="Draft → review → simulated response\nSensitive replies require review"];
+ticket -> route -> response;
+}
+subgraph cluster_ml {
+label="ADVISORY FORECASTING  /  SEPARATE ML LIFECYCLE";style="rounded,filled";fillcolor="#F1EDFA";color="#A99ACC";
+history [shape=cylinder,label="Synthetic / authorised time series\nCase / service-volume events"];
+features [label="Versioned features\nAvailable at prediction time\nNo future-outcome leakage"];
+split [label="Chronological splits / backtests\nNaive / seasonal baseline\nValidation tuning • Held-out test"];
+train [label="Statistical / sklearn / XGBoost\nMAE / RMSE • Uncertainty\nBaseline improvement must be measured"];
+registry [shape=cylinder,label="Model registry / artifacts\nMLflow or versioned equivalent\nModel card • Data / parameters"];
+inference [label="Scoped forecast API / dashboard\nAdvisory workload recommendations\nNo automatic authorisation"];
+drift [label="Quality / drift monitoring\nReviewed retraining & promotion"];
+history -> features -> split -> train -> registry -> inference -> drift;
+drift -> features [style=dashed,label="reviewed update"];
+}
+platform -> hr;platform -> ticket;platform -> history [label="permitted events"];
+quality [label="EACH MODULE MUST PASS\nDomain ACLs • Arabic / English evaluation\nCitations / review • Cross-domain isolation\nSynthetic limitations reported explicitly",fillcolor="#FFE9BD"];
+hrreview -> quality [style=dashed];response -> quality [style=dashed];inference -> quality [style=dashed];
+
+}

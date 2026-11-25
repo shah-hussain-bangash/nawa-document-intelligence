@@ -1,0 +1,73 @@
+{
+  "notice": "Developer-authored synthetic smoke set, not a held-out or human-independent benchmark.",
+  "retrieval": "local lexical",
+  "passed": 6,
+  "total": 6,
+  "results": [
+    {
+      "id": "R01",
+      "language": "en",
+      "question": "competitive procurement quotations requirements",
+      "expected_title": "Procurement operating framework",
+      "retrieved_titles": [
+        "Procurement operating framework",
+        "Review and approval authority"
+      ],
+      "passed": true
+    },
+    {
+      "id": "R02",
+      "language": "en",
+      "question": "annual leave employee days",
+      "expected_title": "Annual leave and employee guidance",
+      "retrieved_titles": [
+        "Annual leave and employee guidance",
+        "Atlas Technology · Employee learning platform",
+        "Palm Systems · Employee learning platform",
+        "Atlas Technology · Accessibility review"
+      ],
+      "passed": true
+    },
+    {
+      "id": "R03",
+      "language": "ar",
+      "question": "المشتريات عروض المورد",
+      "expected_title": "دليل المشتريات التجريبي",
+      "retrieved_titles": [
+        "دليل المشتريات التجريبي"
+      ],
+      "passed": true
+    },
+    {
+      "id": "R04",
+      "language": "ar",
+      "question": "الإجازة السنوية الموظف",
+      "expected_title": "دليل الموارد البشرية",
+      "retrieved_titles": [
+        "دليل الموارد البشرية"
+      ],
+      "passed": true
+    },
+    {
+      "id": "R05",
+      "language": "en",
+      "question": "service desk escalation security incident",
+      "expected_title": "Service desk escalation playbook",
+      "retrieved_titles": [
+        "Service desk escalation playbook",
+        "Oasis Technologies · Service desk automation",
+        "Falcon Digital · Service desk automation",
+        "Palm Systems · Network security assessment"
+      ],
+      "passed": true
+    },
+    {
+      "id": "R06",
+      "language": "en",
+      "question": "intergalactic pineapple insurance",
+      "expected_title": null,
+      "retrieved_titles": [],
+      "passed": true
+    }
+  ]
+}

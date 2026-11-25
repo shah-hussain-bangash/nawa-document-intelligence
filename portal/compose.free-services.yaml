@@ -1,0 +1,10 @@
+# Optional local services: no cloud account or paid model API.
+name: nawa-local-services
+services:
+  ollama:
+    image: ollama/ollama:0.11.10
+    ports: ["127.0.0.1:11434:11434"]
+    volumes: ["local_models:/root/.ollama"]
+    restart: unless-stopped
+volumes:
+  local_models:

@@ -1,0 +1,7 @@
+# Optional override for a disposable synthetic realm, never production identities.
+# Prepare with scripts/prepare_local_identity.py --validation-realm first.
+services:
+  identity:
+    command: ["start-dev", "--http-enabled=false", "--https-port=8443", "--hostname=https://localhost:8443", "--https-certificate-file=/opt/keycloak/conf/server.crt", "--https-certificate-key-file=/opt/keycloak/conf/server.key", "--import-realm"]
+    volumes:
+      - ./.data/local-identity/import:/opt/keycloak/data/import:ro

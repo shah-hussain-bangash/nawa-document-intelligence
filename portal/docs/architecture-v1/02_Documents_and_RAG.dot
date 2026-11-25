@@ -1,0 +1,38 @@
+digraph architecture {
+graph [rankdir=LR, bgcolor="#F5F8FC", fontname="DejaVu Sans", fontsize=22, fontcolor="#12374A", pad=0.45, nodesep=0.34, ranksep=0.65, compound=true, splines=polyline, labelloc=t, labeljust=l];
+node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#C3D1DD", fontname="DejaVu Sans", fontsize=12, fontcolor="#18374A", margin="0.18,0.12", penwidth=1.2];
+edge [color="#58738A", fontname="DejaVu Sans", fontsize=9, fontcolor="#426077", arrowsize=0.7, penwidth=1.2];
+
+label="02  /  DOCUMENT INGESTION & GROUNDED ANSWERS\lBoth paths enforce tenant, document ACL, version and processing-location rules\l";
+subgraph cluster_ingest {
+label="A. ASYNCHRONOUS INGESTION";style="rounded,filled";fillcolor="#EAF6F4";color="#74ABA9";
+upload [label="1. Authorised upload\nSize / type / parser limits"];
+quarantine [label="2. Validate / quarantine\nUnsafe or unsupported → rejected"];
+original [shape=cylinder,label="3. Immutable original version\nHash • Source • Language • ACL\nEffective / expiry / supersession"];
+job [label="4. Durable ingestion job\nVersion + pipeline idempotency key\nBounded retry / progress / failure"];
+parse [label="5. Parse pages / tables\nOCR for scans (Arabic / English)\nOriginal text + coordinates"];
+chunks [label="6. Provenance-aware chunks\nPage / section / cell references\nSeparate search normalisation"];
+embed [label="7. Approved embeddings\nModel / dimension version\nClassification-permitted endpoint",fillcolor="#E7DFF8"];
+index [shape=cylinder,label="8. Tenant-scoped index\npgvector + lexical baseline\nReady only after validation",fillcolor="#DCE4F6"];
+upload -> quarantine -> original -> job -> parse -> chunks -> embed -> index;
+}
+subgraph cluster_query {
+label="B. SYNCHRONOUS KNOWLEDGE QUERY";style="rounded,filled";fillcolor="#EBF2FA";color="#91A6C9";
+question [label="1. User question + verified scope"];
+filter [label="2. Membership / ACL / classification\nPolicy effective-date & version filter",fillcolor="#CCE9E4"];
+retrieve [label="3. Hybrid retrieval\nLexical + vectors\nOptional benchmarked reranker"];
+context [label="4. Bounded authorised context\nUntrusted passages ≠ instructions\nCitations tied to evidence IDs"];
+answer [label="5. Governed model call\nSchema validation • Cost / time budget",fillcolor="#E7DFF8"];
+validate [label="6. Validate citations & support\nReject fabricated references\nConflict / no evidence → abstain"];
+viewer [label="7. Answer + source viewer\nRecheck permission when opening\nFeedback / correction workflow"];
+question -> filter -> retrieve -> context -> answer -> validate -> viewer;
+}
+index -> retrieve [label="permitted evidence only"];
+original -> viewer [style=dashed,label="authorised short-lived download"];
+life [label="LIFECYCLE CONTROL\nWithdraw / delete / revoke ACL\nOriginals + text + chunks + vectors + caches\nBackup expiry and restore revocations",fillcolor="#FFE9BD"];
+life -> index [style=dashed,label="invalidate"];
+life -> original [style=dashed,label="restrict / delete"];
+eval [label="CONTINUOUS QUALITY\nReviewed Arabic / English ground truth\nRecall@k • Citation precision • Extraction F1\nCorrectness • Abstention • Cost / latency",fillcolor="#E1E8EF"];
+viewer -> eval [style=dashed,label="reviewed outcomes"];
+
+}

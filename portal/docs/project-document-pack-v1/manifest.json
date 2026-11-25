@@ -1,0 +1,42 @@
+[
+  {
+    "number": 1,
+    "title": "Project Requirements Document",
+    "file": "01_Project_Requirements.pdf"
+  },
+  {
+    "number": 2,
+    "title": "Workflow and Approval Specification",
+    "file": "02_Workflow_and_Approval.pdf"
+  },
+  {
+    "number": 3,
+    "title": "System Architecture Document",
+    "file": "03_System_Architecture.pdf"
+  },
+  {
+    "number": 4,
+    "title": "Data and Document Requirements",
+    "file": "04_Data_and_Document_Requirements.pdf"
+  },
+  {
+    "number": 5,
+    "title": "Security and Sovereignty Requirements",
+    "file": "05_Security_and_Sovereignty.pdf"
+  },
+  {
+    "number": 6,
+    "title": "Database and API Specification",
+    "file": "06_Database_and_API.pdf"
+  },
+  {
+    "number": 7,
+    "title": "AI Workflow and Evaluation Specification",
+    "file": "07_AI_Workflow_and_Evaluation.pdf"
+  },
+  {
+    "number": 8,
+    "title": "Development and Deployment Guide",
+    "file": "08_Development_and_Deployment.pdf"
+  }
+]

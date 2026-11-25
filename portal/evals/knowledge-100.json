@@ -1,0 +1,605 @@
+{
+  "notice": "100 developer-authored synthetic draft cases (50 English/50 Arabic, 80 supported and 20 unanswerable). Includes cross-language retrieval and deliberately unsupported legal/production questions. Not human-reviewed, held-out, independent or a certification benchmark. Relevance labels require review.",
+  "questions": [
+    {
+      "id": "Q001",
+      "language": "en",
+      "question": "How many valid supplier quotations are required?",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q002",
+      "language": "en",
+      "question": "What fields must a procurement quotation show?",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q003",
+      "language": "en",
+      "question": "Who must approve the procurement comparison?",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q004",
+      "language": "en",
+      "question": "Does procurement execute an actual payment or award?",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q005",
+      "language": "ar",
+      "question": "كم عرض سعر صالح مطلوب للمشتريات؟",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q006",
+      "language": "ar",
+      "question": "ما الحقول المطلوبة في عرض السعر للمشتريات؟",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q007",
+      "language": "ar",
+      "question": "من يوافق على مقارنة المشتريات؟",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q008",
+      "language": "ar",
+      "question": "هل ينفذ النظام دفعاً فعلياً أو ترسية؟",
+      "expected_title": "Procurement operating framework"
+    },
+    {
+      "id": "Q009",
+      "language": "en",
+      "question": "How do we check supplier registration validity?",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q010",
+      "language": "en",
+      "question": "What supplier onboarding documents must be checked?",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q011",
+      "language": "en",
+      "question": "What happens when supplier documentation has expired?",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q012",
+      "language": "en",
+      "question": "Can a model confidence score decide supplier eligibility?",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q013",
+      "language": "ar",
+      "question": "كيف يتم التحقق من صلاحية تسجيل المورد؟",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q014",
+      "language": "ar",
+      "question": "ما المستندات المطلوبة لتأهيل المورد؟",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q015",
+      "language": "ar",
+      "question": "ماذا نفعل بمستندات المورد منتهية الصلاحية؟",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q016",
+      "language": "ar",
+      "question": "هل تقرر درجة ثقة النموذج أهلية المورد؟",
+      "expected_title": "Supplier due diligence checklist"
+    },
+    {
+      "id": "Q017",
+      "language": "en",
+      "question": "Must the reviewer be independent of the preparer?",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q018",
+      "language": "en",
+      "question": "What is the approval bound to?",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q019",
+      "language": "en",
+      "question": "What happens to pending approval when quotations change?",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q020",
+      "language": "en",
+      "question": "Can the reviewer reject or request changes with a reason?",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q021",
+      "language": "ar",
+      "question": "هل يجب استقلال المراجع عن مقدم الطلب؟",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q022",
+      "language": "ar",
+      "question": "بماذا ترتبط الموافقة؟",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q023",
+      "language": "ar",
+      "question": "ماذا يحدث للموافقة عند تعديل عروض الأسعار؟",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q024",
+      "language": "ar",
+      "question": "هل يستطيع المراجع الرفض أو طلب التعديل مع السبب؟",
+      "expected_title": "Review and approval authority"
+    },
+    {
+      "id": "Q025",
+      "language": "en",
+      "question": "Are demonstration records synthetic data?",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q026",
+      "language": "en",
+      "question": "How is document access scoped by tenant and role?",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q027",
+      "language": "en",
+      "question": "Can confidential uploads go to unapproved external models?",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q028",
+      "language": "en",
+      "question": "Does deletion remove passages and source access?",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q029",
+      "language": "ar",
+      "question": "هل البيانات التجريبية اصطناعية؟",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q030",
+      "language": "ar",
+      "question": "كيف يقيد الوصول حسب المؤسسة والدور؟",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q031",
+      "language": "ar",
+      "question": "هل ترسل المستندات السرية إلى نموذج غير معتمد؟",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q032",
+      "language": "ar",
+      "question": "هل يحذف السحب النصوص والوصول للمصدر؟",
+      "expected_title": "Data handling and retention"
+    },
+    {
+      "id": "Q033",
+      "language": "en",
+      "question": "How many working days of annual leave does the fictional example provide?",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q034",
+      "language": "en",
+      "question": "Who reviews the employee annual leave request?",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q035",
+      "language": "en",
+      "question": "Is this HR guidance official UAE employment policy?",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q036",
+      "language": "en",
+      "question": "Who handles questions requiring personal HR records?",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q037",
+      "language": "ar",
+      "question": "كم يوم عمل للإجازة السنوية في المثال؟",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q038",
+      "language": "ar",
+      "question": "من يراجع طلب الإجازة السنوية؟",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q039",
+      "language": "ar",
+      "question": "هل هذه سياسة عمل إماراتية رسمية؟",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q040",
+      "language": "ar",
+      "question": "من يتعامل مع أسئلة السجلات الشخصية للموظفين؟",
+      "expected_title": "Annual leave and employee guidance"
+    },
+    {
+      "id": "Q041",
+      "language": "en",
+      "question": "How should a security incident be escalated?",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q042",
+      "language": "en",
+      "question": "What checks are needed for access requests?",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q043",
+      "language": "en",
+      "question": "What priority levels are available for IT tickets?",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q044",
+      "language": "en",
+      "question": "Do sensitive service responses require human review?",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q045",
+      "language": "ar",
+      "question": "كيف يصعد حادث أمني إلى المسؤول؟",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q046",
+      "language": "ar",
+      "question": "ما فحوصات طلبات الوصول؟",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q047",
+      "language": "ar",
+      "question": "ما أولويات تذاكر الدعم الفني؟",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q048",
+      "language": "ar",
+      "question": "هل تتطلب الردود الحساسة مراجعة بشرية؟",
+      "expected_title": "Service desk escalation playbook"
+    },
+    {
+      "id": "Q049",
+      "language": "en",
+      "question": "How many quotations does the Arabic procurement guide require?",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q050",
+      "language": "en",
+      "question": "Does the Arabic procurement guide require independent human review?",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q051",
+      "language": "en",
+      "question": "What happens to pending approval after a document modification?",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q052",
+      "language": "en",
+      "question": "Is the Arabic procurement guide an official government policy?",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q053",
+      "language": "ar",
+      "question": "كم عرضاً صالحاً يتطلب دليل المشتريات التجريبي؟",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q054",
+      "language": "ar",
+      "question": "هل تتطلب المشتريات مراجعة بشرية مستقلة؟",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q055",
+      "language": "ar",
+      "question": "هل تعديل المستندات يلغي الموافقة المعلقة؟",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q056",
+      "language": "ar",
+      "question": "هل دليل المشتريات سياسة حكومية رسمية؟",
+      "expected_title": "دليل المشتريات التجريبي"
+    },
+    {
+      "id": "Q057",
+      "language": "en",
+      "question": "What annual leave allowance is given in the Arabic HR example?",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q058",
+      "language": "en",
+      "question": "Who reviews leave in the Arabic HR guide?",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q059",
+      "language": "en",
+      "question": "Is the Arabic HR guide legal advice?",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q060",
+      "language": "en",
+      "question": "Do employment decisions require human review?",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q061",
+      "language": "ar",
+      "question": "كم يوم عمل سنوي يمنح دليل الموارد البشرية؟",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q062",
+      "language": "ar",
+      "question": "من يراجع طلب الإجازة السنوية في الدليل العربي؟",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q063",
+      "language": "ar",
+      "question": "هل دليل الموارد البشرية استشارة قانونية؟",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q064",
+      "language": "ar",
+      "question": "هل القرارات الوظيفية تتطلب مراجعة بشرية؟",
+      "expected_title": "دليل الموارد البشرية"
+    },
+    {
+      "id": "Q065",
+      "language": "en",
+      "question": "Can auditors approve procurement cases?",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q066",
+      "language": "en",
+      "question": "Does tenant administration grant cross-tenant access?",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q067",
+      "language": "en",
+      "question": "Do sessions expire when memberships are revoked?",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q068",
+      "language": "en",
+      "question": "Which roles access permitted tenant evidence?",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q069",
+      "language": "ar",
+      "question": "هل يستطيع المدقق اعتماد طلب شراء؟",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q070",
+      "language": "ar",
+      "question": "هل تمنح إدارة المؤسسة وصولاً لكل المؤسسات؟",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q071",
+      "language": "ar",
+      "question": "هل تنتهي الجلسات والعضويات الملغاة؟",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q072",
+      "language": "ar",
+      "question": "ما الأدوار التي تصل إلى مستندات المؤسسة؟",
+      "expected_title": "Information access controls"
+    },
+    {
+      "id": "Q073",
+      "language": "en",
+      "question": "What provenance should evidence retain?",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q074",
+      "language": "en",
+      "question": "Do scanned documents require OCR before retrieval?",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q075",
+      "language": "en",
+      "question": "What should the assistant do if evidence is missing?",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q076",
+      "language": "en",
+      "question": "Should unreadable sources lead to an invented response?",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q077",
+      "language": "ar",
+      "question": "ما معلومات المصدر والإصدار والصفحة التي يحتفظ بها الدليل؟",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q078",
+      "language": "ar",
+      "question": "هل تتطلب المستندات المصورة التعرف الضوئي قبل البحث؟",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q079",
+      "language": "ar",
+      "question": "ماذا يفعل المساعد إذا لم يجد أدلة؟",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q080",
+      "language": "ar",
+      "question": "هل يختلق المساعد جواباً عند تعذر قراءة المصدر؟",
+      "expected_title": "Document evidence standards"
+    },
+    {
+      "id": "Q081",
+      "language": "en",
+      "question": "What is the actual UAE statutory leave entitlement for my contract?",
+      "expected_title": null
+    },
+    {
+      "id": "Q082",
+      "language": "en",
+      "question": "What is our production AWS account number?",
+      "expected_title": null
+    },
+    {
+      "id": "Q083",
+      "language": "en",
+      "question": "What price does the real winning supplier offer?",
+      "expected_title": null
+    },
+    {
+      "id": "Q084",
+      "language": "en",
+      "question": "Who is the actual government procurement authority for this case?",
+      "expected_title": null
+    },
+    {
+      "id": "Q085",
+      "language": "en",
+      "question": "What is the private model API key?",
+      "expected_title": null
+    },
+    {
+      "id": "Q086",
+      "language": "en",
+      "question": "What is the legal retention period for these real records?",
+      "expected_title": null
+    },
+    {
+      "id": "Q087",
+      "language": "en",
+      "question": "intergalactic pineapple insurance",
+      "expected_title": null
+    },
+    {
+      "id": "Q088",
+      "language": "en",
+      "question": "lunar submarine registration",
+      "expected_title": null
+    },
+    {
+      "id": "Q089",
+      "language": "en",
+      "question": "quantum dragon certification",
+      "expected_title": null
+    },
+    {
+      "id": "Q090",
+      "language": "en",
+      "question": "galactic marmalade tariff",
+      "expected_title": null
+    },
+    {
+      "id": "Q091",
+      "language": "ar",
+      "question": "ما الاستحقاق القانوني الفعلي للإجازة في عقدي؟",
+      "expected_title": null
+    },
+    {
+      "id": "Q092",
+      "language": "ar",
+      "question": "ما رقم حساب السحابة الإنتاجي؟",
+      "expected_title": null
+    },
+    {
+      "id": "Q093",
+      "language": "ar",
+      "question": "ما سعر المورد الحقيقي الفائز؟",
+      "expected_title": null
+    },
+    {
+      "id": "Q094",
+      "language": "ar",
+      "question": "من الجهة الحكومية المسؤولة فعلياً عن هذا الطلب؟",
+      "expected_title": null
+    },
+    {
+      "id": "Q095",
+      "language": "ar",
+      "question": "ما المفتاح السري للنموذج؟",
+      "expected_title": null
+    },
+    {
+      "id": "Q096",
+      "language": "ar",
+      "question": "ما مدة الاحتفاظ القانونية الفعلية بهذه السجلات؟",
+      "expected_title": null
+    },
+    {
+      "id": "Q097",
+      "language": "ar",
+      "question": "تأمين الأناناس الفضائي",
+      "expected_title": null
+    },
+    {
+      "id": "Q098",
+      "language": "ar",
+      "question": "تسجيل غواصة قمرية",
+      "expected_title": null
+    },
+    {
+      "id": "Q099",
+      "language": "ar",
+      "question": "شهادة التنين الكمي",
+      "expected_title": null
+    },
+    {
+      "id": "Q100",
+      "language": "ar",
+      "question": "تعرفة مربى المجرات",
+      "expected_title": null
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Managed cloud only. Pass an approved combined CA bundle as BUILD_CA_FILE.
+services:
+  api:
+    build:
+      context: .
+      secrets: [proxy_ca]
+  web:
+    build:
+      context: ./apps/web
+      secrets: [proxy_ca]
+secrets:
+  proxy_ca:
+    file: ${BUILD_CA_FILE:?Set BUILD_CA_FILE to the approved CA bundle path}
+

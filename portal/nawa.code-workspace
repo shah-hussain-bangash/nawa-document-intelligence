@@ -1,0 +1,11 @@
+{
+  "folders": [{"name": "Nawa Workspace", "path": "."}],
+  "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+    "editor.formatOnSave": true,
+    "files.exclude": {"**/__pycache__": true, "**/*.egg-info": true}
+  },
+  "extensions": {
+    "recommendations": ["ms-python.python", "ms-python.debugpy", "esbenp.prettier-vscode", "ms-azuretools.vscode-docker"]
+  }
+}

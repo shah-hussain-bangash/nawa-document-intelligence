@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.data/
+.venv/
+.venv-verify/
+**/node_modules/
+**/dist/
+artifacts/
+**/__pycache__/
+**/*.db
+

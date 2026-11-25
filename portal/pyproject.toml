@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nawa-workspace"
+version = "0.6.6"
+description = "Bilingual evidence-led procurement and operations sandbox"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "fastapi==0.141.1", "uvicorn==0.52.1", "pydantic==2.13.4",
+  "sqlalchemy==2.0.44", "alembic==1.17.1", "httpx==0.28.1",
+  "python-multipart==0.0.32", "pypdf==6.10.0", "PyJWT[crypto]==2.13.0",
+  "langgraph==1.0.2", "psycopg[binary]==3.2.12",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.4.2", "playwright==1.62.0"]
+
+[project.scripts]
+nawa = "uae_ai.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["backend/src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/integration"]
+pythonpath = ["backend/src", "."]
+

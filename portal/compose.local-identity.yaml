@@ -1,0 +1,17 @@
+# Optional local HTTPS Keycloak. Prepare private .data/local-identity first.
+name: nawa-local-identity
+services:
+  identity:
+    image: quay.io/keycloak/keycloak:26.4.7
+    command: ["start-dev", "--http-enabled=false", "--https-port=8443", "--hostname=https://localhost:8443", "--https-certificate-file=/opt/keycloak/conf/server.crt", "--https-certificate-key-file=/opt/keycloak/conf/server.key"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: local-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${LOCAL_IDENTITY_ADMIN_PASSWORD:?Run scripts/prepare_local_identity.py first and use its env file}
+    ports: ["127.0.0.1:8443:8443"]
+    volumes:
+      - ./.data/local-identity/server.crt:/opt/keycloak/conf/server.crt:ro
+      - ./.data/local-identity/server.key:/opt/keycloak/conf/server.key:ro
+      - identity_data:/opt/keycloak/data
+    restart: unless-stopped
+volumes:
+  identity_data:

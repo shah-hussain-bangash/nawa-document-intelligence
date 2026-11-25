@@ -1,0 +1,13 @@
+.git
+.venv
+.venv-verify
+.data
+.env
+**/node_modules
+**/dist
+**/__pycache__
+**/*.egg-info
+artifacts
+docs
+tests
+

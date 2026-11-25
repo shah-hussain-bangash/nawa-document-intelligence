@@ -1,0 +1,29 @@
+flowchart TB
+    U[Requester / analyst / reviewer / auditor] --> WEB[Arabic-English React console]
+    WEB --> API[FastAPI: verified identity and tenant/resource policy]
+    ID[OIDC provider] --> API
+    API --> CASE[Procurement cases and deterministic policies]
+    API --> DOC[Document intelligence and ACL-filtered RAG]
+    API --> EXT[HR knowledge and service desk]
+    CASE --> GRAPH[Bounded LangGraph runtime]
+    GRAPH --> APPROVAL[Version-bound human approval]
+    APPROVAL --> SIM[Simulated outcome and audit]
+    GRAPH --> TOOLS[Typed allowlisted tools]
+    GRAPH --> GATE[Governed model gateway]
+    DOC --> GATE
+    GATE --> MODEL[Permitted hosted OR private inference]
+    DOC --> JOB[Ingestion queue and worker]
+    JOB --> STORE[(Private versioned object storage)]
+    JOB --> DB[(PostgreSQL and pgvector)]
+    CASE --> DB
+    DOC --> DB
+    GRAPH --> DB
+    APPROVAL --> DB
+    EXT --> DB
+    EXT --> ML[Advisory forecasting and model lifecycle]
+    API -.-> OPS[Redacted telemetry / evaluations / operations]
+    GRAPH -.-> OPS
+    CI[CI, security gates and immutable artifacts] --> STAGE[Staging / UAT / authorised release]
+    STAGE -.-> API
+    DB -.-> DR[Approved backups / tested restore and rollback]
+    STORE -.-> DR

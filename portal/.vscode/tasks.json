@@ -1,0 +1,143 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Nawa: 1. Install and prepare",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "nawa.py",
+        "setup"
+      ],
+      "windows": {
+        "command": "py",
+        "args": [
+          "-3.12",
+          "nawa.py",
+          "setup",
+          "--stop-running"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Nawa: 2. Run workspace",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "nawa.py",
+        "run",
+        "--auto-ports"
+      ],
+      "windows": {
+        "command": "py",
+        "args": [
+          "-3.12",
+          "nawa.py",
+          "run",
+          "--auto-ports"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Nawa: Diagnose setup",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "nawa.py",
+        "doctor"
+      ],
+      "windows": {
+        "command": "py",
+        "args": [
+          "-3.12",
+          "nawa.py",
+          "doctor"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nawa: Check tests and build",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "nawa.py",
+        "check"
+      ],
+      "windows": {
+        "command": "py",
+        "args": [
+          "-3.12",
+          "nawa.py",
+          "check"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Nawa: Verify running workspace",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "nawa.py",
+        "smoke"
+      ],
+      "windows": {
+        "command": "py",
+        "args": [
+          "-3.12",
+          "nawa.py",
+          "smoke"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nawa: Stop this project (Windows)",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "nawa.py",
+        "stop"
+      ],
+      "windows": {
+        "command": "py",
+        "args": [
+          "-3.12",
+          "nawa.py",
+          "stop"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

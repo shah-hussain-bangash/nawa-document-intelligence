@@ -1,0 +1,44 @@
+digraph architecture {
+graph [rankdir=LR, bgcolor="#F5F8FC", fontname="DejaVu Sans", fontsize=22, fontcolor="#12374A", pad=0.45, nodesep=0.34, ranksep=0.65, compound=true, splines=polyline, labelloc=t, labeljust=l];
+node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#C3D1DD", fontname="DejaVu Sans", fontsize=12, fontcolor="#18374A", margin="0.18,0.12", penwidth=1.2];
+edge [color="#58738A", fontname="DejaVu Sans", fontsize=9, fontcolor="#426077", arrowsize=0.7, penwidth=1.2];
+
+label="04  /  DEPLOYMENT, SECURITY & SOVEREIGNTY BOUNDARIES\lDeployment profile is a decision to verify, not a completed compliance claim\l";
+browser [label="Users / browser\nArabic / English console",fillcolor="#DCEAF7"];
+identity [label="OIDC provider\nSSO / session lifecycle\nVerified issuer, audience, signature, expiry",fillcolor="#DCEAF7"];
+subgraph cluster_profile {
+label="CHOSEN APPROVED REGION / PRIVATE ENVIRONMENT";style="rounded,filled";fillcolor="#EBF2FA";color="#91A6C9";
+ingress [label="TLS ingress / reverse proxy\nRequest / rate / payload limits"];
+subgraph cluster_compute {
+label="APPLICATION COMPUTE (VM OR MANAGED CONTAINERS)";style="rounded,filled";fillcolor="#EAF6F4";color="#74ABA9";
+api [label="API + domain modules\nVerified tenant / resource policy"];
+worker [label="Worker + flow runtime\nRevalidate scope on resume"];
+egress [label="Model / tool egress gateway\nClassification + destination allowlist\nNo unapproved fallback",fillcolor="#E7DFF8"];
+}
+subgraph cluster_private {
+label="PRIVATE DATA PLANE  /  LEAST-PRIVILEGE IDENTITIES";style="rounded,filled";fillcolor="#EEF1FA";color="#91A6C9";
+db [shape=cylinder,label="Postgres / pgvector\nScoped queries + tested row policy\nPooled connections & bypass roles tested"];
+obj [shape=cylinder,label="Private object storage\nACL-protected signed downloads"];
+queue [label="Queue / cache\nScoped jobs & cache keys"];
+secret [label="Secret manager + key service\nInjection • Rotation • Key custody"];
+audit [shape=cylinder,label="Audit / integrity evidence\nRestricted writes / separate protection"];
+}
+backup [shape=cylinder,label="Approved-location backups / DR\nRestore tests • RTO / RPO\nDeletion / revocation reapplied",fillcolor="#FFE9BD"];
+telemetry [label="Governed telemetry\nRedaction • Metrics • Traces\nRetention / operator access",fillcolor="#E1E8EF"];
+api -> db;api -> obj;api -> queue;api -> audit;
+queue -> worker;worker -> db;worker -> obj;worker -> egress;
+api -> egress;secret -> api [style=dashed];secret -> worker [style=dashed];
+db -> backup [style=dashed];obj -> backup [style=dashed];
+api -> telemetry [style=dashed];worker -> telemetry [style=dashed];
+ingress -> api;
+}
+browser -> ingress [label="authenticated TLS"];
+identity -> api [label="token verification"];
+hosted [label="PROFILE OPTION: APPROVED HOSTED MODEL\nVerify inference / embeddings / OCR separately\nRegion • Terms • Retention • Support / subprocessors",fillcolor="#E7DFF8"];
+private [label="PROFILE OPTION: PRIVATE INFERENCE\nApproved model licence & artifacts\nHardware benchmark • Local telemetry",fillcolor="#E7DFF8"];
+egress -> hosted [style=dashed,label="if permitted"];
+egress -> private [style=dashed,label="if selected"];
+note [shape=note,fillcolor="#FFF4D8",label="PROFILE CHOICES\l1. Public / synthetic learning sandbox\l2. Verified UAE residency-constrained deployment\l3. Restricted / private inference\lAll require explicit data-flow and operator-access review.\lA region label or self-hosted model alone is insufficient.\l"];
+hosted -> note [style=invis];
+
+}

@@ -1,0 +1,11 @@
+{
+  "notice": "Developer-authored synthetic smoke set, not a held-out or human-independent benchmark.",
+  "questions": [
+    {"id":"R01","language":"en","question":"competitive procurement quotations requirements","expected_title":"Procurement operating framework"},
+    {"id":"R02","language":"en","question":"annual leave employee days","expected_title":"Annual leave and employee guidance"},
+    {"id":"R03","language":"ar","question":"المشتريات عروض المورد","expected_title":"دليل المشتريات التجريبي"},
+    {"id":"R04","language":"ar","question":"الإجازة السنوية الموظف","expected_title":"دليل الموارد البشرية"},
+    {"id":"R05","language":"en","question":"service desk escalation security incident","expected_title":"Service desk escalation playbook"},
+    {"id":"R06","language":"en","question":"intergalactic pineapple insurance","expected_title":null}
+  ]
+}

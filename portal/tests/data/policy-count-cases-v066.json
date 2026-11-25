@@ -1,0 +1,293 @@
+{
+  "scope": "Synthetic fixed-context cases captured from user-run Qwen3 diagnostic; not held-out quality",
+  "capture_json_sha256": "78b74cefa737c6c0cafc0d744fcfc6604e07bfc650f1109314b014932541fac0",
+  "cases": [
+    {
+      "id": "H001",
+      "question": "كم عرض سعر صالح يلزم قبل الموافقة التجريبية؟",
+      "evidence": [
+        {
+          "document_id": "policy-ar",
+          "title": "دليل المشتريات التجريبي",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة تجريبية للمشتريات. يجب إرفاق عرضين صالحين على الأقل مع اسم المورد والعملة والسعر والضريبة وتاريخ الصلاحية. تتطلب الموافقة مراجعة بشرية مستقلة. تعديل المستندات يلغي الموافقة المعلقة. هذه بيانات اصطناعية وليست سياسة حكومية رسمية.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "quote-ar",
+          "title": "scanned-quotation-ar.pdf",
+          "version": 1,
+          "page": 1,
+          "text": "اسم المورد: شركة تجريبية\nالمبلغ الصافي: 12500 درهم\nالضريبة: 905\nمدة التسليم: 14 يوم\nصالج حتى: 31-12-2027",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-en",
+          "title": "Procurement operating framework",
+          "version": 1,
+          "page": 1,
+          "text": "Synthetic procurement policy, version 1. Competitive procurement requires at least two valid supplier quotations. Each quotation must show supplier name, currency, net amount, tax, delivery terms and validity date. A human reviewer must approve the comparison before a simulated outcome. No actual payment or award is executed by this learning platform.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "hr-ar",
+          "title": "دليل الموارد البشرية",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة موارد بشرية تجريبية لمؤسسة افتراضية. يقدم الموظف طلب الإجازة السنوية إلى المدير للمراجعة. يمنح هذا المثال خمسة وعشرين يوم عمل سنوياً. هذا النص ليس استشارة قانونية أو سياسة رسمية. تتطلب القرارات الوظيفية مراجعة بشرية.",
+          "classification": "synthetic"
+        }
+      ],
+      "observed_model_answer": "يجب إرفاق عرضين صالحين على الأقل قبل الموافقة التجريبية [1]، وتشير سياسة المشتريات التجريبي إلى أن \"الموافقة تطلب مراجعة بشرية مستقلة\" بعد تقديم العروض [1].",
+      "expected": "verified",
+      "minimum": 2
+    },
+    {
+      "id": "H002",
+      "question": "كم عرض سعر صالح يلزم قبل الموافقة التجريبية؟",
+      "evidence": [
+        {
+          "document_id": "policy-ar",
+          "title": "دليل المشتريات التجريبي",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة تجريبية للمشتريات. يجب إرفاق ثلاثة عروض صالحة على الأقل مع اسم المورد والعملة والسعر والضريبة وتاريخ الصلاحية. تتطلب الموافقة مراجعة بشرية مستقلة. تعديل المستندات يلغي الموافقة المعلقة. هذه بيانات اصطناعية وليست سياسة حكومية رسمية.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "quote-ar",
+          "title": "scanned-quotation-ar.pdf",
+          "version": 1,
+          "page": 1,
+          "text": "اسم المورد: شركة تجريبية\nالمبلغ الصافي: 12500 درهم\nالضريبة: 905\nمدة التسليم: 14 يوم\nصالج حتى: 31-12-2027",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-en",
+          "title": "Procurement operating framework",
+          "version": 1,
+          "page": 1,
+          "text": "Synthetic procurement policy, version 1. Competitive procurement requires at least three valid supplier quotations. Each quotation must show supplier name, currency, net amount, tax, delivery terms and validity date. A human reviewer must approve the comparison before a simulated outcome. No actual payment or award is executed by this learning platform.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "hr-ar",
+          "title": "دليل الموارد البشرية",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة موارد بشرية تجريبية لمؤسسة افتراضية. يقدم الموظف طلب الإجازة السنوية إلى المدير للمراجعة. يمنح هذا المثال خمسة وعشرين يوم عمل سنوياً. هذا النص ليس استشارة قانونية أو سياسة رسمية. تتطلب القرارات الوظيفية مراجعة بشرية.",
+          "classification": "synthetic"
+        }
+      ],
+      "observed_model_answer": "يجب إرفاق ثلاثة عروض صالحة على الأقل قبل الموافقة التجريبية [1]، وتشير سياسة المشتريات التجريبي إلى نفس العدد [3].",
+      "expected": "verified",
+      "minimum": 3
+    },
+    {
+      "id": "H003",
+      "question": "كم عرض سعر صالح يلزم قبل الموافقة التجريبية؟",
+      "evidence": [
+        {
+          "document_id": "policy-ar",
+          "title": "دليل المشتريات التجريبي",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة تجريبية للمشتريات. يجب إرفاق أربعة عروض صالحة على الأقل مع اسم المورد والعملة والسعر والضريبة وتاريخ الصلاحية. تتطلب الموافقة مراجعة بشرية مستقلة. تعديل المستندات يلغي الموافقة المعلقة. هذه بيانات اصطناعية وليست سياسة حكومية رسمية.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "quote-ar",
+          "title": "scanned-quotation-ar.pdf",
+          "version": 1,
+          "page": 1,
+          "text": "اسم المورد: شركة تجريبية\nالمبلغ الصافي: 12500 درهم\nالضريبة: 905\nمدة التسليم: 14 يوم\nصالج حتى: 31-12-2027",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-en",
+          "title": "Procurement operating framework",
+          "version": 1,
+          "page": 1,
+          "text": "Synthetic procurement policy, version 1. Competitive procurement requires at least four valid supplier quotations. Each quotation must show supplier name, currency, net amount, tax, delivery terms and validity date. A human reviewer must approve the comparison before a simulated outcome. No actual payment or award is executed by this learning platform.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "hr-ar",
+          "title": "دليل الموارد البشرية",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة موارد بشرية تجريبية لمؤسسة افتراضية. يقدم الموظف طلب الإجازة السنوية إلى المدير للمراجعة. يمنح هذا المثال خمسة وعشرين يوم عمل سنوياً. هذا النص ليس استشارة قانونية أو سياسة رسمية. تتطلب القرارات الوظيفية مراجعة بشرية.",
+          "classification": "synthetic"
+        }
+      ],
+      "observed_model_answer": "يجب إرفاق أربعة عروض صالحة على الأقل قبل الموافقة التجريبية [1], وتشير سياسة المشتريات التجريبي إلى نفس العدد [3].",
+      "expected": "verified",
+      "minimum": 4
+    },
+    {
+      "id": "H004",
+      "question": "How many valid supplier quotations are required before a simulated approval?",
+      "evidence": [
+        {
+          "document_id": "policy-ar",
+          "title": "دليل المشتريات التجريبي",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة تجريبية للمشتريات. يجب إرفاق أربعة عروض صالحة على الأقل مع اسم المورد والعملة والسعر والضريبة وتاريخ الصلاحية. تتطلب الموافقة مراجعة بشرية مستقلة. تعديل المستندات يلغي الموافقة المعلقة. هذه بيانات اصطناعية وليست سياسة حكومية رسمية.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "quote-ar",
+          "title": "scanned-quotation-ar.pdf",
+          "version": 1,
+          "page": 1,
+          "text": "اسم المورد: شركة تجريبية\nالمبلغ الصافي: 12500 درهم\nالضريبة: 905\nمدة التسليم: 14 يوم\nصالج حتى: 31-12-2027",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-en",
+          "title": "Procurement operating framework",
+          "version": 1,
+          "page": 1,
+          "text": "Synthetic procurement policy, version 1. Competitive procurement requires at least four valid supplier quotations. Each quotation must show supplier name, currency, net amount, tax, delivery terms and validity date. A human reviewer must approve the comparison before a simulated outcome. No actual payment or award is executed by this learning platform.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "hr-ar",
+          "title": "دليل الموارد البشرية",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة موارد بشرية تجريبية لمؤسسة افتراضية. يقدم الموظف طلب الإجازة السنوية إلى المدير للمراجعة. يمنح هذا المثال خمسة وعشرين يوم عمل سنوياً. هذا النص ليس استشارة قانونية أو سياسة رسمية. تتطلب القرارات الوظيفية مراجعة بشرية.",
+          "classification": "synthetic"
+        }
+      ],
+      "observed_model_answer": "The required number of valid supplier quotations is four. Policies [1] and [3] both state that at least four valid quotations are needed for simulated approval.",
+      "expected": "verified",
+      "minimum": 4
+    },
+    {
+      "id": "H005",
+      "question": "كم عرض سعر صالح يلزم قبل الموافقة التجريبية؟",
+      "evidence": [
+        {
+          "document_id": "hr-ar",
+          "title": "دليل الموارد البشرية",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة موارد بشرية تجريبية لمؤسسة افتراضية. يقدم الموظف طلب الإجازة السنوية إلى المدير للمراجعة. يمنح هذا المثال خمسة وعشرين يوم عمل سنوياً. هذا النص ليس استشارة قانونية أو سياسة رسمية. تتطلب القرارات الوظيفية مراجعة بشرية.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "quote-ar",
+          "title": "scanned-quotation-ar.pdf",
+          "version": 1,
+          "page": 1,
+          "text": "اسم المورد: شركة تجريبية\nالمبلغ الصافي: 12500 درهم\nالضريبة: 905\nمدة التسليم: 14 يوم\nصالج حتى: 31-12-2027",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-en",
+          "title": "Procurement operating framework",
+          "version": 1,
+          "page": 1,
+          "text": "Synthetic procurement policy, version 1. Competitive procurement requires at least two valid supplier quotations. Each quotation must show supplier name, currency, net amount, tax, delivery terms and validity date. A human reviewer must approve the comparison before a simulated outcome. No actual payment or award is executed by this learning platform.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-ar",
+          "title": "دليل المشتريات التجريبي",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة تجريبية للمشتريات. يجب إرفاق عرضين صالحين على الأقل مع اسم المورد والعملة والسعر والضريبة وتاريخ الصلاحية. تتطلب الموافقة مراجعة بشرية مستقلة. تعديل المستندات يلغي الموافقة المعلقة. هذه بيانات اصطناعية وليست سياسة حكومية رسمية.",
+          "classification": "synthetic"
+        }
+      ],
+      "observed_model_answer": "يتطلب قبل الموافقة التجريبية عروض أسعار صالحين على الأقل، وفقًا لسياسات المشتريات التجريبية [3] و[4].",
+      "expected": "verified",
+      "minimum": 2
+    },
+    {
+      "id": "H006",
+      "question": "كم عرض سعر صالح يلزم قبل الموافقة التجريبية؟",
+      "evidence": [
+        {
+          "document_id": "policy-ar",
+          "title": "دليل المشتريات التجريبي",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة تجريبية للمشتريات. يجب إرفاق عروض صالحة مع اسم المورد والعملة والسعر والضريبة وتاريخ الصلاحية. تتطلب الموافقة مراجعة بشرية مستقلة. تعديل المستندات يلغي الموافقة المعلقة. هذه بيانات اصطناعية وليست سياسة حكومية رسمية.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "quote-ar",
+          "title": "scanned-quotation-ar.pdf",
+          "version": 1,
+          "page": 1,
+          "text": "اسم المورد: شركة تجريبية\nالمبلغ الصافي: 12500 درهم\nالضريبة: 905\nمدة التسليم: 14 يوم\nصالج حتى: 31-12-2027",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-en",
+          "title": "Procurement operating framework",
+          "version": 1,
+          "page": 1,
+          "text": "Synthetic procurement policy, version 1. Competitive procurement requires valid supplier quotations. Each quotation must show supplier name, currency, net amount, tax, delivery terms and validity date. A human reviewer must approve the comparison before a simulated outcome. No actual payment or award is executed by this learning platform.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "hr-ar",
+          "title": "دليل الموارد البشرية",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة موارد بشرية تجريبية لمؤسسة افتراضية. يقدم الموظف طلب الإجازة السنوية إلى المدير للمراجعة. يمنح هذا المثال خمسة وعشرين يوم عمل سنوياً. هذا النص ليس استشارة قانونية أو سياسة رسمية. تتطلب القرارات الوظيفية مراجعة بشرية.",
+          "classification": "synthetic"
+        }
+      ],
+      "observed_model_answer": "العدد غير محدد في الدليل المقدم. لا توجد سياسة تذكر عدد العروض الصالحة المطلوبة قبل الموافقة التجريبية [1][3].",
+      "expected": "unverified",
+      "minimum": null
+    },
+    {
+      "id": "H007",
+      "question": "كم عرض سعر صالح يلزم قبل الموافقة التجريبية؟",
+      "evidence": [
+        {
+          "document_id": "policy-ar",
+          "title": "دليل المشتريات التجريبي",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة تجريبية للمشتريات. يجب إرفاق عرضين صالحين على الأقل مع اسم المورد والعملة والسعر والضريبة وتاريخ الصلاحية. تتطلب الموافقة مراجعة بشرية مستقلة. تعديل المستندات يلغي الموافقة المعلقة. هذه بيانات اصطناعية وليست سياسة حكومية رسمية.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "quote-ar",
+          "title": "scanned-quotation-ar.pdf",
+          "version": 1,
+          "page": 1,
+          "text": "اسم المورد: شركة تجريبية\nالمبلغ الصافي: 12500 درهم\nالضريبة: 905\nمدة التسليم: 14 يوم\nصالج حتى: 31-12-2027",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "policy-en",
+          "title": "Procurement operating framework",
+          "version": 1,
+          "page": 1,
+          "text": "Synthetic procurement policy, version 1. Competitive procurement requires at least three valid supplier quotations. Each quotation must show supplier name, currency, net amount, tax, delivery terms and validity date. A human reviewer must approve the comparison before a simulated outcome. No actual payment or award is executed by this learning platform.",
+          "classification": "synthetic"
+        },
+        {
+          "document_id": "hr-ar",
+          "title": "دليل الموارد البشرية",
+          "version": 1,
+          "page": 1,
+          "text": "سياسة موارد بشرية تجريبية لمؤسسة افتراضية. يقدم الموظف طلب الإجازة السنوية إلى المدير للمراجعة. يمنح هذا المثال خمسة وعشرين يوم عمل سنوياً. هذا النص ليس استشارة قانونية أو سياسة رسمية. تتطلب القرارات الوظيفية مراجعة بشرية.",
+          "classification": "synthetic"
+        }
+      ],
+      "observed_model_answer": "العدد المطلوب من العروض الصالحة قبل الموافقة التجريبية هو اثنان وفقًا لسياسة المشتريات التجريبي [1]، بينما تطلب سياسة الموارد البشرية التجريبي ثلاث عروض صالحة [3]. يوجد تناقض في عدد العروض بين السياستين.",
+      "expected": "conflict",
+      "minimum": null
+    }
+  ]
+}

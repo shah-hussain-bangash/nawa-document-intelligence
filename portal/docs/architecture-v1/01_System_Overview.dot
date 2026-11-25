@@ -1,0 +1,52 @@
+digraph architecture {
+graph [rankdir=LR, bgcolor="#F5F8FC", fontname="DejaVu Sans", fontsize=22, fontcolor="#12374A", pad=0.45, nodesep=0.34, ranksep=0.65, compound=true, splines=polyline, labelloc=t, labeljust=l];
+node [shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#C3D1DD", fontname="DejaVu Sans", fontsize=12, fontcolor="#18374A", margin="0.18,0.12", penwidth=1.2];
+edge [color="#58738A", fontname="DejaVu Sans", fontsize=9, fontcolor="#426077", arrowsize=0.7, penwidth=1.2];
+rankdir=TB;
+
+label="01  /  COMPLETE PLATFORM ARCHITECTURE\lUAE Sovereign Agentic AI  •  Proposed logical design  •  Implementation pending\l";
+subgraph cluster_people {
+label="USERS & EXPERIENCE";color="#CCD9E7";style="rounded,filled";fillcolor="#EBF2FA";
+users [label="Requester • Analyst • Reviewer\nTenant admin • Auditor",fillcolor="#DCEAF7"];
+web [label="Arabic / English web console\nReact + TypeScript • RTL • Accessible UI"];
+users -> web;
+}
+subgraph cluster_app {
+label="APPLICATION BOUNDARY  /  MODULAR BACKEND + WORKER";color="#74ABA9";style="rounded,filled";fillcolor="#EAF6F4";
+api [label="FastAPI boundary\nTyped APIs • Limits • Request IDs",fillcolor="#CCE9E4"];
+auth [label="Verified identity & resource policy\nTenant membership • RBAC / ABAC\nDeny by default",fillcolor="#CCE9E4"];
+cases [label="Procurement case services\nIntake • Revisions • Comparison"];
+docs [label="Document intelligence\nIngestion status • Provenance\nPermission-filtered retrieval • Citations"];
+approval [label="Policy & approval services\nDeterministic rules • Decimal arithmetic\nReview snapshot • Stale approval rejection",fillcolor="#FFE9BD"];
+flow [label="Bounded LangGraph runtime\nTyped state • Checkpoints • Resume\nRetries • Cancellation • Cost budget"];
+tools [label="Allowlisted typed tools\nPer-tool authorisation • Scoped identity\nMCP adapter only when justified"];
+gateway [label="Governed model gateway\nClassification routing • Schemas\nApproved providers • No unsafe fallback",fillcolor="#E7DFF8"];
+jobs [label="Ingestion / async workers\nQueue • OCR • Parsing • Index jobs"];
+extensions [label="Shared-domain extensions\nHR knowledge • Service desk\nAdvisory forecasting"];
+api -> auth;
+auth -> cases;auth -> docs;auth -> extensions;
+cases -> flow;flow -> docs;flow -> approval;flow -> tools;
+flow -> gateway;docs -> gateway [label="answer / embeddings"];
+docs -> jobs [label="submit ingestion"];
+}
+subgraph cluster_data {
+label="PERSISTENT DATA  /  SAME TENANT & CLASSIFICATION POLICY";color="#91A6C9";style="rounded,filled";fillcolor="#EEF1FA";
+db [shape=cylinder,label="PostgreSQL + pgvector\nCases • Memberships • ACLs • Versions\nChunks / vectors • Runs • Approvals",fillcolor="#DCE4F6"];
+obj [shape=cylinder,label="Private object storage\nOriginals • Parsed artifacts • Reports\nVersioned, permissioned access"];
+queue [label="Queue / transient cache\nRedis + Celery or managed alternative\nTenant-scoped keys • Durable job record"];
+audit [shape=cylinder,label="Business audit evidence\nActor • Revision • Evidence • Decision\nRestricted writes + integrity controls",fillcolor="#FFE9BD"];
+}
+models [label="Permitted inference routes\nApproved hosted model OR private model\nEmbeddings / OCR governed separately",fillcolor="#E7DFF8"];
+oidc [label="OIDC identity provider\nSSO • Signing-key rotation\nIssuer / audience / expiry checks",fillcolor="#DCEAF7"];
+obs [label="Cross-cutting operations\nRedacted traces • Metrics • Evals\nSecrets • Encryption • Backup / restore",fillcolor="#E1E8EF"];
+web -> api [label="TLS / authenticated session"];
+oidc -> auth [label="verified tokens"];
+cases -> db;docs -> db;jobs -> db;jobs -> obj;jobs -> queue;
+approval -> db;approval -> audit;tools -> audit;
+gateway -> models [label="policy-permitted route only"];
+extensions -> db;
+api -> obs [style=dashed,label="telemetry (also worker / flow)"];
+note [shape=note,fillcolor="#FFF4D8",label="DESIGN RULES\lLLMs propose; deterministic services authorise.\lConsequential outcomes are simulated in the sandbox.\lTenant scope covers DB, retrieval, files, cache and tools.\lRegion selection alone does not prove sovereignty.\lLogical modules are not mandatory microservices.\l"];
+audit -> note [style=invis];
+
+}

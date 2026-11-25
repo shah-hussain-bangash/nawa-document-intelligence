@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Nawa: Debug API (frontend separately)",
+      "type": "debugpy", "request": "launch", "module": "uvicorn",
+      "args": ["uae_ai.main:app", "--host", "127.0.0.1", "--port", "8000"],
+      "cwd": "${workspaceFolder}", "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {"PYTHONPATH": "${workspaceFolder}/backend/src"},
+      "justMyCode": true
+    },
+    {
+      "name": "Nawa: Debug checks",
+      "type": "debugpy", "request": "launch", "module": "pytest",
+      "args": ["-q", "tests/integration"], "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal", "env": {"PYTHONPATH": "${workspaceFolder}/backend/src"}
+    }
+  ]
+}

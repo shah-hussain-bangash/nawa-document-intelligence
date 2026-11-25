@@ -1,0 +1,18 @@
+.capability-register { margin-top: 30px; padding: clamp(20px, 3vw, 32px); background: #fff; border: 1px solid #d4e2ec; border-radius: 15px; color: #193a54; }
+.capability-register-heading, .capability-register-group-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; }
+.capability-register-heading h2 { color: #102d49; font-size: 22px; margin: 8px 0; }
+.capability-register-heading p, .capability-register-count { color: #405d75; font-size: 14px; line-height: 1.6; }
+.capability-register-group { margin-top: 18px; border: 1px solid #d6e4ed; border-radius: 10px; overflow: hidden; }
+.capability-register-group-heading { padding: 14px 16px; background: #f0f6fa; }
+.capability-register-group-heading h3 { margin: 0; color: #153852; font-size: 16px; }
+.capability-register-group-heading a { color: #075d99; font-size: 13px; font-weight: 700; }
+.capability-register-group ol { list-style: none; margin: 0; padding: 0; }
+.capability-register-group li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #e2ebf1; color: #203f5b; line-height: 1.45; font-size: 14px; }
+.capability-register-number { color: #376781; font-weight: 700; }
+.capability-register-status { margin-inline-start: auto; flex-shrink: 0; color: #654a17; background: #fff4d8; border-radius: 5px; padding: 4px 6px; font-size: 10px; font-weight: 700; }
+@media (max-width: 600px) { .capability-register-group li { flex-wrap: wrap; } .capability-register-status { margin-inline-start: 30px; } }
+.capability-register .readiness-workbench-eyebrow { color: #075d99; font-size: 11px; font-weight: 700; }
+.capability-register .readiness-workbench-search { display: grid; gap: 5px; color: #304b63; font-size: 12px; font-weight: 700; min-width: min(275px, 100%); }
+.capability-register .readiness-workbench-search input { border: 1px solid #b8ccdc; background: #fff; color: #132f49; border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 14px; min-width: 0; }
+.capability-register .readiness-workbench-search input::placeholder { color: #526b80; opacity: 1; }
+.capability-register .production-areas-foot { color: #36566e; }
