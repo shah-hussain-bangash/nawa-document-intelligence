@@ -14,6 +14,29 @@ The system combines document processing, structured information extraction, evid
 **Data:** Synthetic documents for portfolio demonstrations  
 **Status:** Development project; production readiness not established
 
+
+## Running NAWA portal screenshots
+
+Captured on 26 November 2026 from the [NAWA v0.6.6 portal source](https://github.com/shah-hussain-bangash/nawa-document-intelligence/tree/6ab697bf155ee9ef61deae7cecf81382718c846e) running locally with synthetic procurement documents and demo accounts.
+
+### Operations dashboard
+
+![NAWA operations dashboard showing procurement activity and items awaiting review](docs/07-case-study/assets/nawa-portal-overview.webp)
+
+The dashboard brings procurement activity, evidence coverage, and items awaiting review into one workspace.
+
+### Scanned document OCR and source verification
+
+![NAWA source document viewer showing Arabic OCR output and a review warning](docs/07-case-study/assets/nawa-arabic-scanned-ocr.webp)
+
+The browser run processed English and Arabic scanned PDFs. This Arabic example shows extracted text, a warning to verify it against the source, and access to the original PDF.
+
+### Independent reviewer decision
+
+![NAWA review workspace showing the approved simulation and review safeguards](docs/07-case-study/assets/nawa-independent-review.webp)
+
+A separate reviewer approved a synthetic procurement comparison in the portal. The screen records the simulated decision and shows evidence and review safeguards.
+
 ---
 
 ## 1. Business Problem
