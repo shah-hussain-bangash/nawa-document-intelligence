@@ -15,6 +15,10 @@ The system combines document processing, structured information extraction, evid
 **Status:** Development project; production readiness not established
 
 
+## Reproduce the synthetic demo
+
+Use the [sample quotation walkthrough](demo/README.md) and [local dashboard quickstart](demo/README_PHASE9.md). The [six-document scanned quotation evaluation](docs/05-testing-evaluation/SYNTHETIC_SCANNED_QUOTATION_EVALUATION.md) records exact-field results, OCR page references, VAT outcomes, and timing by language layout.
+
 ## Running NAWA portal screenshots
 
 Captured on 26 November 2026 from the [NAWA v0.6.6 portal source](https://github.com/shah-hussain-bangash/nawa-document-intelligence/tree/6ab697bf155ee9ef61deae7cecf81382718c846e) running locally with synthetic procurement documents and demo accounts.
