@@ -1,6 +1,8 @@
 # NAWA | Bilingual Document Intelligence
 
-**Enterprise Document AI • Arabic & English OCR • Evidence-Linked Extraction • RAG • Human-in-the-Loop Review**
+**Enterprise Document AI • Arabic–English Quotation Extraction • Scanned OCR Evaluation • RAG • Human-in-the-Loop Review**
+
+**Scanned OCR baseline.** Both English synthetic scans returned all six fields and the correct VAT outcome. The two Arabic and two mixed-label scans were rejected because required fields were missing. These results apply to the local Python PDF demo. [Evaluation and reproduction steps](docs/05-testing-evaluation/SYNTHETIC_SCANNED_QUOTATION_EVALUATION.md)
 
 **Featured case study:** [NAWA Case Study — Arabic and English quotation intelligence](docs/07-case-study/NAWA_CASE_STUDY.md). Explore the implemented scope, bilingual financial example, architecture decisions, verified CI results, reproduced evaluation checks and enterprise delivery roadmap.
 
@@ -21,7 +23,7 @@ Use the [sample quotation walkthrough](demo/README.md) and [local dashboard quic
 
 ## Running NAWA portal screenshots
 
-Captured on 26 November 2026 from the [NAWA v0.6.6 portal source](https://github.com/shah-hussain-bangash/nawa-document-intelligence/tree/6ab697bf155ee9ef61deae7cecf81382718c846e) running locally with synthetic procurement documents and demo accounts.
+Captured on 26 November 2026 from the [NAWA v0.6.6 portal source](https://github.com/shah-hussain-bangash/nawa-document-intelligence/tree/6ab697bf155ee9ef61deae7cecf81382718c846e) running locally with synthetic procurement documents and demo accounts. This portal revision is separate from the Python PDF demo evaluated above.
 
 ### Operations dashboard
 
@@ -33,7 +35,7 @@ The dashboard brings procurement activity, evidence coverage, and items awaiting
 
 ![NAWA source document viewer showing Arabic OCR output and a review warning](docs/07-case-study/assets/nawa-arabic-scanned-ocr.webp)
 
-The browser run processed English and Arabic scanned PDFs. This Arabic example shows extracted text, a warning to verify it against the source, and access to the original PDF.
+The Arabic portal example shows OCR text, a source-verification warning, and access to the original PDF. The screenshot documents the review interface.
 
 ### Independent reviewer decision
 
@@ -64,7 +66,7 @@ The NAWA solution is organized around six capabilities:
 | Capability | Purpose |
 |---|---|
 | Document ingestion | Accept and process supplier quotation documents |
-| Bilingual OCR | Extract content from Arabic and English documents |
+| Scanned-document OCR | Local Python baseline returned all fields on two English fixtures. Arabic and mixed-label fixtures were rejected. |
 | Structured extraction | Identify supplier details, monetary values, and other quotation fields |
 | Evidence-linked retrieval | Connect extracted information to source documents and pages |
 | Quotation comparison | Identify discrepancies, including VAT and total differences |
@@ -274,7 +276,7 @@ The intended portfolio demonstration follows this sequence:
 6. Record a correction.
 7. Inspect the updated comparison and review history.
 
-A recorded walkthrough and reproducible setup instructions will be added after verification.
+Use the [local dashboard quickstart](demo/README_PHASE9.md) and [synthetic sample walkthrough](demo/README.md) to reproduce the Python demo.
 
 ## 12. Engineering Evidence Roadmap
 
@@ -288,7 +290,7 @@ A recorded walkthrough and reproducible setup instructions will be added after v
 | Retrieval and citation benchmark | Pending |
 | Security verification report | Pending |
 | CI/CD execution evidence | [Synthetic test workflow](.github/workflows/demo-tests.yml) and [successful Docker smoke run](https://github.com/zenithdevelopers7-source/nawa-document-intelligence/actions/runs/43840038120); no cloud promotion established |
-| Application screenshots and demo | [Local synthetic dashboard guide](demo/README_PHASE9.md); current UI screenshots remain to be published |
+| Application screenshots and demo | [Local synthetic dashboard guide](demo/README_PHASE9.md) · [Separate portal revision screenshots](#running-nawa-portal-screenshots) |
 | Production readiness approval | Not established |
 
 This table describes evidence available through the public portfolio, not necessarily all work completed privately.
