@@ -1,0 +1,53 @@
+{
+  "status": "human_review_required",
+  "scope": "Two generated synthetic pages, not independently reviewed or representative.",
+  "generator": "Windows GDI+ and Arial; layout and font depend on the local system.",
+  "cases": [
+    {
+      "id": "synthetic-a",
+      "image": "synthetic-a.png",
+      "sha256": "f16b3e80aeb53d44fe889b18ade1194f0f1714754a68b547b3e4bb54b93efb98",
+      "lines": [
+        "عرض سعر تجريبي",
+        "اسم المورد: شركة النخيل للتقنية",
+        "العملة: AED",
+        "المجموع الفرعي: ١٢٠٠٫٠٠",
+        "نسبة الضريبة: ٥",
+        "قيمة الضريبة: ٦٠٫٠٠",
+        "الإجمالي شامل الضريبة: ١٢٦٠٫٠٠",
+        "بيانات تجريبية فقط"
+      ],
+      "fields": {
+        "supplier": "شركة النخيل للتقنية",
+        "currency": "AED",
+        "subtotal": "١٢٠٠٫٠٠",
+        "vat_rate": "٥",
+        "vat_amount": "٦٠٫٠٠",
+        "total": "١٢٦٠٫٠٠"
+      }
+    },
+    {
+      "id": "synthetic-b",
+      "image": "synthetic-b.png",
+      "sha256": "a32c828b9259a25cee93efd2f86344f42f0be640924b8f50d5e0c1a5a8411e40",
+      "lines": [
+        "عرض سعر تجريبي",
+        "اسم المورد: شركة المدى للخدمات",
+        "العملة: AED",
+        "المجموع الفرعي: ٧٨٠٫٠٠",
+        "نسبة الضريبة: ٥",
+        "قيمة الضريبة: ٣٩٫٠٠",
+        "الإجمالي شامل الضريبة: ٨١٩٫٠٠",
+        "بيانات تجريبية فقط"
+      ],
+      "fields": {
+        "supplier": "شركة المدى للخدمات",
+        "currency": "AED",
+        "subtotal": "٧٨٠٫٠٠",
+        "vat_rate": "٥",
+        "vat_amount": "٣٩٫٠٠",
+        "total": "٨١٩٫٠٠"
+      }
+    }
+  ]
+}

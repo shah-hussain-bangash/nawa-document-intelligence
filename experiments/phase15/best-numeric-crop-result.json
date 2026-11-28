@@ -1,0 +1,728 @@
+{
+  "status": "human_review_required",
+  "scope": "Manually chosen regions of one synthetic image; not an automatic or independent accuracy test.",
+  "image_sha256": "1b4e376e15feab5c2f35a1cfc2d613e853c0b259b3566e2c7a4a8361d938f05f",
+  "best_model_commit": "e12c65a915945e4c28e237a9b52bc4a8f39a0cec",
+  "results": [
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "00",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "اير",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "ثدرة .4",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "000",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "1 ٠٠١١ 8",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "ير",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "وثدرة. 4",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "0000",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 7,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "1 ٠١١ 5",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "subtotal",
+      "box": [
+        1130,
+        460,
+        1282,
+        520
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 13,
+      "expected": "٩٠٠٫٠٠",
+      "recognized": "ير",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "ه",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "38",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "ن",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "م",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "ع",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "38",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "-",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "ن",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "ع",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "038",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 7,
+      "expected": "٥",
+      "recognized": "0",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_rate",
+      "box": [
+        1270,
+        565,
+        1325,
+        625
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 13,
+      "expected": "٥",
+      "recognized": "ن",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ثثرهةة",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "الررف4 0",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "8.6",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ا",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ددرهةة",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "00000",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "«١ تت",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ا",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "«٠ ودرتة",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "احرف",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 7,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ا 2",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "vat_amount",
+      "box": [
+        1200,
+        670,
+        1325,
+        730
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 13,
+      "expected": "٤٥٫٠٠",
+      "recognized": "ا",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "٠ 6لرةةع4",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 1,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "احلره 094",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "حجر ه925",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 1,
+      "model": "best",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "اي",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "1 دوءدرةتة4",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 2,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "الللره 094",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "1 تت ١,١ |",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 2,
+      "model": "best",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "اي",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "ظ دودرتةغ 8",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 3,
+      "model": "fast",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "احلره4 09",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 7,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "1 م «١",
+      "normalized_numeric_match": false
+    },
+    {
+      "region": "total",
+      "box": [
+        1045,
+        775,
+        1200,
+        835
+      ],
+      "scale": 3,
+      "model": "best",
+      "psm": 13,
+      "expected": "٩٤٥٫٠٠",
+      "recognized": "اي",
+      "normalized_numeric_match": false
+    }
+  ]
+}

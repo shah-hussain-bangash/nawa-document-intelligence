@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 from nawa_demo.rag import MockProvider, OpenAIProvider, ask_rag, validate_generated
-from nawa_demo.retrieval import BM25Index, read_corpus
+from nawa_demo.retrieval import BM25Index, Passage, read_corpus
 
 BASE = Path(__file__).resolve().parents[1]
 CORPUS = BASE / 'samples/retrieval/passages.json'
@@ -46,6 +46,24 @@ class Phase6Tests(unittest.TestCase):
         self.assertEqual(r['status'], 'insufficient_evidence')
         self.assertEqual(p.calls, 0)
 
+    def test_missing_payment_date_abstains_before_provider_call(self):
+        for question in ('reviewer VAT payment', 'شركة المثال موعد دفع الضريبة'):
+            with self.subTest(question=question):
+                p = FixedProvider({'answer':'unsafe', 'citations':[]})
+                result = ask_rag(self.idx(), question, provider=p)
+                self.assertEqual(result['status'], 'insufficient_evidence')
+                self.assertEqual(p.calls, 0)
+
+    def test_explicit_missing_deadline_never_calls_provider(self):
+        passage = Passage.from_dict({'passage_id':'absence','document_id':'doc','version':'1',
+            'tenant_id':'t','page':1,'text':'Reviewer VAT deadline is not specified.',
+            'allowed_principals':['p'],'source':'synthetic.txt','method':'synthetic'})
+        provider = FixedProvider({'answer':'unsafe', 'citations':[]})
+        result = ask_rag(BM25Index([passage], tenant_id='t', principal_id='p'),
+                         'reviewer VAT deadline', provider=provider)
+        self.assertEqual(result['status'], 'insufficient_evidence')
+        self.assertEqual(provider.calls, 0)
+
     def test_restricted_abstains_without_provider_call(self):
         p = FixedProvider({'answer': 'Falcon Robotics', 'citations': []})
         r = ask_rag(self.idx(), 'Falcon Robotics confidential inspection', provider=p)
@@ -68,6 +86,38 @@ class Phase6Tests(unittest.TestCase):
         self.assertEqual(r['status'], 'rejected_ungrounded')
         self.assertIsNone(r['answer'])
         self.assertEqual(r['citations'], [])
+
+    def test_generated_answer_cannot_swap_a_supported_number_between_fields(self):
+        quote = 'Subtotal AED 1000.00 and Grand total AED 1050.00.'
+        hit = {'passage_id':'p', 'document_id':'d', 'version':'1', 'source':'synthetic.txt',
+               'page':1, 'method':'synthetic', 'text':quote}
+        citation = {'passage_id':'p', 'quote':quote}
+        wrong = {'answer':'Subtotal AED 1050.00', 'citations':[citation]}
+        self.assertIsNone(validate_generated(wrong, [hit]))
+        exact = {'answer':'Subtotal AED 1000.00', 'citations':[citation]}
+        self.assertIsNone(validate_generated(exact, [hit]))
+        whole = {'answer':quote, 'citations':[citation]}
+        self.assertIsNotNone(validate_generated(whole, [hit]))
+
+    def test_generated_answer_cannot_clip_negation_from_a_sentence(self):
+        for sentence, fragment in (('The quotation is not approved.', 'approved.'),
+                                   ('الطلب غير معتمد.', 'معتمد.')):
+            with self.subTest(sentence=sentence):
+                hit = {'passage_id':'p', 'document_id':'d', 'version':'1', 'source':'synthetic.txt',
+                       'page':1, 'method':'synthetic', 'text':sentence}
+                truncated = {'answer':fragment, 'citations':[{'passage_id':'p', 'quote':fragment}]}
+                self.assertIsNone(validate_generated(truncated, [hit]))
+                clipped_answer = {'answer':fragment, 'citations':[{'passage_id':'p', 'quote':sentence}]}
+                self.assertIsNone(validate_generated(clipped_answer, [hit]))
+                complete = {'answer':sentence, 'citations':[{'passage_id':'p', 'quote':sentence}]}
+                self.assertIsNotNone(validate_generated(complete, [hit]))
+
+    def test_generated_answer_can_use_one_complete_sentence(self):
+        hit = {'passage_id':'p', 'document_id':'d', 'version':'1', 'source':'synthetic.txt',
+               'page':1, 'method':'synthetic', 'text':'Supplier Example. Subtotal AED 1000.00.'}
+        response = {'answer':'Subtotal AED 1000.00.',
+                    'citations':[{'passage_id':'p', 'quote':'Subtotal AED 1000.00.'}]}
+        self.assertIsNotNone(validate_generated(response, [hit]))
 
     def test_fake_citation_rejected(self):
         p = FixedProvider({'answer': 'Supplier Example English Supplies.', 'citations': [

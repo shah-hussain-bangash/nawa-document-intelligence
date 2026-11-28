@@ -1,0 +1,7 @@
+# Review signals for previously saved synthetic quotations
+
+`nawa_demo.synthetic_number_review.review_signals` accepts one already-loaded synthetic quotation object and an optional synthetic review ledger. It is a pure screening function: it does not connect to a database, fetch data, modify records, authenticate a caller or make approval decisions. It reports field names and reason codes, without copying document text into its result.
+
+It flags missing source values, values outside the currently supported number convention, a source/saved numerical mismatch, grouping separators requiring locale review, and correction events that require source review. The optional ledger is read structurally and its hash chain, provenance and linkage to the quotation are not verified. Other numerical conventions can appear valid under the fixed convention, and the review cannot detect all previous extraction or OCR errors. An empty findings list is not a clean bill of health: human review against the original document remains necessary.
+
+The stricter parser also replays existing review corrections under its current rules. Historical ledger entries that used previously accepted unsupported formats may therefore no longer replay. Investigate copies with an authorized reviewer before any migration; do not rewrite historical events or apply this prototype to live data. The check does not cover NAWA's separate running portal or establish that historical records are safe.

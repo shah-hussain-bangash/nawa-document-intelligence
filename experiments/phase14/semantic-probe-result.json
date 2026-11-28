@@ -1,0 +1,155 @@
+{
+  "confusion": {
+    "tp": 10,
+    "fn": 0,
+    "fp": 0,
+    "tn": 10
+  },
+  "cases": [
+    {
+      "id": "en-delivery-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "en-delivery-paraphrase",
+      "category": "paraphrase",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "en-delivery-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "en-delivery-cost",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "en-warranty-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "en-warranty-paraphrase",
+      "category": "paraphrase",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "en-warranty-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "en-warranty-addition",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "en-payment-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "en-payment-before",
+      "category": "contradiction",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "en-policy-paraphrase",
+      "category": "paraphrase",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "en-policy-count",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "ar-delivery-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "ar-delivery-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "ar-warranty-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "ar-warranty-number",
+      "category": "contradiction",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "ar-payment-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "ar-payment-before",
+      "category": "contradiction",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    },
+    {
+      "id": "ar-policy-exact",
+      "category": "exact",
+      "expected_supported": true,
+      "model_verdict": "supported",
+      "outcome": "tp"
+    },
+    {
+      "id": "ar-policy-count",
+      "category": "unsupported_addition",
+      "expected_supported": false,
+      "model_verdict": "unsupported",
+      "outcome": "tn"
+    }
+  ],
+  "model": "qwen3:8b",
+  "scope": "20 hand-authored synthetic labels, not independently reviewed.",
+  "elapsed_seconds_single_run": 11.816,
+  "warning": "Experimental result, not a security control or production validation."
+}
+

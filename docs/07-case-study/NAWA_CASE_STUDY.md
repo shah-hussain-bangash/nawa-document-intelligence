@@ -192,6 +192,8 @@ The source passage says **Subtotal AED 1000.00** and **Grand total AED 1050.00**
 
 The [evidence record][replay] retains this negative result. It demonstrates why exact quotes and token coverage are insufficient for semantic correctness. A next implementation should use typed field-to-value bindings for structured financial answers and assess remaining narrative claims separately. That improvement has not been implemented by this case-study update.
 
+**Integrated draft follow-up:** The historical result above remains pinned to the recorded baseline. In the later synthetic integration draft, the free-text validator requires the answer and quote to match a complete detected source sentence or the whole passage. It rejects this swapped-subtotal example and the tested examples that clip negation. This stricter extractive rule can reject useful paraphrases and does not prove meaning: sentence splitting is heuristic and context may lie elsewhere. The replay script checks the recorded input hashes before executing; use `--repo` to point it to a separate copy of the recorded baseline files. Human source review is still required.
+
 ### Why an agent is not required for the current workflow
 
 NAWA's current extraction, retrieval and review paths are fixed pipelines. No autonomous planner, LangGraph runtime, dynamic tool discovery or agent memory is established in this repository. Microsoft's [RAG design guide][azure-rag] distinguishes standard fixed retrieval from agents that decide when and how to retrieve.

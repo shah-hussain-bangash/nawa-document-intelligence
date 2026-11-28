@@ -1,0 +1,6 @@
+[
+  {"query":"Example English Supplies grand total 1050", "tenant_id":"demo-a", "principal_id":"reviewer-a", "relevant_passage_ids":["en-quote-v1-p1"]},
+  {"query":"شركة المثال التوريدات الضريبة ٤٥", "tenant_id":"demo-a", "principal_id":"reviewer-a", "relevant_passage_ids":["ar-quote-v1-p1"]},
+  {"query":"human reviewer verify evidence VAT discrepancies", "tenant_id":"demo-a", "principal_id":"reviewer-a", "relevant_passage_ids":["policy-v1-p2"]}
+]
+

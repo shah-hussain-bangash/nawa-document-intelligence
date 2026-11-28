@@ -158,6 +158,8 @@ def make_handler(state):
                 self.wfile.write(data)
             elif path == '/api/samples':
                 self._json({'samples': list(ALLOWED_SAMPLES), 'mode': 'local_synthetic_demo'})
+            elif path == '/auth/config':
+                self._json({'mode': 'demo'})
             elif path == '/api/ready':
                 try:
                     state.ready()

@@ -67,6 +67,10 @@ def _normalize_pdf_line(line: str) -> str:
     normalized = unicodedata.normalize("NFKC", line).strip()
     if ":" not in normalized:
         return normalized
+    # Some selectable-text PDFs put the Latin currency before an Arabic
+    # label in extracted visual order. Recognize only the supported AED case.
+    if re.fullmatch(r"AED\s*:\s*العملة", normalized, flags=re.IGNORECASE):
+        return "العملة: AED"
     known = {variant.casefold() for vs in LABELS.values() for variant in vs}
     if normalized.split(":", 1)[0].strip().casefold() in known:
         return normalized
@@ -85,13 +89,17 @@ def _normalize_pdf_line(line: str) -> str:
     return normalized
 
 
-def extract_pdf(path: Path, *, ocr: bool = False, languages: str = "eng+ara") -> dict:
+def extract_pdf(path: Path, *, ocr: bool = False, languages: str = "eng+ara",
+                max_pages: int | None = None, max_text_chars: int | None = None) -> dict:
     """Extract a fixed-field quotation; attach 1-based page and line evidence.
 
     OCR fallback applies only to pages without selectable text and only when
     explicitly enabled. Real-world OCR accuracy is not established.
     """
     path = Path(path)
+    if ((max_pages is not None and (type(max_pages) is not int or max_pages < 1))
+            or (max_text_chars is not None and (type(max_text_chars) is not int or max_text_chars < 1))):
+        raise ValueError('Invalid synthetic extraction limit')
     if path.suffix.lower() != ".pdf":
         raise ValueError(f"Expected PDF file: {path}")
     if ocr:
@@ -104,6 +112,9 @@ def extract_pdf(path: Path, *, ocr: bool = False, languages: str = "eng+ara") ->
             if doc.page_count == 0:
                 raise PDFTextUnavailable(f"Empty PDF: {path.name}")
             page_count = doc.page_count
+            if max_pages is not None and page_count > max_pages:
+                raise ValueError('PDF exceeds synthetic page limit')
+            total_chars = 0
             for number, page in enumerate(doc, start=1):
                 page_text = page.get_text("text", sort=True)
                 if not page_text.strip():
@@ -113,6 +124,9 @@ def extract_pdf(path: Path, *, ocr: bool = False, languages: str = "eng+ara") ->
                         continue
                     page_text = _ocr_page(page, languages, number)
                     ocr_pages.append(number)
+                total_chars += len(page_text)
+                if max_text_chars is not None and total_chars > max_text_chars:
+                    raise ValueError('PDF exceeds synthetic extracted-text limit')
                 for line_no, line in enumerate(page_text.splitlines(), start=1):
                     pieces.append(_normalize_pdf_line(line))
                     originals.append(line)
@@ -162,3 +176,4 @@ def compare_pdfs(paths: list[Path], *, ocr: bool = False, languages: str = "eng+
         "lowest_valid_total": ranked[0]["supplier"] if ranked else None,
         "note": "Price-only ranking for demonstration; not a procurement award recommendation",
     }
+

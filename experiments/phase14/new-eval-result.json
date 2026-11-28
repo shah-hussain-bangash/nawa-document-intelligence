@@ -1,0 +1,767 @@
+{
+  "case_count": 20,
+  "authorized_passage_count": 11,
+  "methods": {
+    "bm25": {
+      "answerable_count": 12,
+      "recall_at_5": 1.0,
+      "mrr_at_5": 0.9583333333333334,
+      "ndcg_at_5": 0.9692441461309548,
+      "unanswerable_count": 8,
+      "unanswerable_with_candidates": 7
+    },
+    "vector": {
+      "answerable_count": 12,
+      "recall_at_5": 1.0,
+      "mrr_at_5": 1.0,
+      "ndcg_at_5": 1.0,
+      "unanswerable_count": 8,
+      "unanswerable_with_candidates": 8
+    },
+    "hybrid": {
+      "answerable_count": 12,
+      "recall_at_5": 1.0,
+      "mrr_at_5": 1.0,
+      "ndcg_at_5": 1.0,
+      "unanswerable_count": 8,
+      "unanswerable_with_candidates": 8
+    }
+  },
+  "cases": [
+    {
+      "id": "n01",
+      "language": "en",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "delivery-v2"
+      ],
+      "bm25": {
+        "top5": [
+          "delivery-v2",
+          "delivery-v1",
+          "injection-new",
+          "validity-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "delivery-v2",
+          "delivery-v1",
+          "validity-en",
+          "delivery-ar",
+          "validity-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "delivery-v2",
+          "delivery-v1",
+          "validity-en",
+          "injection-new",
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n02",
+      "language": "en",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "delivery-v1"
+      ],
+      "bm25": {
+        "top5": [
+          "delivery-v1",
+          "delivery-v2",
+          "validity-en",
+          "maintenance-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "delivery-v1",
+          "delivery-v2",
+          "delivery-ar",
+          "validity-ar",
+          "validity-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "delivery-v1",
+          "delivery-v2",
+          "validity-en",
+          "maintenance-en",
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n03",
+      "language": "en",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "maintenance-en"
+      ],
+      "bm25": {
+        "top5": [
+          "maintenance-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "maintenance-en",
+          "maintenance-ar",
+          "validity-ar",
+          "validity-en",
+          "delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "maintenance-en",
+          "maintenance-ar",
+          "validity-ar",
+          "validity-en",
+          "delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n04",
+      "language": "en",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "pricing-en"
+      ],
+      "bm25": {
+        "top5": [
+          "pricing-en",
+          "injection-new"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "pricing-en",
+          "pricing-ar",
+          "delivery-v1",
+          "delivery-v2",
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "pricing-en",
+          "injection-new",
+          "pricing-ar",
+          "delivery-v1",
+          "delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n05",
+      "language": "en",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "validity-en"
+      ],
+      "bm25": {
+        "top5": [
+          "validity-en",
+          "maintenance-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "validity-en",
+          "validity-ar",
+          "delivery-v2",
+          "delivery-v1",
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "validity-en",
+          "maintenance-en",
+          "validity-ar",
+          "delivery-v2",
+          "delivery-v1"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n06",
+      "language": "en",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "policy-en"
+      ],
+      "bm25": {
+        "top5": [
+          "policy-en",
+          "delivery-v1",
+          "delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "policy-en",
+          "validity-en",
+          "delivery-ar",
+          "delivery-v2",
+          "injection-new"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "policy-en",
+          "delivery-v2",
+          "delivery-v1",
+          "validity-en",
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n07",
+      "language": "ar",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "delivery-ar"
+      ],
+      "bm25": {
+        "top5": [
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "delivery-ar",
+          "delivery-v1",
+          "delivery-v2",
+          "validity-ar",
+          "validity-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "delivery-ar",
+          "delivery-v1",
+          "delivery-v2",
+          "validity-ar",
+          "validity-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n08",
+      "language": "ar",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "maintenance-ar"
+      ],
+      "bm25": {
+        "top5": [
+          "maintenance-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "maintenance-ar",
+          "maintenance-en",
+          "validity-en",
+          "validity-ar",
+          "delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "maintenance-ar",
+          "maintenance-en",
+          "validity-en",
+          "validity-ar",
+          "delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n09",
+      "language": "ar",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "pricing-ar"
+      ],
+      "bm25": {
+        "top5": [
+          "pricing-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "pricing-ar",
+          "pricing-en",
+          "delivery-v2",
+          "delivery-v1",
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "pricing-ar",
+          "pricing-en",
+          "delivery-v2",
+          "delivery-v1",
+          "delivery-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n10",
+      "language": "ar",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "pricing-ar"
+      ],
+      "bm25": {
+        "top5": [
+          "pricing-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "pricing-ar",
+          "pricing-en",
+          "delivery-ar",
+          "delivery-v2",
+          "delivery-v1"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "pricing-ar",
+          "pricing-en",
+          "delivery-ar",
+          "delivery-v2",
+          "delivery-v1"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n11",
+      "language": "ar",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "validity-ar"
+      ],
+      "bm25": {
+        "top5": [
+          "validity-ar",
+          "delivery-ar",
+          "pricing-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "vector": {
+        "top5": [
+          "validity-ar",
+          "validity-en",
+          "delivery-ar",
+          "delivery-v1",
+          "delivery-v2"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "validity-ar",
+          "delivery-ar",
+          "pricing-ar",
+          "validity-en",
+          "delivery-v1"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n12",
+      "language": "ar",
+      "kind": "answerable",
+      "reference_relevant_ids": [
+        "validity-ar"
+      ],
+      "bm25": {
+        "top5": [
+          "delivery-ar",
+          "validity-ar",
+          "pricing-ar"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 0.5,
+        "ndcg_at_5": 0.6309297535714575
+      },
+      "vector": {
+        "top5": [
+          "validity-ar",
+          "validity-en",
+          "delivery-ar",
+          "pricing-ar",
+          "pricing-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      },
+      "hybrid": {
+        "top5": [
+          "validity-ar",
+          "delivery-ar",
+          "pricing-ar",
+          "validity-en",
+          "pricing-en"
+        ],
+        "recall_at_5": 1.0,
+        "reciprocal_rank_at_5": 1.0,
+        "ndcg_at_5": 1.0
+      }
+    },
+    {
+      "id": "n13",
+      "language": "en",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": [
+          "injection-new",
+          "delivery-v1",
+          "delivery-v2"
+        ]
+      },
+      "vector": {
+        "top5": [
+          "delivery-v2",
+          "delivery-v1",
+          "pricing-en",
+          "pricing-ar",
+          "maintenance-en"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "delivery-v2",
+          "delivery-v1",
+          "injection-new",
+          "pricing-en",
+          "pricing-ar"
+        ]
+      }
+    },
+    {
+      "id": "n14",
+      "language": "en",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": [
+          "policy-en",
+          "injection-new"
+        ]
+      },
+      "vector": {
+        "top5": [
+          "policy-en",
+          "validity-en",
+          "delivery-v2",
+          "injection-new",
+          "delivery-v1"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "policy-en",
+          "injection-new",
+          "validity-en",
+          "delivery-v2",
+          "delivery-v1"
+        ]
+      }
+    },
+    {
+      "id": "n15",
+      "language": "en",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": [
+          "pricing-en",
+          "injection-new",
+          "maintenance-en",
+          "validity-en"
+        ]
+      },
+      "vector": {
+        "top5": [
+          "pricing-en",
+          "validity-ar",
+          "maintenance-en",
+          "validity-en",
+          "maintenance-ar"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "pricing-en",
+          "maintenance-en",
+          "validity-en",
+          "injection-new",
+          "validity-ar"
+        ]
+      }
+    },
+    {
+      "id": "n16",
+      "language": "en",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": [
+          "validity-en"
+        ]
+      },
+      "vector": {
+        "top5": [
+          "validity-en",
+          "policy-en",
+          "injection-new",
+          "validity-ar",
+          "delivery-v2"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "validity-en",
+          "policy-en",
+          "injection-new",
+          "validity-ar",
+          "delivery-v2"
+        ]
+      }
+    },
+    {
+      "id": "n17",
+      "language": "ar",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": [
+          "delivery-ar"
+        ]
+      },
+      "vector": {
+        "top5": [
+          "delivery-ar",
+          "delivery-v2",
+          "delivery-v1",
+          "pricing-en",
+          "pricing-ar"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "delivery-ar",
+          "delivery-v2",
+          "delivery-v1",
+          "pricing-en",
+          "pricing-ar"
+        ]
+      }
+    },
+    {
+      "id": "n18",
+      "language": "ar",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": [
+          "delivery-ar"
+        ]
+      },
+      "vector": {
+        "top5": [
+          "policy-en",
+          "delivery-ar",
+          "delivery-v2",
+          "delivery-v1",
+          "validity-en"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "delivery-ar",
+          "policy-en",
+          "delivery-v2",
+          "delivery-v1",
+          "validity-en"
+        ]
+      }
+    },
+    {
+      "id": "n19",
+      "language": "ar",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": [
+          "validity-ar"
+        ]
+      },
+      "vector": {
+        "top5": [
+          "validity-ar",
+          "validity-en",
+          "pricing-ar",
+          "maintenance-ar",
+          "delivery-v1"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "validity-ar",
+          "validity-en",
+          "pricing-ar",
+          "maintenance-ar",
+          "delivery-v1"
+        ]
+      }
+    },
+    {
+      "id": "n20",
+      "language": "ar",
+      "kind": "unanswerable",
+      "reference_relevant_ids": [],
+      "bm25": {
+        "top5": []
+      },
+      "vector": {
+        "top5": [
+          "validity-en",
+          "pricing-ar",
+          "injection-new",
+          "pricing-en",
+          "delivery-ar"
+        ]
+      },
+      "hybrid": {
+        "top5": [
+          "validity-en",
+          "pricing-ar",
+          "injection-new",
+          "pricing-en",
+          "delivery-ar"
+        ]
+      }
+    }
+  ],
+  "model": "embeddinggemma:300m",
+  "elapsed_seconds_batch_single_run": 3.245,
+  "scope": "New hand-authored synthetic set; not independently reviewed.",
+  "warning": "Unanswerable candidates are retrieval results, not generated answers. Labels are preliminary."
+}
+
