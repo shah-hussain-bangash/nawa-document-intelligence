@@ -85,6 +85,31 @@ def _normalize_pdf_line(line: str) -> str:
     return normalized
 
 
+def read_pdf_pages(document, *, ocr=False, languages="eng+ara", max_pages=None, max_page_points=None):
+    """Read source pages for domain-specific extractors while preserving page order and method."""
+    source = {"stream": document, "filetype": "pdf"} if isinstance(document, bytes) else {"filename": document}
+    with pymupdf.open(**source) as pdf:
+        if pdf.needs_pass or not pdf.page_count:
+            raise PDFTextUnavailable("Use an unencrypted PDF with at least one page")
+        if max_pages is not None and pdf.page_count > max_pages:
+            raise ValueError("The PDF exceeds the allowed number of pages")
+        pages = []
+        checked_ocr = False
+        for number, page in enumerate(pdf, start=1):
+            if max_page_points is not None and max(page.rect.width, page.rect.height) > max_page_points:
+                raise ValueError("The PDF page dimensions exceed the allowed limit")
+            text = page.get_text("text", sort=True)
+            method = "pdf_text"
+            if not text.strip() and ocr:
+                if not checked_ocr:
+                    _check_ocr_languages(languages)
+                    checked_ocr = True
+                text = _ocr_page(page, languages, number)
+                method = "ocr"
+            pages.append((text, method))
+        return pages
+
+
 def extract_pdf(path: Path, *, ocr: bool = False, languages: str = "eng+ara") -> dict:
     """Extract a fixed-field quotation; attach 1-based page and line evidence.
 
@@ -98,25 +123,17 @@ def extract_pdf(path: Path, *, ocr: bool = False, languages: str = "eng+ara") ->
         _check_ocr_languages(languages)
     pieces, locations, ocr_pages, originals = [], [], [], []
     try:
-        with pymupdf.open(path) as doc:
-            if doc.needs_pass:
-                raise ValueError(f"Password-protected PDF not supported: {path.name}")
-            if doc.page_count == 0:
-                raise PDFTextUnavailable(f"Empty PDF: {path.name}")
-            page_count = doc.page_count
-            for number, page in enumerate(doc, start=1):
-                page_text = page.get_text("text", sort=True)
-                if not page_text.strip():
-                    if not ocr:
-                        # Blank intro pages are harmless; only non-text pages
-                        # without OCR are skipped (as in Phase 2).
-                        continue
-                    page_text = _ocr_page(page, languages, number)
-                    ocr_pages.append(number)
-                for line_no, line in enumerate(page_text.splitlines(), start=1):
-                    pieces.append(_normalize_pdf_line(line))
-                    originals.append(line)
-                    locations.append((number, line_no))
+        pages = read_pdf_pages(path, ocr=ocr, languages=languages)
+        page_count = len(pages)
+        for number, (page_text, method) in enumerate(pages, start=1):
+            if method == "ocr":
+                ocr_pages.append(number)
+            if not page_text.strip() and method != "ocr":
+                continue
+            for line_no, line in enumerate(page_text.splitlines(), start=1):
+                pieces.append(_normalize_pdf_line(line))
+                originals.append(line)
+                locations.append((number, line_no))
     except (pymupdf.FileDataError, pymupdf.EmptyFileError) as exc:
         raise ValueError(f"Cannot read PDF {path.name}: {exc}") from exc
 
