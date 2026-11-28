@@ -60,6 +60,33 @@ const navigation = [
   { path: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
+type PortalSession = { user: User; csrf: string }
+
+async function restorePortalSession(): Promise<PortalSession> {
+  const entry = new URL(window.location.href)
+  const directDemo =
+    entry.searchParams.get('entry') === 'workbench' &&
+    entry.protocol === 'http:' &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(entry.hostname)
+
+  if (directDemo) {
+    entry.searchParams.delete('entry')
+    window.history.replaceState(window.history.state, '', entry)
+  }
+
+  try {
+    return await api<PortalSession>('/auth/me')
+  } catch (error) {
+    if (!directDemo || !(error instanceof ApiError && error.status === 401)) throw error
+    const config = await api<{ mode: string }>('/auth/config')
+    if (config.mode !== 'demo') throw error
+    return api<PortalSession>('/auth/demo', {
+      method: 'POST',
+      body: JSON.stringify({ role: 'analyst', tenant: 'operations' }),
+    })
+  }
+}
+
 export default function App() {
   const [locale, setLocale] = useState<'en' | 'ar'>(() =>
     localStorage.getItem('nawa-language') === 'ar' ? 'ar' : 'en',
@@ -81,6 +108,7 @@ export default function App() {
   const navigate = useNavigate(),
     location = useLocation(),
     timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startupSession = useRef<Promise<PortalSession> | null>(null)
   const t = (s: string) => (locale === 'ar' ? ({} as Record<string, string>)[s] || s : s)
   const notify = useCallback((text: string, error = false) => {
     if (timer.current) clearTimeout(timer.current)
@@ -100,17 +128,23 @@ export default function App() {
     }
   }, [])
   useEffect(() => {
-    api<{ user: User; csrf: string }>('/auth/me')
+    let active = true
+    startupSession.current ??= restorePortalSession()
+    startupSession.current
       .then(async (session) => {
+        if (!active) return
         setCsrf(session.csrf)
         setUser(session.user)
         await refresh()
       })
       .catch((e) => {
-        if (!(e instanceof ApiError && e.status === 401)) setFailure(e.message)
+        if (active && !(e instanceof ApiError && e.status === 401)) setFailure(e.message)
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (active) setLoading(false)
+      })
     return () => {
+      active = false
       if (timer.current) clearTimeout(timer.current)
     }
   }, [refresh])
